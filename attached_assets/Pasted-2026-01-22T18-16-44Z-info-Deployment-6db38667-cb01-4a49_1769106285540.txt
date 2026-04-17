@@ -1,0 +1,82 @@
+2026-01-22T18:16:44Z info: Deployment: 6db38667-cb01-4a49-a79b-a79a17624e46
+2026-01-22T18:16:44Z info: Build: 34f400e2-647d-4d28-8e91-217494e25b42
+2026-01-22T18:16:44Z info: Running Security Scan
+2026-01-22T18:16:56Z info: Security Scan Complete
+2026-01-22T18:16:56Z info: Connecting to builder
+2026-01-22T18:16:57Z info: Builder connected
+2026-01-22T18:16:57Z info: Installing packages
+2026-01-22T18:16:58Z info: Starting Build
+
+> rest-express@1.0.0 build
+> tsx script/build.ts
+
+
+building client...
+
+vite v7.1.12 building for production...
+
+transforming...
+
+✓ 2462 modules transformed.
+
+rendering chunks...
+
+[meta-images] using internal app domain: https://gridmart.replit.app
+
+[meta-images] updating meta image tags to: https://gridmart.replit.app/opengraph.jpg
+
+computing gzip size...
+
+../dist/public/index.html                                  1.57 kB │ gzip:   0.64 kB
+
+../dist/public/assets/gridmart-logo-text-C0Cwhnyh.png    138.71 kB
+
+../dist/public/assets/gridmart-logo-icon-gzaGTsZl.png    148.84 kB
+
+../dist/public/assets/index-_SFD9uJh.css                 222.50 kB │ gzip:  39.26 kB
+
+../dist/public/assets/purify.es-B9ZVCkUG.js               22.64 kB │ gzip:   8.71 kB
+
+../dist/public/assets/index.es-CTj7YDqV.js               159.35 kB │ gzip:  53.24 kB
+
+../dist/public/assets/html2canvas.esm-B0tyYwQk.js        202.36 kB │ gzip:  47.70 kB
+
+../dist/public/assets/index-EH4NfkYk.js                2,080.30 kB │ gzip: 591.84 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 11.01s
+
+building server...
+
+
+  dist/index.cjs  1.4mb ⚠️
+
+⚡ Done in 512ms
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.8.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.8.0
+npm notice To update run: npm install -g npm@11.8.0
+npm notice
+
+2026-01-22T18:17:14Z info: Pushing pid1 binary layer...
+2026-01-22T18:17:17Z info: Created pid1 binary layer
+2026-01-22T18:17:22Z info: Pushing Repl layer...
+2026-01-22T18:17:22Z info: Pushing hosting layer...
+2026-01-22T18:17:22Z info: Retrieved cached nix layer
+2026-01-22T18:17:23Z info: Created hosting layer
+2026-01-22T18:17:24Z warning: Detected broken symlink! The path "/tmp/pulse-PKdhtXMmr18n" does not exist.
+2026-01-22T18:18:17Z info: Created Repl layer
+2026-01-22T18:18:17Z info: Pushing Repl (cache) layer...
+2026-01-22T18:18:17Z info: Created Repl (cache) layer
+2026-01-22T18:18:20Z info: Pushed image manifest
+2026-01-22T18:18:22Z info: Pushed soci index manifest
+2026-01-22T18:18:25Z info: Creating Autoscale service
+2026-01-22T18:19:20Z info: upsertCloudRunService completed
+2026-01-22T18:19:20Z info: Waiting for service to be ready
+2026-01-22T18:19:23Z info: Deployment successful
