@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tag, Printer, Download, X, Save, RotateCcw, Upload, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Plus, Trash2 } from 'lucide-react';
+import { Tag, Printer, Download, X, Save, RotateCcw, Upload, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Plus, Trash2, Magnet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -154,6 +154,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [marquee, setMarquee] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [snapGuides, setSnapGuides] = useState<{ type: 'v' | 'h'; pos: number }[]>([]);
+  const [snapEnabled, setSnapEnabled] = useState(true);
   const [showNewTemplateDialog, setShowNewTemplateDialog] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateWidth, setNewTemplateWidth] = useState('1.75');
@@ -373,9 +374,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
 
   // --- Drag / Resize / Marquee ---
   const dragStateRef = useRef({
-    selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee,
+    selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee, snapEnabled,
   });
-  dragStateRef.current = { selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee };
+  dragStateRef.current = { selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee, snapEnabled };
 
   const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
     if (activeTab !== 'editor') return;
@@ -396,7 +397,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    const { selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee } = dragStateRef.current;
+    const { selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee, snapEnabled } = dragStateRef.current;
     if (!editorRef.current) return;
     const tmpl = templates[currentTemplateKey];
     if (!tmpl) return;
@@ -438,28 +439,30 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     let newX = (e.clientX - rect.left - dragOffset.x) / EDITOR_SCALE;
     let newY = (e.clientY - rect.top - dragOffset.y) / EDITOR_SCALE;
 
-    const others = tmpl.elements.filter(el => el.visible && !selectedElements.includes(el.id));
     const guides: { type: 'v' | 'h'; pos: number }[] = [];
-    const snapX: number[] = [0, tmpl.widthPx];
-    const snapY: number[] = [0, tmpl.heightPx];
-    others.forEach(el => { snapX.push(el.x, el.x + el.width / 2, el.x + el.width); snapY.push(el.y, el.y + el.height / 2, el.y + el.height); });
+    if (snapEnabled) {
+      const others = tmpl.elements.filter(el => el.visible && !selectedElements.includes(el.id));
+      const snapX: number[] = [0, tmpl.widthPx];
+      const snapY: number[] = [0, tmpl.heightPx];
+      others.forEach(el => { snapX.push(el.x, el.x + el.width / 2, el.x + el.width); snapY.push(el.y, el.y + el.height / 2, el.y + el.height); });
 
-    [newX, newX + primary.width / 2, newX + primary.width].forEach((ex, i) => {
-      snapX.forEach(sx => {
-        if (Math.abs(ex - sx) < SNAP_THRESHOLD) {
-          newX = sx - (i === 0 ? 0 : i === 1 ? primary.width / 2 : primary.width);
-          guides.push({ type: 'v', pos: sx });
-        }
+      [newX, newX + primary.width / 2, newX + primary.width].forEach((ex, i) => {
+        snapX.forEach(sx => {
+          if (Math.abs(ex - sx) < SNAP_THRESHOLD) {
+            newX = sx - (i === 0 ? 0 : i === 1 ? primary.width / 2 : primary.width);
+            guides.push({ type: 'v', pos: sx });
+          }
+        });
       });
-    });
-    [newY, newY + primary.height / 2, newY + primary.height].forEach((ey, i) => {
-      snapY.forEach(sy => {
-        if (Math.abs(ey - sy) < SNAP_THRESHOLD) {
-          newY = sy - (i === 0 ? 0 : i === 1 ? primary.height / 2 : primary.height);
-          guides.push({ type: 'h', pos: sy });
-        }
+      [newY, newY + primary.height / 2, newY + primary.height].forEach((ey, i) => {
+        snapY.forEach(sy => {
+          if (Math.abs(ey - sy) < SNAP_THRESHOLD) {
+            newY = sy - (i === 0 ? 0 : i === 1 ? primary.height / 2 : primary.height);
+            guides.push({ type: 'h', pos: sy });
+          }
+        });
       });
-    });
+    }
     setSnapGuides(guides);
 
     const dX = newX - primary.x, dY = newY - primary.y;
@@ -511,7 +514,8 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     if (!isOpen || activeTab !== 'editor') return;
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' ||
+          target.getAttribute('role') === 'slider' || !!target.closest('[role="slider"]')) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
@@ -622,12 +626,12 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
           </div>
         )}
         {name?.visible && (
-          <div style={{ position: 'absolute', left: name.x * s, top: name.y * s, width: name.width * s, height: name.height * s, fontSize: name.fontSize * s, fontWeight: 'bold', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: name.textAlign === 'center' ? 'center' : name.textAlign === 'right' ? 'flex-end' : 'flex-start', fontFamily: 'Arial, sans-serif', lineHeight: 1.2 }}>
+          <div style={{ position: 'absolute', left: name.x * s, top: name.y * s, width: name.width * s, height: name.height * s, fontSize: name.fontSize * s, fontWeight: 'bold', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: name.textAlign === 'center' ? 'center' : name.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: name.textAlign || 'left', fontFamily: 'Arial, sans-serif', lineHeight: 1.2 }}>
             {product.name}
           </div>
         )}
         {price?.visible && (
-          <div style={{ position: 'absolute', left: price.x * s, top: price.y * s, width: price.width * s, height: price.height * s, fontSize: price.fontSize * s, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: price.textAlign === 'center' ? 'center' : price.textAlign === 'right' ? 'flex-end' : 'flex-start', fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
+          <div style={{ position: 'absolute', left: price.x * s, top: price.y * s, width: price.width * s, height: price.height * s, fontSize: price.fontSize * s, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: price.textAlign === 'center' ? 'center' : price.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: price.textAlign || 'left', fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
             {formatPrice(product.price)}
           </div>
         )}
@@ -759,9 +763,21 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
 
                 {/* Editor tab */}
                 <TabsContent value="editor" className="mt-0">
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Click to select · Drag to move · Handles to resize · Shift+click multi-select · Arrow keys nudge · Ctrl+Z undo
-                  </p>
+                  <div className="flex items-center gap-3 mb-3">
+                    <p className="text-xs text-muted-foreground">
+                      Click to select · Drag to move · Handles to resize · Shift+click multi-select · Arrow keys nudge · Ctrl+Z undo
+                    </p>
+                    <Button
+                      variant={snapEnabled ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 px-2 text-xs shrink-0"
+                      onClick={() => setSnapEnabled(v => !v)}
+                      title={snapEnabled ? 'Snapping on — click to disable' : 'Snapping off — click to enable'}
+                    >
+                      <Magnet className="w-3 h-3 mr-1" />
+                      {snapEnabled ? 'Snap On' : 'Snap Off'}
+                    </Button>
+                  </div>
                   <div
                     ref={editorRef}
                     className="relative border-2 border-dashed border-slate-300 cursor-crosshair select-none inline-block"
@@ -815,12 +831,12 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                             <LogoContent customLogoUrl={currentTemplate.customLogoUrl} size={element.width * EDITOR_SCALE} />
                           )}
                           {element.type === 'name' && (
-                            <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
+                            <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: element.textAlign || 'left', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
                               {displayProducts[0]?.name || 'Product Name'}
                             </div>
                           )}
                           {element.type === 'price' && (
-                            <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
+                            <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: element.textAlign || 'left', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
                               {formatPrice(displayProducts[0]?.price || 0)}
                             </div>
                           )}
@@ -904,7 +920,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                       <p className="text-xs text-muted-foreground">Displays the product photo. Drag and resize on the canvas.</p>
                     )}
 
-                    {element.visible && element.type !== 'logo' && (
+                    {element.visible && (element.type === 'name' || element.type === 'price') && (
                       <>
                         <div className="space-y-1">
                           <div className="flex justify-between">
@@ -918,8 +934,8 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                         </div>
                         <div className="flex gap-1">
                           {(['left', 'center', 'right'] as const).map(align => {
-                            const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
                             const isActive = (element.textAlign || 'left') === align;
+                            const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
                             return (
                               <Button key={align} variant={isActive ? 'default' : 'outline'} size="sm" className="flex-1 h-7 p-0"
                                 onClick={() => updateElement(element.id, { textAlign: align }, true)}>
