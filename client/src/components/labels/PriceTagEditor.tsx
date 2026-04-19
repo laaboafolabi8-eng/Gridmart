@@ -34,8 +34,8 @@ interface PriceTagEditorProps {
 }
 
 interface PriceTagElement {
-  id: 'logo' | 'name' | 'price';
-  type: 'logo' | 'name' | 'price';
+  id: 'logo' | 'name' | 'price' | 'image';
+  type: 'logo' | 'name' | 'price' | 'image';
   x: number;
   y: number;
   width: number;
@@ -57,20 +57,32 @@ interface PriceTagTemplate {
 }
 
 function makeDefaultElements(w: number, h: number): PriceTagElement[] {
-  const logoH = Math.round(h * 0.34);
+  const pad = Math.round(w * 0.03);
+  // Image: right ~35% of width, full inner height
+  const imgW = Math.round(w * 0.34);
+  const imgH = h - pad * 2;
+  const imgX = w - imgW - pad;
+  const imgY = pad;
+  // Left column width (image column takes right side)
+  const leftW = imgX - pad * 2;
+  // Logo: top-left
+  const logoH = Math.round(h * 0.26);
   const logoW = logoH;
-  const logoX = Math.round(w * 0.03);
-  const logoY = Math.round(h * 0.08);
-  const nameX = logoX + logoW + Math.round(w * 0.03);
-  const nameW = w - nameX - Math.round(w * 0.03);
-  const nameFontSize = Math.max(6, Math.round(h * 0.11));
-  const priceY = Math.round(h * 0.57);
-  const priceH = h - priceY - Math.round(h * 0.05);
-  const priceFontSize = Math.max(12, Math.round(h * 0.25));
+  const logoX = pad;
+  const logoY = pad;
+  // Name: below logo
+  const nameY = logoY + logoH + Math.round(h * 0.04);
+  const nameH = Math.round(h * 0.22);
+  const nameFontSize = Math.max(6, Math.round(h * 0.10));
+  // Price: bottom of left column
+  const priceH = Math.round(h * 0.28);
+  const priceY = h - priceH - pad;
+  const priceFontSize = Math.max(12, Math.round(h * 0.22));
   return [
+    { id: 'image', type: 'image', x: imgX, y: imgY, width: imgW, height: imgH, fontSize: 0, visible: true },
     { id: 'logo', type: 'logo', x: logoX, y: logoY, width: logoW, height: logoH, fontSize: 0, visible: true },
-    { id: 'name', type: 'name', x: nameX, y: logoY, width: nameW, height: logoH, fontSize: nameFontSize, visible: true, textAlign: 'left' },
-    { id: 'price', type: 'price', x: logoX, y: priceY, width: w - logoX * 2, height: priceH, fontSize: priceFontSize, visible: true, textAlign: 'left' },
+    { id: 'name', type: 'name', x: logoX + logoW + Math.round(w * 0.02), y: logoY, width: leftW - logoW - Math.round(w * 0.02), height: logoH, fontSize: nameFontSize, visible: true, textAlign: 'left' },
+    { id: 'price', type: 'price', x: pad, y: priceY, width: leftW + pad, height: priceH, fontSize: priceFontSize, visible: true, textAlign: 'left' },
   ];
 }
 
@@ -182,7 +194,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
             for (const [key, data] of Object.entries(saved)) {
               if (data?.elements && data?.widthPx && data?.heightPx) {
                 const mergedElements: PriceTagElement[] = [...(data.elements as PriceTagElement[])];
-                for (const eid of ['logo', 'name', 'price'] as const) {
+                for (const eid of ['image', 'logo', 'name', 'price'] as const) {
                   if (!mergedElements.find(e => e.id === eid)) {
                     const def = makeDefaultElements(data.widthPx, data.heightPx).find(e => e.id === eid);
                     if (def) mergedElements.push(def);
@@ -558,6 +570,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
           name: p.name,
           price: formatPrice(p.price),
           templateKey: tKey,
+          imageUrl: p.image || p.images?.[0] || '',
         }));
       });
       const res = await fetch('/api/pricetags/generate-pdf', {
@@ -588,11 +601,21 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     const tmpl = templates[templateKey || currentTemplateKey] || currentTemplate;
     const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
     const s = PREVIEW_SCALE;
+    const imgEl = elements.find(e => e.id === 'image');
     const logo = elements.find(e => e.id === 'logo');
     const name = elements.find(e => e.id === 'name');
     const price = elements.find(e => e.id === 'price');
+    const productImageUrl = product.image || (product.images?.[0]);
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
+        {imgEl?.visible && (
+          <div style={{ position: 'absolute', left: imgEl.x * s, top: imgEl.y * s, width: imgEl.width * s, height: imgEl.height * s, background: productImageUrl ? 'transparent' : '#f1f5f9', borderRadius: 2, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {productImageUrl
+              ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: imgEl.width * s * 0.3, color: '#94a3b8' }}>📷</span>
+            }
+          </div>
+        )}
         {logo?.visible && (
           <div style={{ position: 'absolute', left: logo.x * s, top: logo.y * s, width: logo.width * s, height: logo.height * s }}>
             <LogoContent customLogoUrl={customLogoUrl} size={logo.width * s} />
@@ -782,6 +805,12 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           }}
                           onMouseDown={e => element.visible && handleMouseDown(e, element.id)}
                         >
+                          {element.type === 'image' && (() => {
+                            const imgUrl = displayProducts[0]?.image || displayProducts[0]?.images?.[0];
+                            return imgUrl
+                              ? <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: element.width * EDITOR_SCALE * 0.25, color: '#94a3b8' }}>📷</div>;
+                          })()}
                           {element.type === 'logo' && (
                             <LogoContent customLogoUrl={currentTemplate.customLogoUrl} size={element.width * EDITOR_SCALE} />
                           )}
@@ -846,7 +875,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
               {/* Element controls */}
               {currentTemplate.elements.map(element => {
                 const isSelected = selectedElements.includes(element.id);
-                const label = element.type === 'logo' ? 'Logo' : element.type === 'name' ? 'Product Name' : 'Price';
+                const label = element.type === 'image' ? 'Product Image' : element.type === 'logo' ? 'Logo' : element.type === 'name' ? 'Product Name' : 'Price';
                 return (
                   <div key={element.id} className={`space-y-2 p-3 rounded-lg border transition-colors ${isSelected ? 'border-blue-300 bg-blue-50' : 'border-border'}`}>
                     <div className="flex items-center justify-between">
@@ -870,6 +899,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           onPointerUp={() => commitToHistory(templates)}
                         />
                       </div>
+                    )}
+                    {element.visible && element.type === 'image' && (
+                      <p className="text-xs text-muted-foreground">Displays the product photo. Drag and resize on the canvas.</p>
                     )}
 
                     {element.visible && element.type !== 'logo' && (

@@ -5,6 +5,7 @@ interface PriceTagData {
   name: string;
   price: string;
   templateKey: string;
+  imageUrl?: string;
 }
 
 interface PriceTagElement {
@@ -35,6 +36,7 @@ const DEFAULT_LOGO_SVG = `<svg viewBox="0 0 24 24" fill="white" style="width:70%
 
 function generateTagHTML(tags: PriceTagData[], template: PriceTagTemplate): string {
   const elements = template.elements;
+  const imgEl = elements.find(e => e.id === 'image');
   const logo = elements.find(e => e.id === 'logo');
   const name = elements.find(e => e.id === 'name');
   const price = elements.find(e => e.id === 'price');
@@ -43,6 +45,10 @@ function generateTagHTML(tags: PriceTagData[], template: PriceTagTemplate): stri
 
   const tagsHtml = tags.map(tag => `
     <div class="tag" style="position:relative;width:${widthPx}px;height:${heightPx}px;page-break-after:always;background:white;overflow:hidden;">
+      ${imgEl?.visible && tag.imageUrl ? `
+        <div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;overflow:hidden;border-radius:2px;">
+          <img src="${tag.imageUrl}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous">
+        </div>` : ''}
       ${logo?.visible ? `
         <div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${logoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">
           ${logoUrl ? `<img src="${logoUrl}" style="width:100%;height:100%;object-fit:contain;">` : DEFAULT_LOGO_SVG}
