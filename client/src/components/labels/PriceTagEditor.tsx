@@ -1,0 +1,963 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Tag, Printer, Download, X, Save, RotateCcw, Upload, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
+
+const INCH_TO_PX = 96;
+const EDITOR_SCALE = 3;
+const PREVIEW_SCALE = 2.4;
+const SNAP_THRESHOLD = 5;
+
+interface PriceTagEditorProps {
+  products: any[];
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface PriceTagElement {
+  id: 'logo' | 'name' | 'price';
+  type: 'logo' | 'name' | 'price';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  visible: boolean;
+  textAlign?: 'left' | 'center' | 'right';
+}
+
+interface PriceTagTemplate {
+  key: string;
+  displayName: string;
+  widthPx: number;
+  heightPx: number;
+  widthIn: number;
+  heightIn: number;
+  elements: PriceTagElement[];
+  customLogoUrl: string;
+}
+
+function makeDefaultElements(w: number, h: number): PriceTagElement[] {
+  const logoH = Math.round(h * 0.34);
+  const logoW = logoH;
+  const logoX = Math.round(w * 0.03);
+  const logoY = Math.round(h * 0.08);
+  const nameX = logoX + logoW + Math.round(w * 0.03);
+  const nameW = w - nameX - Math.round(w * 0.03);
+  const nameFontSize = Math.max(6, Math.round(h * 0.11));
+  const priceY = Math.round(h * 0.57);
+  const priceH = h - priceY - Math.round(h * 0.05);
+  const priceFontSize = Math.max(12, Math.round(h * 0.25));
+  return [
+    { id: 'logo', type: 'logo', x: logoX, y: logoY, width: logoW, height: logoH, fontSize: 0, visible: true },
+    { id: 'name', type: 'name', x: nameX, y: logoY, width: nameW, height: logoH, fontSize: nameFontSize, visible: true, textAlign: 'left' },
+    { id: 'price', type: 'price', x: logoX, y: priceY, width: w - logoX * 2, height: priceH, fontSize: priceFontSize, visible: true, textAlign: 'left' },
+  ];
+}
+
+const STANDARD_TEMPLATE: PriceTagTemplate = {
+  key: 'standard',
+  displayName: 'Standard (1.75" × 1")',
+  widthPx: 168,
+  heightPx: 96,
+  widthIn: 1.75,
+  heightIn: 1.0,
+  elements: makeDefaultElements(168, 96),
+  customLogoUrl: '',
+};
+
+const DEFAULT_TEMPLATES: Record<string, PriceTagTemplate> = {
+  standard: STANDARD_TEMPLATE,
+};
+
+function formatPrice(price: any): string {
+  const num = typeof price === 'string' ? parseFloat(price) : (typeof price === 'number' ? price : 0);
+  if (isNaN(num)) return '$0.00';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
+}
+
+function getResizeHandleStyle(handle: string): React.CSSProperties {
+  const base: React.CSSProperties = {
+    position: 'absolute', width: 8, height: 8, background: 'white',
+    border: '2px solid #3b82f6', borderRadius: '50%', zIndex: 10, cursor: `${handle}-resize`,
+  };
+  if (handle === 'nw') return { ...base, top: -4, left: -4 };
+  if (handle === 'n') return { ...base, top: -4, left: '50%', transform: 'translateX(-50%)' };
+  if (handle === 'ne') return { ...base, top: -4, right: -4 };
+  if (handle === 'e') return { ...base, top: '50%', right: -4, transform: 'translateY(-50%)' };
+  if (handle === 'se') return { ...base, bottom: -4, right: -4 };
+  if (handle === 's') return { ...base, bottom: -4, left: '50%', transform: 'translateX(-50%)' };
+  if (handle === 'sw') return { ...base, bottom: -4, left: -4 };
+  if (handle === 'w') return { ...base, top: '50%', left: -4, transform: 'translateY(-50%)' };
+  return base;
+}
+
+function LogoContent({ customLogoUrl, size }: { customLogoUrl: string; size: number }) {
+  if (customLogoUrl) {
+    return <img src={customLogoUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />;
+  }
+  return (
+    <div style={{ width: '100%', height: '100%', background: '#20B2AA', borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg viewBox="0 0 24 24" fill="white" style={{ width: '70%', height: '70%' }}>
+        <path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9z" />
+      </svg>
+    </div>
+  );
+}
+
+export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProps) {
+  const [currentTemplateKey, setCurrentTemplateKey] = useState('standard');
+  const [templates, setTemplates] = useState<Record<string, PriceTagTemplate>>(
+    JSON.parse(JSON.stringify(DEFAULT_TEMPLATES))
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [displayProducts, setDisplayProducts] = useState<any[]>(products);
+  const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
+  const [productTemplateKeys, setProductTemplateKeys] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<'preview' | 'editor'>('preview');
+  const [selectedElements, setSelectedElements] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0, elemX: 0, elemY: 0, aspectRatio: 1 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [marquee, setMarquee] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [snapGuides, setSnapGuides] = useState<{ type: 'v' | 'h'; pos: number }[]>([]);
+  const [showNewTemplateDialog, setShowNewTemplateDialog] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateWidth, setNewTemplateWidth] = useState('1.75');
+  const [newTemplateHeight, setNewTemplateHeight] = useState('1.0');
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const historyRef = useRef<{ stack: Record<string, PriceTagTemplate>[]; pointer: number; isRestoring: boolean }>({
+    stack: [JSON.parse(JSON.stringify(DEFAULT_TEMPLATES))],
+    pointer: 0,
+    isRestoring: false,
+  });
+  const dragStartSnapshotRef = useRef<Record<string, PriceTagTemplate> | null>(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDisplayProducts(products);
+      const initialQty: Record<string, number> = {};
+      products.forEach(p => { initialQty[p.id] = 1; });
+      setProductQuantities(initialQty);
+      setProductTemplateKeys({});
+      setActiveTab('preview');
+      setSelectedElements([]);
+    }
+  }, [isOpen, products]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/pricetag-templates', { credentials: 'include' });
+        if (res.ok) {
+          const saved = await res.json() as Record<string, any>;
+          if (Object.keys(saved).length > 0) {
+            const merged: Record<string, PriceTagTemplate> = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+            for (const [key, data] of Object.entries(saved)) {
+              if (data?.elements && data?.widthPx && data?.heightPx) {
+                const mergedElements: PriceTagElement[] = [...(data.elements as PriceTagElement[])];
+                for (const eid of ['logo', 'name', 'price'] as const) {
+                  if (!mergedElements.find(e => e.id === eid)) {
+                    const def = makeDefaultElements(data.widthPx, data.heightPx).find(e => e.id === eid);
+                    if (def) mergedElements.push(def);
+                  }
+                }
+                merged[key] = { ...data, elements: mergedElements, key };
+              }
+            }
+            setTemplates(merged);
+            historyRef.current = { stack: [JSON.parse(JSON.stringify(merged))], pointer: 0, isRestoring: false };
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load price tag templates:', e);
+      }
+    };
+    load();
+  }, [isOpen]);
+
+  const commitToHistory = useCallback((newTemplates: Record<string, PriceTagTemplate>) => {
+    const history = historyRef.current;
+    if (history.isRestoring) return;
+    history.stack = history.stack.slice(0, history.pointer + 1);
+    history.stack.push(JSON.parse(JSON.stringify(newTemplates)));
+    if (history.stack.length > 50) history.stack.shift();
+    history.pointer = history.stack.length - 1;
+    setHistoryVersion(v => v + 1);
+  }, []);
+
+  const undo = useCallback(() => {
+    const history = historyRef.current;
+    if (history.pointer > 0) {
+      history.isRestoring = true;
+      history.pointer--;
+      setTemplates(JSON.parse(JSON.stringify(history.stack[history.pointer])));
+      setHistoryVersion(v => v + 1);
+      setTimeout(() => { history.isRestoring = false; }, 0);
+    }
+  }, []);
+
+  const redo = useCallback(() => {
+    const history = historyRef.current;
+    if (history.pointer < history.stack.length - 1) {
+      history.isRestoring = true;
+      history.pointer++;
+      setTemplates(JSON.parse(JSON.stringify(history.stack[history.pointer])));
+      setHistoryVersion(v => v + 1);
+      setTimeout(() => { history.isRestoring = false; }, 0);
+    }
+  }, []);
+
+  const canUndo = historyRef.current.pointer > 0;
+  const canRedo = historyRef.current.pointer < historyRef.current.stack.length - 1;
+
+  const currentTemplate = templates[currentTemplateKey] || STANDARD_TEMPLATE;
+
+  const updateElement = (elementId: string, updates: Partial<PriceTagElement>, addToHistory = false) => {
+    setTemplates(prev => {
+      const tmpl = prev[currentTemplateKey];
+      if (!tmpl) return prev;
+      const newTemplates = {
+        ...prev,
+        [currentTemplateKey]: {
+          ...tmpl,
+          elements: tmpl.elements.map(el => el.id === elementId ? { ...el, ...updates } : el),
+        },
+      };
+      if (addToHistory) {
+        const history = historyRef.current;
+        if (!history.isRestoring) {
+          history.stack = history.stack.slice(0, history.pointer + 1);
+          history.stack.push(JSON.parse(JSON.stringify(newTemplates)));
+          if (history.stack.length > 50) history.stack.shift();
+          history.pointer = history.stack.length - 1;
+        }
+      }
+      return newTemplates;
+    });
+    if (addToHistory) setHistoryVersion(v => v + 1);
+  };
+
+  const saveTemplates = async () => {
+    try {
+      const res = await fetch('/api/pricetag-templates/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ templates }),
+      });
+      if (res.ok) {
+        toast.success(`Template "${currentTemplate.displayName}" saved`);
+      } else {
+        toast.error('Failed to save template');
+      }
+    } catch {
+      toast.error('Failed to save template');
+    }
+  };
+
+  const resetCurrentTemplate = () => {
+    if (currentTemplateKey === 'standard') {
+      setTemplates(prev => ({ ...prev, standard: JSON.parse(JSON.stringify(STANDARD_TEMPLATE)) }));
+    } else {
+      const t = templates[currentTemplateKey];
+      setTemplates(prev => ({
+        ...prev,
+        [currentTemplateKey]: { ...prev[currentTemplateKey], elements: makeDefaultElements(t.widthPx, t.heightPx), customLogoUrl: '' },
+      }));
+    }
+    toast.success('Template reset to default');
+  };
+
+  const createNewTemplate = () => {
+    const w = parseFloat(newTemplateWidth);
+    const h = parseFloat(newTemplateHeight);
+    if (!newTemplateName.trim() || isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+      toast.error('Enter a valid name and dimensions');
+      return;
+    }
+    const key = newTemplateName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    if (!key || templates[key]) {
+      toast.error(templates[key] ? 'A template with this name already exists' : 'Invalid template name');
+      return;
+    }
+    const widthPx = Math.round(w * INCH_TO_PX);
+    const heightPx = Math.round(h * INCH_TO_PX);
+    const newTemplate: PriceTagTemplate = {
+      key,
+      displayName: `${newTemplateName.trim()} (${w}" × ${h}")`,
+      widthPx,
+      heightPx,
+      widthIn: w,
+      heightIn: h,
+      elements: makeDefaultElements(widthPx, heightPx),
+      customLogoUrl: '',
+    };
+    setTemplates(prev => ({ ...prev, [key]: newTemplate }));
+    setCurrentTemplateKey(key);
+    setShowNewTemplateDialog(false);
+    setNewTemplateName('');
+    setNewTemplateWidth('1.75');
+    setNewTemplateHeight('1.0');
+    toast.success(`Template "${newTemplate.displayName}" created`);
+  };
+
+  const deleteTemplate = async (key: string) => {
+    if (key === 'standard') { toast.error('Cannot delete the standard template'); return; }
+    try {
+      await fetch(`/api/pricetag-templates/${encodeURIComponent(key)}`, { method: 'DELETE', credentials: 'include' });
+      setTemplates(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      if (currentTemplateKey === key) setCurrentTemplateKey('standard');
+      toast.success('Template deleted');
+    } catch {
+      toast.error('Failed to delete template');
+    }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result as string;
+      setTemplates(prev => ({
+        ...prev,
+        [currentTemplateKey]: { ...prev[currentTemplateKey], customLogoUrl: url },
+      }));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // --- Drag / Resize / Marquee ---
+  const dragStateRef = useRef({
+    selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee,
+  });
+  dragStateRef.current = { selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee };
+
+  const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
+    if (activeTab !== 'editor') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.shiftKey) {
+      setSelectedElements(prev => prev.includes(elementId) ? prev.filter(id => id !== elementId) : [...prev, elementId]);
+    } else {
+      setSelectedElements(prev => prev.includes(elementId) ? prev : [elementId]);
+    }
+    setIsDragging(true);
+    dragStartSnapshotRef.current = JSON.parse(JSON.stringify(templates));
+    const element = currentTemplate.elements.find(el => el.id === elementId);
+    if (element && editorRef.current) {
+      const rect = editorRef.current.getBoundingClientRect();
+      setDragOffset({ x: e.clientX - rect.left - element.x * EDITOR_SCALE, y: e.clientY - rect.top - element.y * EDITOR_SCALE });
+    }
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    const { selectedElements, dragOffset, currentTemplateKey, templates, isResizing, resizeHandle, resizeStart, marquee } = dragStateRef.current;
+    if (!editorRef.current) return;
+    const tmpl = templates[currentTemplateKey];
+    if (!tmpl) return;
+
+    if (marquee) {
+      const rect = editorRef.current.getBoundingClientRect();
+      setMarquee(prev => prev ? { ...prev, endX: e.clientX - rect.left, endY: e.clientY - rect.top } : null);
+      return;
+    }
+
+    if (isResizing && resizeHandle && selectedElements.length === 1) {
+      const elemId = selectedElements[0];
+      const element = tmpl.elements.find(el => el.id === elemId);
+      if (!element) return;
+      const dX = (e.clientX - resizeStart.x) / EDITOR_SCALE;
+      const dY = (e.clientY - resizeStart.y) / EDITOR_SCALE;
+      let nW = resizeStart.width, nH = resizeStart.height, nX = resizeStart.elemX, nY = resizeStart.elemY;
+      if (resizeHandle.includes('e')) nW = Math.max(10, resizeStart.width + dX);
+      if (resizeHandle.includes('w')) { const d = Math.min(dX, resizeStart.width - 10); nX = resizeStart.elemX + d; nW = resizeStart.width - d; }
+      if (resizeHandle.includes('s')) nH = Math.max(10, resizeStart.height + dY);
+      if (resizeHandle.includes('n')) { const d = Math.min(dY, resizeStart.height - 10); nY = resizeStart.elemY + d; nH = resizeStart.height - d; }
+      if (e.shiftKey) {
+        const ar = resizeStart.aspectRatio;
+        const wc = Math.abs(nW - resizeStart.width), hc = Math.abs(nH - resizeStart.height);
+        if (wc >= hc) { nH = nW / ar; } else { nW = nH * ar; }
+        if (resizeHandle.includes('w')) nX = resizeStart.elemX + resizeStart.width - nW;
+        if (resizeHandle.includes('n')) nY = resizeStart.elemY + resizeStart.height - nH;
+      }
+      nX = Math.max(0, nX); nY = Math.max(0, nY);
+      nW = Math.min(nW, tmpl.widthPx - nX); nH = Math.min(nH, tmpl.heightPx - nY);
+      updateElement(elemId, { x: Math.round(nX), y: Math.round(nY), width: Math.round(nW), height: Math.round(nH) });
+      return;
+    }
+
+    if (selectedElements.length === 0) return;
+    const primary = tmpl.elements.find(el => el.id === selectedElements[0]);
+    if (!primary) return;
+    const rect = editorRef.current.getBoundingClientRect();
+    let newX = (e.clientX - rect.left - dragOffset.x) / EDITOR_SCALE;
+    let newY = (e.clientY - rect.top - dragOffset.y) / EDITOR_SCALE;
+
+    const others = tmpl.elements.filter(el => el.visible && !selectedElements.includes(el.id));
+    const guides: { type: 'v' | 'h'; pos: number }[] = [];
+    const snapX: number[] = [0, tmpl.widthPx];
+    const snapY: number[] = [0, tmpl.heightPx];
+    others.forEach(el => { snapX.push(el.x, el.x + el.width / 2, el.x + el.width); snapY.push(el.y, el.y + el.height / 2, el.y + el.height); });
+
+    [newX, newX + primary.width / 2, newX + primary.width].forEach((ex, i) => {
+      snapX.forEach(sx => {
+        if (Math.abs(ex - sx) < SNAP_THRESHOLD) {
+          newX = sx - (i === 0 ? 0 : i === 1 ? primary.width / 2 : primary.width);
+          guides.push({ type: 'v', pos: sx });
+        }
+      });
+    });
+    [newY, newY + primary.height / 2, newY + primary.height].forEach((ey, i) => {
+      snapY.forEach(sy => {
+        if (Math.abs(ey - sy) < SNAP_THRESHOLD) {
+          newY = sy - (i === 0 ? 0 : i === 1 ? primary.height / 2 : primary.height);
+          guides.push({ type: 'h', pos: sy });
+        }
+      });
+    });
+    setSnapGuides(guides);
+
+    const dX = newX - primary.x, dY = newY - primary.y;
+    selectedElements.forEach(id => {
+      const el = tmpl.elements.find(e => e.id === id);
+      if (el) updateElement(id, {
+        x: Math.round(Math.max(0, Math.min(tmpl.widthPx - el.width, el.x + dX))),
+        y: Math.round(Math.max(0, Math.min(tmpl.heightPx - el.height, el.y + dY))),
+      });
+    });
+  }, [updateElement]);
+
+  const handleMouseUp = useCallback(() => {
+    const { marquee, currentTemplateKey, templates } = dragStateRef.current;
+    const tmpl = templates[currentTemplateKey];
+    if (marquee && tmpl) {
+      const ml = Math.min(marquee.startX, marquee.endX) / EDITOR_SCALE;
+      const mr = Math.max(marquee.startX, marquee.endX) / EDITOR_SCALE;
+      const mt = Math.min(marquee.startY, marquee.endY) / EDITOR_SCALE;
+      const mb = Math.max(marquee.startY, marquee.endY) / EDITOR_SCALE;
+      if (Math.abs(marquee.endX - marquee.startX) > 5 || Math.abs(marquee.endY - marquee.startY) > 5) {
+        setSelectedElements(tmpl.elements.filter(el => el.visible && el.x < mr && el.x + el.width > ml && el.y < mb && el.y + el.height > mt).map(el => el.id));
+      }
+      setMarquee(null);
+      return;
+    }
+    setIsDragging(false);
+    setIsResizing(false);
+    setResizeHandle(null);
+    setSnapGuides([]);
+    if (dragStartSnapshotRef.current) {
+      commitToHistory(templates);
+      dragStartSnapshotRef.current = null;
+    }
+  }, [commitToHistory]);
+
+  useEffect(() => {
+    if (isDragging || isResizing || marquee) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, isResizing, marquee, handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'editor') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        setSelectedElements(currentTemplate.elements.filter(el => el.visible).map(el => el.id));
+        return;
+      }
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      e.preventDefault(); e.stopPropagation();
+      if (selectedElements.length === 0) return;
+      const step = e.shiftKey ? 5 : 1;
+      const dX = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dY = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      selectedElements.forEach(id => {
+        const el = currentTemplate.elements.find(e => e.id === id);
+        if (el) updateElement(id, {
+          x: Math.max(0, Math.min(currentTemplate.widthPx - el.width, el.x + dX)),
+          y: Math.max(0, Math.min(currentTemplate.heightPx - el.height, el.y + dY)),
+        }, id === selectedElements[selectedElements.length - 1]);
+      });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, activeTab, selectedElements, currentTemplate, undo, redo, updateElement]);
+
+  const alignElement = (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+    if (selectedElements.length === 0) return;
+    const { widthPx, heightPx } = currentTemplate;
+    const newTemplates = { ...templates };
+    selectedElements.forEach(id => {
+      const el = currentTemplate.elements.find(e => e.id === id);
+      if (!el) return;
+      let nX = el.x, nY = el.y;
+      if (alignment === 'left') nX = 0;
+      else if (alignment === 'center') nX = Math.round((widthPx - el.width) / 2);
+      else if (alignment === 'right') nX = widthPx - el.width;
+      else if (alignment === 'top') nY = 0;
+      else if (alignment === 'middle') nY = Math.round((heightPx - el.height) / 2);
+      else if (alignment === 'bottom') nY = heightPx - el.height;
+      newTemplates[currentTemplateKey] = {
+        ...newTemplates[currentTemplateKey],
+        elements: newTemplates[currentTemplateKey].elements.map(e => e.id === id ? { ...e, x: nX, y: nY } : e),
+      };
+    });
+    setTemplates(newTemplates);
+    commitToHistory(newTemplates);
+  };
+
+  const handleDownloadPDF = async () => {
+    setIsGenerating(true);
+    try {
+      const tagsByProduct: Record<string, { name: string; price: string; templateKey: string }[]> = {};
+      displayProducts.forEach(p => {
+        const qty = productQuantities[p.id] || 1;
+        const tKey = productTemplateKeys[p.id] || currentTemplateKey;
+        tagsByProduct[p.id] = Array.from({ length: qty }, () => ({
+          name: p.name,
+          price: formatPrice(p.price),
+          templateKey: tKey,
+        }));
+      });
+      const res = await fetch('/api/pricetags/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tagsByProduct, templates }),
+      });
+      if (!res.ok) throw new Error('PDF generation failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="([^"]+)"/);
+      a.download = match?.[1] || 'pricetags.pdf';
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Price tags downloaded');
+    } catch {
+      toast.error('Failed to generate price tags PDF');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const renderTagPreview = (product: any, templateKey?: string) => {
+    const tmpl = templates[templateKey || currentTemplateKey] || currentTemplate;
+    const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
+    const s = PREVIEW_SCALE;
+    const logo = elements.find(e => e.id === 'logo');
+    const name = elements.find(e => e.id === 'name');
+    const price = elements.find(e => e.id === 'price');
+    return (
+      <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
+        {logo?.visible && (
+          <div style={{ position: 'absolute', left: logo.x * s, top: logo.y * s, width: logo.width * s, height: logo.height * s }}>
+            <LogoContent customLogoUrl={customLogoUrl} size={logo.width * s} />
+          </div>
+        )}
+        {name?.visible && (
+          <div style={{ position: 'absolute', left: name.x * s, top: name.y * s, width: name.width * s, height: name.height * s, fontSize: name.fontSize * s, fontWeight: 'bold', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: name.textAlign === 'center' ? 'center' : name.textAlign === 'right' ? 'flex-end' : 'flex-start', fontFamily: 'Arial, sans-serif', lineHeight: 1.2 }}>
+            {product.name}
+          </div>
+        )}
+        {price?.visible && (
+          <div style={{ position: 'absolute', left: price.x * s, top: price.y * s, width: price.width * s, height: price.height * s, fontSize: price.fontSize * s, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: price.textAlign === 'center' ? 'center' : price.textAlign === 'right' ? 'flex-end' : 'flex-start', fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
+            {formatPrice(product.price)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const selectedElement = selectedElements.length === 1
+    ? currentTemplate.elements.find(el => el.id === selectedElements[0]) ?? null
+    : null;
+
+  const templateList = Object.values(templates);
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="w-5 h-5 text-primary" />
+              Price Tag Editor
+            </DialogTitle>
+            <DialogDescription>
+              {displayProducts.length} product{displayProducts.length !== 1 ? 's' : ''} selected
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Toolbar */}
+          <div className="px-4 py-2 border-b flex items-center gap-2 flex-wrap shrink-0">
+            <Label className="text-xs text-muted-foreground">Template:</Label>
+            <Select value={currentTemplateKey} onValueChange={setCurrentTemplateKey}>
+              <SelectTrigger className="h-8 text-xs w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {templateList.map(t => (
+                  <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowNewTemplateDialog(true)} title="New template">
+              <Plus className="w-3 h-3" />
+            </Button>
+            {currentTemplateKey !== 'standard' && (
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive hover:text-destructive" onClick={() => deleteTemplate(currentTemplateKey)} title="Delete template">
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground border-l pl-2 ml-1">
+              {currentTemplate.widthIn}" × {currentTemplate.heightIn}"
+            </span>
+            <div className="flex-1" />
+            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+              <Undo2 className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+              <Redo2 className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={resetCurrentTemplate}>
+              <RotateCcw className="w-3 h-3 mr-1" />Reset
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={saveTemplates}>
+              <Save className="w-3 h-3 mr-1" />Save Template
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={() => window.print()}>
+              <Printer className="w-4 h-4 mr-1" />Print
+            </Button>
+            <Button size="sm" className="h-8" onClick={handleDownloadPDF} disabled={isGenerating}>
+              {isGenerating
+                ? <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />Generating...</>
+                : <><Download className="w-4 h-4 mr-1" />Download PDF</>}
+            </Button>
+          </div>
+
+          <div className="flex flex-1 overflow-hidden">
+            {/* Main area */}
+            <div className="flex-1 overflow-auto p-4">
+              <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'preview' | 'editor')}>
+                <TabsList className="mb-4">
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                  <TabsTrigger value="editor">Editor</TabsTrigger>
+                </TabsList>
+
+                {/* Preview tab */}
+                <TabsContent value="preview" className="mt-0">
+                  <div className="space-y-3">
+                    {displayProducts.map(product => (
+                      <div key={product.id} className="flex items-center gap-4 p-3 border rounded-lg">
+                        {renderTagPreview(product, productTemplateKeys[product.id])}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Label className="text-xs">Qty:</Label>
+                          <Input
+                            type="number" min={1}
+                            value={productQuantities[product.id] || 1}
+                            onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                            className="w-16 h-7 text-xs"
+                          />
+                          {templateList.length > 1 && (
+                            <Select
+                              value={productTemplateKeys[product.id] || currentTemplateKey}
+                              onValueChange={v => setProductTemplateKeys(prev => ({ ...prev, [product.id]: v }))}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {templateList.map(t => (
+                                  <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {displayProducts.length === 0 && (
+                      <div className="text-center py-12 text-muted-foreground text-sm">No products selected</div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Editor tab */}
+                <TabsContent value="editor" className="mt-0">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Click to select · Drag to move · Handles to resize · Shift+click multi-select · Arrow keys nudge · Ctrl+Z undo
+                  </p>
+                  <div
+                    ref={editorRef}
+                    className="relative border-2 border-dashed border-slate-300 cursor-crosshair select-none inline-block"
+                    style={{ width: currentTemplate.widthPx * EDITOR_SCALE, height: currentTemplate.heightPx * EDITOR_SCALE, background: 'white' }}
+                    onMouseDown={e => {
+                      if (e.target === editorRef.current) {
+                        setSelectedElements([]);
+                        const rect = editorRef.current!.getBoundingClientRect();
+                        const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                        setMarquee({ startX: x, startY: y, endX: x, endY: y });
+                      }
+                    }}
+                  >
+                    {/* Snap guides */}
+                    {snapGuides.map((g, i) =>
+                      g.type === 'v'
+                        ? <div key={i} style={{ position: 'absolute', left: g.pos * EDITOR_SCALE, top: 0, width: 1, height: '100%', background: '#3b82f6', pointerEvents: 'none', zIndex: 99 }} />
+                        : <div key={i} style={{ position: 'absolute', top: g.pos * EDITOR_SCALE, left: 0, height: 1, width: '100%', background: '#3b82f6', pointerEvents: 'none', zIndex: 99 }} />
+                    )}
+                    {/* Marquee */}
+                    {marquee && (
+                      <div style={{ position: 'absolute', left: Math.min(marquee.startX, marquee.endX), top: Math.min(marquee.startY, marquee.endY), width: Math.abs(marquee.endX - marquee.startX), height: Math.abs(marquee.endY - marquee.startY), border: '1px dashed #3b82f6', background: 'rgba(59,130,246,0.07)', pointerEvents: 'none', zIndex: 100 }} />
+                    )}
+                    {/* Elements */}
+                    {currentTemplate.elements.map(element => {
+                      const isSelected = selectedElements.includes(element.id);
+                      return (
+                        <div
+                          key={element.id}
+                          style={{
+                            position: 'absolute',
+                            left: element.x * EDITOR_SCALE,
+                            top: element.y * EDITOR_SCALE,
+                            width: element.width * EDITOR_SCALE,
+                            height: element.height * EDITOR_SCALE,
+                            border: isSelected ? '2px solid #3b82f6' : '1px dashed #cbd5e1',
+                            cursor: element.visible ? 'grab' : 'default',
+                            boxSizing: 'border-box',
+                            overflow: 'hidden',
+                            opacity: element.visible ? 1 : 0.25,
+                          }}
+                          onMouseDown={e => element.visible && handleMouseDown(e, element.id)}
+                        >
+                          {element.type === 'logo' && (
+                            <LogoContent customLogoUrl={currentTemplate.customLogoUrl} size={element.width * EDITOR_SCALE} />
+                          )}
+                          {element.type === 'name' && (
+                            <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
+                              {displayProducts[0]?.name || 'Product Name'}
+                            </div>
+                          )}
+                          {element.type === 'price' && (
+                            <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
+                              {formatPrice(displayProducts[0]?.price || 0)}
+                            </div>
+                          )}
+                          {/* Resize handles */}
+                          {isSelected && element.visible && selectedElements.length === 1 &&
+                            ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(h => (
+                              <div key={h} style={getResizeHandleStyle(h)}
+                                onMouseDown={e => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  setIsResizing(true);
+                                  setResizeHandle(h);
+                                  dragStartSnapshotRef.current = JSON.parse(JSON.stringify(templates));
+                                  setResizeStart({ x: e.clientX, y: e.clientY, width: element.width, height: element.height, elemX: element.x, elemY: element.y, aspectRatio: element.width / (element.height || 1) });
+                                }}
+                              />
+                            ))
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Right panel */}
+            <div className="w-60 border-l overflow-y-auto p-4 space-y-5 shrink-0">
+              {/* Logo upload */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Logo</Label>
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                {currentTemplate.customLogoUrl ? (
+                  <div className="space-y-1">
+                    <img src={currentTemplate.customLogoUrl} className="h-10 w-full object-contain border rounded p-1" />
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => logoInputRef.current?.click()}>
+                        <Upload className="w-3 h-3 mr-1" />Change
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => setTemplates(prev => ({ ...prev, [currentTemplateKey]: { ...prev[currentTemplateKey], customLogoUrl: '' } }))}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" className="h-8 w-full text-xs" onClick={() => logoInputRef.current?.click()}>
+                    <Upload className="w-3 h-3 mr-1" />Upload Logo
+                  </Button>
+                )}
+              </div>
+
+              {/* Element controls */}
+              {currentTemplate.elements.map(element => {
+                const isSelected = selectedElements.includes(element.id);
+                const label = element.type === 'logo' ? 'Logo' : element.type === 'name' ? 'Product Name' : 'Price';
+                return (
+                  <div key={element.id} className={`space-y-2 p-3 rounded-lg border transition-colors ${isSelected ? 'border-blue-300 bg-blue-50' : 'border-border'}`}>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">{label}</Label>
+                      <Switch
+                        checked={element.visible}
+                        onCheckedChange={v => updateElement(element.id, { visible: v }, true)}
+                        className="scale-75 origin-right"
+                      />
+                    </div>
+
+                    {element.visible && element.type === 'logo' && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <Label className="text-xs text-muted-foreground">Size</Label>
+                          <span className="text-xs text-muted-foreground">{element.width}px</span>
+                        </div>
+                        <Slider min={12} max={Math.round(Math.min(currentTemplate.widthPx, currentTemplate.heightPx) * 0.8)} step={1}
+                          value={[element.width]}
+                          onValueChange={([v]) => updateElement(element.id, { width: v, height: v })}
+                          onPointerUp={() => commitToHistory(templates)}
+                        />
+                      </div>
+                    )}
+
+                    {element.visible && element.type !== 'logo' && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="flex justify-between">
+                            <Label className="text-xs text-muted-foreground">Font size</Label>
+                            <span className="text-xs text-muted-foreground">{element.fontSize}px</span>
+                          </div>
+                          <Slider min={6} max={72} step={1} value={[element.fontSize]}
+                            onValueChange={([v]) => updateElement(element.id, { fontSize: v })}
+                            onPointerUp={() => commitToHistory(templates)}
+                          />
+                        </div>
+                        <div className="flex gap-1">
+                          {(['left', 'center', 'right'] as const).map(align => {
+                            const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
+                            const isActive = (element.textAlign || 'left') === align;
+                            return (
+                              <Button key={align} variant={isActive ? 'default' : 'outline'} size="sm" className="flex-1 h-7 p-0"
+                                onClick={() => updateElement(element.id, { textAlign: align }, true)}>
+                                <Icon className="w-3 h-3" />
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {isSelected && element.visible && (
+                      <>
+                        <Label className="text-xs text-muted-foreground">Align on canvas</Label>
+                        <div className="grid grid-cols-3 gap-1">
+                          <Button variant="outline" size="sm" className="h-6 p-0" title="Left" onClick={() => alignElement('left')}><AlignVerticalJustifyStart className="w-3 h-3 rotate-90" /></Button>
+                          <Button variant="outline" size="sm" className="h-6 p-0" title="Center H" onClick={() => alignElement('center')}><AlignVerticalJustifyCenter className="w-3 h-3 rotate-90" /></Button>
+                          <Button variant="outline" size="sm" className="h-6 p-0" title="Right" onClick={() => alignElement('right')}><AlignVerticalJustifyEnd className="w-3 h-3 rotate-90" /></Button>
+                          <Button variant="outline" size="sm" className="h-6 p-0" title="Top" onClick={() => alignElement('top')}><AlignVerticalJustifyStart className="w-3 h-3" /></Button>
+                          <Button variant="outline" size="sm" className="h-6 p-0" title="Center V" onClick={() => alignElement('middle')}><AlignVerticalJustifyCenter className="w-3 h-3" /></Button>
+                          <Button variant="outline" size="sm" className="h-6 p-0" title="Bottom" onClick={() => alignElement('bottom')}><AlignVerticalJustifyEnd className="w-3 h-3" /></Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-2 text-xs text-muted-foreground">
+                          <span>X: {element.x}px</span><span>Y: {element.y}px</span>
+                          <span>W: {element.width}px</span><span>H: {element.height}px</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New template dialog */}
+      <Dialog open={showNewTemplateDialog} onOpenChange={setShowNewTemplateDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Price Tag Template</DialogTitle>
+            <DialogDescription>Define a custom size and save it as a reusable template.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-sm">Template Name</Label>
+              <Input
+                value={newTemplateName}
+                onChange={e => setNewTemplateName(e.target.value)}
+                placeholder="e.g. Large, Jumbo, Sale Tag"
+                onKeyDown={e => e.key === 'Enter' && createNewTemplate()}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Width (inches)</Label>
+                <Input type="number" step="0.25" min="0.5" max="12" value={newTemplateWidth} onChange={e => setNewTemplateWidth(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Height (inches)</Label>
+                <Input type="number" step="0.25" min="0.5" max="12" value={newTemplateHeight} onChange={e => setNewTemplateHeight(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNewTemplateDialog(false)}>Cancel</Button>
+            <Button onClick={createNewTemplate}>Create Template</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

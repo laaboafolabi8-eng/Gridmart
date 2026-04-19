@@ -1149,6 +1149,14 @@ export class DBStorage implements IStorage {
     return await db.select().from(userLabelTemplates).where(eq(userLabelTemplates.userId, userId));
   }
   
+  async deleteUserLabelTemplate(userId: string, labelSize: string): Promise<void> {
+    await db.delete(userLabelTemplates)
+      .where(and(
+        eq(userLabelTemplates.userId, userId),
+        eq(userLabelTemplates.labelSize, labelSize)
+      ));
+  }
+
   async upsertUserLabelTemplate(userId: string, labelSize: string, template: any): Promise<UserLabelTemplate> {
     // Check if template exists for this user and label size
     const [existing] = await db.select().from(userLabelTemplates)

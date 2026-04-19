@@ -15,6 +15,7 @@ import { importProductFromUrl } from "./services/productImport";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { generateProductCode } from "./services/duplicateDetection";
 import { generateLabelPdfs } from "./services/labelPdf";
+import { generatePriceTagPdfs } from "./services/priceTagPdf";
 import { processExpiredOrders } from "./services/orderExpiration";
 import { googleMerchantService } from "./services/googleMerchant";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
@@ -9906,6 +9907,83 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
     }
   });
   
+  // ===== Price Tag Templates =====
+
+  app.get("/api/pricetag-templates", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const all = await storage.getUserLabelTemplates(req.session.userId);
+      const result: Record<string, any> = {};
+      for (const t of all) {
+        if (t.labelSize.startsWith('pt-')) {
+          result[t.labelSize.slice(3)] = t.template;
+        }
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Get price tag templates error:", error);
+      res.status(500).json({ error: "Failed to get price tag templates" });
+    }
+  });
+
+  app.post("/api/pricetag-templates/bulk", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const { templates } = req.body;
+      if (!templates || typeof templates !== 'object') {
+        return res.status(400).json({ error: "Missing templates object" });
+      }
+      for (const [key, template] of Object.entries(templates)) {
+        await storage.upsertUserLabelTemplate(req.session.userId, `pt-${key}`, template);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Save price tag templates error:", error);
+      res.status(500).json({ error: "Failed to save price tag templates" });
+    }
+  });
+
+  app.delete("/api/pricetag-templates/:key", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      await storage.deleteUserLabelTemplate(req.session.userId, `pt-${req.params.key}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete price tag template error:", error);
+      res.status(500).json({ error: "Failed to delete price tag template" });
+    }
+  });
+
+  // ===== Price Tag PDF Generation =====
+
+  app.post("/api/pricetags/generate-pdf", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const { tagsByProduct, templates } = req.body;
+      if (!tagsByProduct || !templates) {
+        return res.status(400).json({ error: "Missing tagsByProduct or templates" });
+      }
+      const result = await generatePriceTagPdfs(tagsByProduct, templates);
+      const contentType = result.type === 'pdf' ? 'application/pdf' : 'application/zip';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+      res.send(result.buffer);
+    } catch (error: any) {
+      console.error("Generate price tag PDFs error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to generate price tag PDFs" });
+      }
+    }
+  });
+
   // ===== Agreements =====
   
   // Get all agreements (public - for checkout and footer)

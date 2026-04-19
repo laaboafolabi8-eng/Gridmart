@@ -119,6 +119,7 @@ import { useUpload } from '@/hooks/use-upload';
 import { AddressAutocomplete, parseAddressComponents } from '@/components/ui/address-autocomplete';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { LabelEditor } from '@/components/labels/LabelEditor';
+import { PriceTagEditor } from '@/components/labels/PriceTagEditor';
 import { getDescriptionPoints, getDescriptionString, cleanMalformedDescription, normalizeDescriptionForStorage } from '@/lib/mockData';
 import { ImageEditorDialog } from '@/components/images/ImageEditorDialog';
 import { MediaThumbnail } from '@/components/media/YouTubeThumbnail';
@@ -5859,6 +5860,7 @@ Check other listings for more products`);
   const [useProductQuantities, setUseProductQuantities] = useState(true);
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
   const [isCrateLabelDialogOpen, setIsCrateLabelDialogOpen] = useState(false);
+  const [isPriceTagDialogOpen, setIsPriceTagDialogOpen] = useState(false);
   const [crateLabelItems, setCrateLabelItems] = useState<{ id: string; name: string; productCode?: string; quantity: number }[]>([]);
   const [importUrls, setImportUrls] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -9282,14 +9284,24 @@ Check other listings for more products`);
                     </AlertDialogContent>
                   </AlertDialog>
                   
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setIsLabelDialogOpen(true)}
                     data-testid="button-generate-labels-sticky"
                   >
                     <Printer className="w-4 h-4 mr-2" />
                     Labels
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsPriceTagDialogOpen(true)}
+                    data-testid="button-generate-price-tags-sticky"
+                  >
+                    <Tag className="w-4 h-4 mr-2" />
+                    Price Tags
                   </Button>
                   
                   <DropdownMenu>
@@ -24923,6 +24935,12 @@ Check other listings for more products`);
         products={productsForLabels}
         isOpen={isLabelDialogOpen}
         onClose={() => setIsLabelDialogOpen(false)}
+      />
+
+      <PriceTagEditor
+        products={productsForLabels}
+        isOpen={isPriceTagDialogOpen}
+        onClose={() => setIsPriceTagDialogOpen(false)}
       />
       
       <LabelEditor
