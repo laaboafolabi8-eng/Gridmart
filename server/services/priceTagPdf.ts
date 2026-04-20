@@ -50,7 +50,7 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function renderTagCell(tag: PriceTagData, tmpl: PriceTagTemplate): string {
+function renderTagCell(tag: PriceTagData, tmpl: PriceTagTemplate, autoFitText = false): string {
   const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
   const imgEl = elements.find(e => e.id === 'image');
   const logo = elements.find(e => e.id === 'logo');
@@ -63,13 +63,13 @@ function renderTagCell(tag: PriceTagData, tmpl: PriceTagTemplate): string {
   return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
     ${imgEl?.visible && tag.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${escapeHtml(tag.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
     ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${logoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${logoUrl ? `<img src="${escapeHtml(logoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : DEFAULT_LOGO_SVG}</div>` : ''}
-    ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${escapeHtml(tag.name)}</div>` : ''}
-    ${price?.visible ? `<div style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${escapeHtml(tag.price)}</div>` : ''}
+    ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${escapeHtml(tag.name)}</div>` : ''}
+    ${price?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${price.width}" data-boxh="${price.height}" data-bold="true" ` : ''}style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${escapeHtml(tag.price)}</div>` : ''}
     ${(tag.customBoxes || []).map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${escapeHtml(box.text)}</div>`).join('')}
   </div>`;
 }
 
-function generateTiledHTML(entries: { tag: PriceTagData; tmpl: PriceTagTemplate }[]): string {
+function generateTiledHTML(entries: { tag: PriceTagData; tmpl: PriceTagTemplate }[], autoFitText = false): string {
   if (!entries.length) return `<!DOCTYPE html><html><body></body></html>`;
 
   const { widthPx, heightPx } = entries[0].tmpl;
@@ -89,7 +89,7 @@ function generateTiledHTML(entries: { tag: PriceTagData; tmpl: PriceTagTemplate 
 
   const sheetsHtml = sheetGroups.map((group, si) => {
     const cells = group
-      .map(e => e ? renderTagCell(e.tag, e.tmpl) : `<div style="width:${widthPx}px;height:${heightPx}px;outline:1px dashed rgba(0,0,0,0.15);outline-offset:-1px;"></div>`)
+      .map(e => e ? renderTagCell(e.tag, e.tmpl, autoFitText) : `<div style="width:${widthPx}px;height:${heightPx}px;outline:1px dashed rgba(0,0,0,0.15);outline-offset:-1px;"></div>`)
       .join('');
     const pageBreak = si < sheetGroups.length - 1 ? 'page-break-after:always;' : '';
     return `<div style="position:relative;width:${SHEET_W_PX}px;height:${SHEET_H_PX}px;background:white;${pageBreak}">
@@ -99,7 +99,10 @@ function generateTiledHTML(entries: { tag: PriceTagData; tmpl: PriceTagTemplate 
     </div>`;
   }).join('');
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}@page{size:8.5in 11in;margin:0;}</style></head><body>${sheetsHtml}</body></html>`;
+  const fitScript = autoFitText
+    ? `<script>(function(){var els=document.querySelectorAll('[data-autofit]');for(var i=0;i<els.length;i++){var el=els[i];var text=el.textContent.trim();if(!text)continue;var bold=el.dataset.bold==='true';var boxW=parseFloat(el.dataset.boxw)||0;var boxH=parseFloat(el.dataset.boxh)||0;if(!boxW||!boxH)continue;var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var lo=4,hi=300;while(lo<hi){var mid=Math.floor((lo+hi+1)/2);ctx.font=(bold?'bold ':'')+mid+'px Arial';var w=ctx.measureText(text).width;var h=mid*1.3;if(w<=boxW&&h<=boxH){lo=mid;}else{hi=mid-1;}}el.style.fontSize=lo+'px';}})();<\/script>`
+    : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}@page{size:8.5in 11in;margin:0;}</style></head><body>${sheetsHtml}${fitScript}</body></html>`;
 }
 
 async function generatePdfFromHtml(html: string): Promise<Buffer> {
@@ -130,7 +133,8 @@ async function generatePdfFromHtml(html: string): Promise<Buffer> {
 
 export async function generatePriceTagPdfs(
   tagsByProduct: Record<string, PriceTagData[]>,
-  templates: Record<string, PriceTagTemplate>
+  templates: Record<string, PriceTagTemplate>,
+  autoFitText = false
 ): Promise<{ buffer: Buffer; type: 'pdf'; filename: string }> {
   const entries: { tag: PriceTagData; tmpl: PriceTagTemplate }[] = [];
 
@@ -147,7 +151,7 @@ export async function generatePriceTagPdfs(
 
   if (!entries.length) throw new Error('No price tags to generate');
 
-  const html = generateTiledHTML(entries);
+  const html = generateTiledHTML(entries, autoFitText);
   const buffer = await generatePdfFromHtml(html);
   return { buffer, type: 'pdf', filename: 'pricetags.pdf' };
 }
