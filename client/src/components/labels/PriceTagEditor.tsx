@@ -600,6 +600,36 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     }
   };
 
+  const handlePrint = () => {
+    const LOGO_SVG = `<svg viewBox="0 0 24 24" fill="white" style="width:70%;height:70%;"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9z"/></svg>`;
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const tagsHtml = displayProducts.flatMap(product => {
+      const qty = productQuantities[product.id] || 1;
+      const tmpl = templates[productTemplateKeys[product.id] || currentTemplateKey] || currentTemplate;
+      const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
+      const imgEl = elements.find(e => e.id === 'image');
+      const logo = elements.find(e => e.id === 'logo');
+      const name = elements.find(e => e.id === 'name');
+      const price = elements.find(e => e.id === 'price');
+      const imageUrl = product.image || product.images?.[0] || '';
+      return Array.from({ length: qty }, () => `
+        <div class="tag" style="position:relative;width:${widthPx}px;height:${heightPx}px;page-break-after:always;background:white;overflow:hidden;">
+          ${imgEl?.visible && imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;overflow:hidden;border-radius:2px;"><img src="${esc(imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
+          ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
+          ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;overflow:hidden;display:flex;align-items:center;justify-content:${name.textAlign === 'center' ? 'center' : name.textAlign === 'right' ? 'flex-end' : 'flex-start'};">${esc(product.name)}</div>` : ''}
+          ${price?.visible ? `<div style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${price.textAlign === 'center' ? 'center' : price.textAlign === 'right' ? 'flex-end' : 'flex-start'};color:#1a1a1a;">${esc(formatPrice(product.price))}</div>` : ''}
+        </div>`);
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}.tag:last-child{page-break-after:auto;}@page{margin:0;}</style></head><body>${tagsHtml}</body></html>`;
+    const win = window.open('', '_blank', 'width=800,height=600');
+    if (!win) { toast.error('Popup blocked — please allow popups for this site.'); return; }
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); win.close(); };
+  };
+
   const renderTagPreview = (product: any, templateKey?: string) => {
     const tmpl = templates[templateKey || currentTemplateKey] || currentTemplate;
     const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
@@ -695,7 +725,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
             <Button variant="outline" size="sm" className="h-8" onClick={saveTemplates}>
               <Save className="w-3 h-3 mr-1" />Save Template
             </Button>
-            <Button variant="outline" size="sm" className="h-8" onClick={() => window.print()}>
+            <Button variant="outline" size="sm" className="h-8" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-1" />Print
             </Button>
             <Button size="sm" className="h-8" onClick={handleDownloadPDF} disabled={isGenerating}>

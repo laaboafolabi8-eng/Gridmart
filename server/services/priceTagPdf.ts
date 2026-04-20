@@ -76,10 +76,22 @@ async function generatePdfFromHtml(tags: PriceTagData[], template: PriceTagTempl
   const widthMm = pxToMm(template.widthPx);
   const heightMm = pxToMm(template.heightPx);
 
-  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+    ],
+    timeout: 30000,
+  });
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'load', timeout: 20000 });
     const pdfBuffer = await page.pdf({
       width: `${widthMm}mm`,
       height: `${heightMm}mm`,
