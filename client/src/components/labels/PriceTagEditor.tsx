@@ -419,15 +419,14 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       if (resizeHandle.includes('w')) { const d = Math.min(dX, resizeStart.width - 10); nX = resizeStart.elemX + d; nW = resizeStart.width - d; }
       if (resizeHandle.includes('s')) nH = Math.max(10, resizeStart.height + dY);
       if (resizeHandle.includes('n')) { const d = Math.min(dY, resizeStart.height - 10); nY = resizeStart.elemY + d; nH = resizeStart.height - d; }
-      if (e.shiftKey) {
+      if (element.type === 'image' || e.shiftKey) {
         const ar = resizeStart.aspectRatio;
         const wc = Math.abs(nW - resizeStart.width), hc = Math.abs(nH - resizeStart.height);
         if (wc >= hc) { nH = nW / ar; } else { nW = nH * ar; }
         if (resizeHandle.includes('w')) nX = resizeStart.elemX + resizeStart.width - nW;
         if (resizeHandle.includes('n')) nY = resizeStart.elemY + resizeStart.height - nH;
       }
-      nX = Math.max(0, nX); nY = Math.max(0, nY);
-      nW = Math.min(nW, tmpl.widthPx - nX); nH = Math.min(nH, tmpl.heightPx - nY);
+      nW = Math.max(10, nW); nH = Math.max(10, nH);
       updateElement(elemId, { x: Math.round(nX), y: Math.round(nY), width: Math.round(nW), height: Math.round(nH) });
       return;
     }
@@ -469,8 +468,8 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     selectedElements.forEach(id => {
       const el = tmpl.elements.find(e => e.id === id);
       if (el) updateElement(id, {
-        x: Math.round(Math.max(0, Math.min(tmpl.widthPx - el.width, el.x + dX))),
-        y: Math.round(Math.max(0, Math.min(tmpl.heightPx - el.height, el.y + dY))),
+        x: Math.round(el.x + dX),
+        y: Math.round(el.y + dY),
       });
     });
   }, [updateElement]);
@@ -531,8 +530,8 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       selectedElements.forEach(id => {
         const el = currentTemplate.elements.find(e => e.id === id);
         if (el) updateElement(id, {
-          x: Math.max(0, Math.min(currentTemplate.widthPx - el.width, el.x + dX)),
-          y: Math.max(0, Math.min(currentTemplate.heightPx - el.height, el.y + dY)),
+          x: el.x + dX,
+          y: el.y + dY,
         }, id === selectedElements[selectedElements.length - 1]);
       });
     };
@@ -611,11 +610,11 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     const price = elements.find(e => e.id === 'price');
     const productImageUrl = product.image || (product.images?.[0]);
     return (
-      <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
         {imgEl?.visible && (
-          <div style={{ position: 'absolute', left: imgEl.x * s, top: imgEl.y * s, width: imgEl.width * s, height: imgEl.height * s, background: productImageUrl ? 'transparent' : '#f1f5f9', borderRadius: 2, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', left: imgEl.x * s, top: imgEl.y * s, width: imgEl.width * s, height: imgEl.height * s, background: productImageUrl ? 'transparent' : '#f1f5f9', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {productImageUrl
-              ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               : <span style={{ fontSize: imgEl.width * s * 0.3, color: '#94a3b8' }}>📷</span>
             }
           </div>
@@ -816,7 +815,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                             border: isSelected ? '2px solid #3b82f6' : '1px dashed #cbd5e1',
                             cursor: element.visible ? 'grab' : 'default',
                             boxSizing: 'border-box',
-                            overflow: 'hidden',
+                            overflow: element.type === 'image' ? 'visible' : 'hidden',
                             opacity: element.visible ? 1 : 0.25,
                           }}
                           onMouseDown={e => element.visible && handleMouseDown(e, element.id)}
@@ -824,7 +823,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           {element.type === 'image' && (() => {
                             const imgUrl = displayProducts[0]?.image || displayProducts[0]?.images?.[0];
                             return imgUrl
-                              ? <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ? <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                               : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: element.width * EDITOR_SCALE * 0.25, color: '#94a3b8' }}>📷</div>;
                           })()}
                           {element.type === 'logo' && (
@@ -842,7 +841,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           )}
                           {/* Resize handles */}
                           {isSelected && element.visible && selectedElements.length === 1 &&
-                            ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(h => (
+                            (element.type === 'image' ? ['nw', 'ne', 'se', 'sw'] : ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']).map(h => (
                               <div key={h} style={getResizeHandleStyle(h)}
                                 onMouseDown={e => {
                                   e.preventDefault(); e.stopPropagation();
