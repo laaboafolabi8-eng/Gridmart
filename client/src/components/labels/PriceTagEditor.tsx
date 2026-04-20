@@ -56,6 +56,24 @@ interface PriceTagTemplate {
   customLogoUrl: string;
 }
 
+function getProductImageUrl(product: any): string {
+  const candidates = [
+    product.image,
+    product.imageUrl,
+    ...(Array.isArray(product.images) ? product.images : []),
+  ];
+  for (const url of candidates) {
+    if (typeof url === 'string' && url.trim()) return url.trim();
+  }
+  return '';
+}
+
+function toAbsoluteUrl(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return `${window.location.origin}${url.startsWith('/') ? url : '/' + url}`;
+}
+
 interface CustomBox {
   id: string;
   text: string;
@@ -661,7 +679,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
           name: p.name,
           price: formatPrice(p.price),
           templateKey: tKey,
-          imageUrl: p.image || p.images?.[0] || '',
+          imageUrl: toAbsoluteUrl(getProductImageUrl(p)),
           customBoxes: productCustomizations[p.id] || [],
         }));
       });
@@ -700,7 +718,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     displayProducts.forEach(product => {
       const qty = productQuantities[product.id] || 1;
       const tmpl = templates[productTemplateKeys[product.id] || currentTemplateKey] || currentTemplate;
-      const imageUrl = product.image || product.images?.[0] || '';
+      const imageUrl = toAbsoluteUrl(getProductImageUrl(product));
       const customBoxes = productCustomizations[product.id] || [];
       for (let i = 0; i < qty; i++) {
         entries.push({ name: product.name, price: formatPrice(product.price), imageUrl, tmpl, customBoxes });
@@ -764,16 +782,20 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     const logo = elements.find(e => e.id === 'logo');
     const name = elements.find(e => e.id === 'name');
     const price = elements.find(e => e.id === 'price');
-    const productImageUrl = product.image || (product.images?.[0]);
+    const productImageUrl = getProductImageUrl(product);
     const boxes = customBoxes ?? (productCustomizations[product.id] || []);
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
         {imgEl?.visible && (
-          <div style={{ position: 'absolute', left: imgEl.x * s, top: imgEl.y * s, width: imgEl.width * s, height: imgEl.height * s, background: productImageUrl ? 'transparent' : '#f1f5f9', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {productImageUrl
-              ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              : <span style={{ fontSize: imgEl.width * s * 0.3, color: '#94a3b8' }}>📷</span>
-            }
+          <div style={{ position: 'absolute', left: imgEl.x * s, top: imgEl.y * s, width: imgEl.width * s, height: imgEl.height * s, background: '#f1f5f9', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <span style={{ position: 'absolute', fontSize: imgEl.width * s * 0.3, color: '#94a3b8' }}>📷</span>
+            {productImageUrl && (
+              <img
+                src={productImageUrl}
+                style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }}
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
           </div>
         )}
         {logo?.visible && (
@@ -1131,10 +1153,13 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           onMouseDown={e => element.visible && handleMouseDown(e, element.id)}
                         >
                           {element.type === 'image' && (() => {
-                            const imgUrl = displayProducts[0]?.image || displayProducts[0]?.images?.[0];
-                            return imgUrl
-                              ? <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                              : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: element.width * EDITOR_SCALE * 0.25, color: '#94a3b8' }}>📷</div>;
+                            const imgUrl = getProductImageUrl(displayProducts[0] || {});
+                            return (
+                              <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                <span style={{ position: 'absolute', fontSize: element.width * EDITOR_SCALE * 0.25, color: '#94a3b8' }}>📷</span>
+                                {imgUrl && <img src={imgUrl} style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
+                              </div>
+                            );
                           })()}
                           {element.type === 'logo' && (
                             <LogoContent customLogoUrl={currentTemplate.customLogoUrl} size={element.width * EDITOR_SCALE} />
