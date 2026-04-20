@@ -694,7 +694,6 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const justify = (el: any) => el?.textAlign === 'center' ? 'center' : el?.textAlign === 'right' ? 'flex-end' : 'flex-start';
 
-    const COLS = 3, ROWS = 10, PER_SHEET = COLS * ROWS;
     const SHEET_W = 816, SHEET_H = 1056;
 
     const entries: { name: string; price: string; imageUrl: string; tmpl: typeof currentTemplate; customBoxes: CustomBox[] }[] = [];
@@ -711,6 +710,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     if (!entries.length) { toast.error('No products to print'); return; }
 
     const { widthPx, heightPx } = entries[0].tmpl;
+    const COLS = Math.max(1, Math.floor(SHEET_W / widthPx));
+    const ROWS = Math.max(1, Math.floor(SHEET_H / heightPx));
+    const PER_SHEET = COLS * ROWS;
     const offsetX = Math.floor((SHEET_W - COLS * widthPx) / 2);
     const offsetY = Math.floor((SHEET_H - ROWS * heightPx) / 2);
 
@@ -721,13 +723,13 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     for (let i = 0; i < padded.length; i += PER_SHEET) sheetGroups.push(padded.slice(i, i + PER_SHEET));
 
     const renderCell = (entry: typeof entries[0] | null) => {
-      if (!entry) return `<div style="width:${widthPx}px;height:${heightPx}px;"></div>`;
+      if (!entry) return `<div style="width:${widthPx}px;height:${heightPx}px;outline:1px dashed rgba(0,0,0,0.15);outline-offset:-1px;"></div>`;
       const { elements, customLogoUrl } = entry.tmpl;
       const imgEl = elements.find(e => e.id === 'image');
       const logo = elements.find(e => e.id === 'logo');
       const name = elements.find(e => e.id === 'name');
       const price = elements.find(e => e.id === 'price');
-      return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;">
+      return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
         ${imgEl?.visible && entry.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${esc(entry.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
         ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
         ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}

@@ -41,9 +41,6 @@ interface PriceTagTemplate {
   customLogoUrl?: string;
 }
 
-const COLS = 3;
-const ROWS = 10;
-const PER_SHEET = COLS * ROWS;
 const SHEET_W_PX = 816;  // 8.5in @ 96dpi
 const SHEET_H_PX = 1056; // 11in @ 96dpi
 
@@ -63,7 +60,7 @@ function renderTagCell(tag: PriceTagData, tmpl: PriceTagTemplate): string {
   const justify = (el: PriceTagElement | undefined) =>
     el?.textAlign === 'center' ? 'center' : el?.textAlign === 'right' ? 'flex-end' : 'flex-start';
 
-  return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;">
+  return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
     ${imgEl?.visible && tag.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${escapeHtml(tag.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
     ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${logoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${logoUrl ? `<img src="${escapeHtml(logoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : DEFAULT_LOGO_SVG}</div>` : ''}
     ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${escapeHtml(tag.name)}</div>` : ''}
@@ -76,6 +73,9 @@ function generateTiledHTML(entries: { tag: PriceTagData; tmpl: PriceTagTemplate 
   if (!entries.length) return `<!DOCTYPE html><html><body></body></html>`;
 
   const { widthPx, heightPx } = entries[0].tmpl;
+  const COLS = Math.max(1, Math.floor(SHEET_W_PX / widthPx));
+  const ROWS = Math.max(1, Math.floor(SHEET_H_PX / heightPx));
+  const PER_SHEET = COLS * ROWS;
   const offsetX = Math.floor((SHEET_W_PX - COLS * widthPx) / 2);
   const offsetY = Math.floor((SHEET_H_PX - ROWS * heightPx) / 2);
 
@@ -89,7 +89,7 @@ function generateTiledHTML(entries: { tag: PriceTagData; tmpl: PriceTagTemplate 
 
   const sheetsHtml = sheetGroups.map((group, si) => {
     const cells = group
-      .map(e => e ? renderTagCell(e.tag, e.tmpl) : `<div style="width:${widthPx}px;height:${heightPx}px;"></div>`)
+      .map(e => e ? renderTagCell(e.tag, e.tmpl) : `<div style="width:${widthPx}px;height:${heightPx}px;outline:1px dashed rgba(0,0,0,0.15);outline-offset:-1px;"></div>`)
       .join('');
     const pageBreak = si < sheetGroups.length - 1 ? 'page-break-after:always;' : '';
     return `<div style="position:relative;width:${SHEET_W_PX}px;height:${SHEET_H_PX}px;background:white;${pageBreak}">
