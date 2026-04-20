@@ -5271,6 +5271,7 @@ export default function AdminDashboard() {
   const [crateFilter, setCrateFilter] = useState<string>('all');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
+  const [showExTax, setShowExTax] = useState(false);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'price-low' | 'price-high' | 'profit-high' | 'profit-low' | 'group-variants' | 'category' | 'none'>(() => {
     const saved = localStorage.getItem('gridmart_admin_product_sort');
     if (saved && ['newest', 'oldest', 'price-low', 'price-high', 'profit-high', 'profit-low', 'group-variants', 'category', 'none'].includes(saved)) {
@@ -8936,6 +8937,17 @@ Check other listings for more products`);
                   <SelectItem value="group-variants">Group by variants</SelectItem>
                 </SelectContent>
               </Select>
+
+              <div className="flex items-center gap-2 border rounded-md px-3 py-1.5 bg-background shrink-0" title="Remove 13% HST to see pre-tax prices (display only — does not change stored prices)">
+                <Checkbox
+                  id="show-ex-tax"
+                  checked={showExTax}
+                  onCheckedChange={(v) => setShowExTax(!!v)}
+                />
+                <label htmlFor="show-ex-tax" className="text-sm cursor-pointer select-none whitespace-nowrap">
+                  Ex. HST (−13%)
+                </label>
+              </div>
             </div>
 
             {deletedProducts.length > 0 && (
@@ -12694,19 +12706,25 @@ Check other listings for more products`);
                         <div className="flex flex-col items-center">
                           <div className="flex items-center justify-center">
                             <span className="text-[10px] md:text-xs text-muted-foreground mr-0.5">$</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={editedPrices[product.id] !== undefined ? editedPrices[product.id] : String(product.price)}
-                              onChange={(e) => setEditedPrices(prev => ({ ...prev, [product.id]: e.target.value }))}
-                              onBlur={() => saveSinglePrice(product.id)}
-                              className={`h-6 md:h-7 w-10 md:w-14 text-[10px] md:text-xs px-0.5 md:px-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-primary font-display font-bold ${
-                                editedPrices[product.id] !== undefined && editedPrices[product.id] !== String(product.price)
-                                  ? 'border-primary bg-primary/5'
-                                  : ''
-                              }`}
-                            />
+                            {showExTax ? (
+                              <span className="h-6 md:h-7 w-10 md:w-14 text-[10px] md:text-xs px-0.5 md:px-1 text-center border rounded font-display font-bold flex items-center justify-center text-amber-700 bg-amber-50 border-amber-200">
+                                {((parseFloat(String(editedPrices[product.id] ?? product.price)) || 0) / 1.13).toFixed(2)}
+                              </span>
+                            ) : (
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editedPrices[product.id] !== undefined ? editedPrices[product.id] : String(product.price)}
+                                onChange={(e) => setEditedPrices(prev => ({ ...prev, [product.id]: e.target.value }))}
+                                onBlur={() => saveSinglePrice(product.id)}
+                                className={`h-6 md:h-7 w-10 md:w-14 text-[10px] md:text-xs px-0.5 md:px-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-primary font-display font-bold ${
+                                  editedPrices[product.id] !== undefined && editedPrices[product.id] !== String(product.price)
+                                    ? 'border-primary bg-primary/5'
+                                    : ''
+                                }`}
+                              />
+                            )}
                           </div>
                           {/* COG - small, blue, underline, editable on click - hidden on mobile */}
                           <div className="hidden md:flex items-center justify-center mt-0.5">
@@ -12729,9 +12747,10 @@ Check other listings for more products`);
                           {/* Profit display - hidden on mobile */}
                           <span className="hidden md:inline">
                           {(() => {
-                            const price = editedPrices[product.id] !== undefined ? parseFloat(editedPrices[product.id]) : parseFloat(String(product.price)) || 0;
-                            const cog = editedCostPrices[product.id] !== undefined 
-                              ? parseFloat(editedCostPrices[product.id]) 
+                            const rawPrice = editedPrices[product.id] !== undefined ? parseFloat(editedPrices[product.id]) : parseFloat(String(product.price)) || 0;
+                            const price = showExTax ? rawPrice / 1.13 : rawPrice;
+                            const cog = editedCostPrices[product.id] !== undefined
+                              ? parseFloat(editedCostPrices[product.id])
                               : (product.costPrice ? parseFloat(String(product.costPrice)) : 0);
                             const profit = price - cog;
                             const profitColor = profit > 0 ? 'text-green-600' : profit < 0 ? 'text-red-500' : 'text-muted-foreground';
