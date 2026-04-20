@@ -15,7 +15,7 @@ import {
   Copy, Tag, Percent, Gift, Image as ImageIcon, X, Upload, ArrowUpDown, ArrowUp, ArrowDown, Filter, FolderOpen, FolderPlus,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ArrowRight, Printer, Bold, Italic, Underline, List, ListOrdered, Sparkles, GripVertical, Check,
   AlertTriangle, TrendingUp, BarChart3, DollarSign, ShoppingCart, Loader2, RefreshCw, Info, Wand2, Link2, Eraser, Eye, Navigation, Layers,
-  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode
+  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode, Store, Phone
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
@@ -5796,6 +5796,26 @@ Check other listings for more products`);
   };
   const [storefrontLayout, setStorefrontLayout] = useState(defaultStorefrontLayout);
 
+  const DAYS_OF_WEEK = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const defaultStorefrontHours: Record<string, { open: string; close: string; closed: boolean }> = {
+    monday: { open: '09:00', close: '18:00', closed: false },
+    tuesday: { open: '09:00', close: '18:00', closed: false },
+    wednesday: { open: '09:00', close: '18:00', closed: false },
+    thursday: { open: '09:00', close: '18:00', closed: false },
+    friday: { open: '09:00', close: '18:00', closed: false },
+    saturday: { open: '10:00', close: '17:00', closed: false },
+    sunday: { open: '', close: '', closed: true },
+  };
+  const [storefrontInfo, setStorefrontInfo] = useState<{
+    street: string; city: string; province: string; postalCode: string;
+    phone: string; description: string; heroImageUrl: string;
+    hours: Record<string, { open: string; close: string; closed: boolean }>;
+  }>({
+    street: '', city: '', province: '', postalCode: '',
+    phone: '', description: '', heroImageUrl: '',
+    hours: defaultStorefrontHours,
+  });
+
   // Node overlay customization
   interface NodeOverlay {
     id: string;
@@ -6305,6 +6325,16 @@ Check other listings for more products`);
         }
         if (settings.storefrontLayout) {
           try { setStorefrontLayout(prev => ({ ...prev, ...JSON.parse(settings.storefrontLayout) })); } catch {}
+        }
+        if (settings.storefront) {
+          try {
+            const parsed = JSON.parse(settings.storefront);
+            setStorefrontInfo(prev => ({
+              ...prev,
+              ...parsed,
+              hours: { ...defaultStorefrontHours, ...(parsed.hours || {}) },
+            }));
+          } catch (err) { console.error('Failed to parse storefront settings:', err); }
         }
       })
       .catch(err => console.error('Failed to fetch site settings:', err));
@@ -21226,6 +21256,126 @@ Check other listings for more products`);
           </TabsContent>
 
           <TabsContent value="design" className="space-y-6">
+            {/* Storefront Info */}
+            <Card>
+              <CardContent className="pt-6 space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-1">
+                    <Store className="w-5 h-5 text-primary" />
+                    GridMart Storefront
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Configure your physical store location, hours, and hero image for the homepage.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Location</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm">Street Address</Label>
+                      <Input placeholder="123 Main Street" value={storefrontInfo.street} onChange={e => setStorefrontInfo(p => ({ ...p, street: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label className="text-sm">City</Label>
+                      <Input placeholder="Windsor" value={storefrontInfo.city} onChange={e => setStorefrontInfo(p => ({ ...p, city: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Province</Label>
+                      <Input placeholder="ON" value={storefrontInfo.province} onChange={e => setStorefrontInfo(p => ({ ...p, province: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Postal Code</Label>
+                      <Input placeholder="N9A 1A1" value={storefrontInfo.postalCode} onChange={e => setStorefrontInfo(p => ({ ...p, postalCode: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Phone</Label>
+                      <Input placeholder="+1 (519) 555-0100" value={storefrontInfo.phone} onChange={e => setStorefrontInfo(p => ({ ...p, phone: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Hero</h4>
+                  <div>
+                    <Label className="text-sm">Short Description</Label>
+                    <Textarea placeholder="Your local grocery store..." value={storefrontInfo.description} onChange={e => setStorefrontInfo(p => ({ ...p, description: e.target.value }))} rows={2} />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Hero Background Image URL</Label>
+                    <Input placeholder="https://..." value={storefrontInfo.heroImageUrl} onChange={e => setStorefrontInfo(p => ({ ...p, heroImageUrl: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Store Hours</h4>
+                  <div className="space-y-2">
+                    {DAYS_OF_WEEK.map(day => {
+                      const h = storefrontInfo.hours[day] || { open: '09:00', close: '18:00', closed: false };
+                      const label = day.charAt(0).toUpperCase() + day.slice(1);
+                      return (
+                        <div key={day} className="flex items-center gap-3 flex-wrap">
+                          <div className="w-24 text-sm font-medium">{label}</div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={!h.closed}
+                              onCheckedChange={open => setStorefrontInfo(prev => ({
+                                ...prev,
+                                hours: { ...prev.hours, [day]: { ...h, closed: !open } },
+                              }))}
+                            />
+                            <span className="text-xs text-muted-foreground w-12">{h.closed ? 'Closed' : 'Open'}</span>
+                          </div>
+                          {!h.closed && (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={h.open}
+                                onChange={e => setStorefrontInfo(prev => ({
+                                  ...prev,
+                                  hours: { ...prev.hours, [day]: { ...h, open: e.target.value } },
+                                }))}
+                                className="w-28 h-8 text-sm"
+                              />
+                              <span className="text-muted-foreground text-sm">–</span>
+                              <Input
+                                type="time"
+                                value={h.close}
+                                onChange={e => setStorefrontInfo(prev => ({
+                                  ...prev,
+                                  hours: { ...prev.hours, [day]: { ...h, close: e.target.value } },
+                                }))}
+                                className="w-28 h-8 text-sm"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <Button
+                  onClick={async () => {
+                    try {
+                      await fetch('/api/site-settings/storefront', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value: JSON.stringify(storefrontInfo) }),
+                      });
+                      toast.success('Storefront info saved');
+                    } catch (err) {
+                      console.error('Failed to save storefront info:', err);
+                      toast.error('Failed to save storefront info');
+                    }
+                  }}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Storefront Info
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="pt-6 space-y-6">
                 <div>
