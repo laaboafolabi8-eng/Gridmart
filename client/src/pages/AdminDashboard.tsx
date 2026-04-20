@@ -4256,6 +4256,8 @@ const BatchProductRow = memo(function BatchProductRow({
 function DeletedProductsSection() {
   const queryClient = useQueryClient();
   const [showDeleted, setShowDeleted] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBatchBusy, setIsBatchBusy] = useState(false);
 
   const { data: deletedProducts = [], isLoading } = useQuery<any[]>({
     queryKey: ['deleted-products'],
@@ -4292,8 +4294,42 @@ function DeletedProductsSection() {
     onError: () => toast.error('Failed to permanently delete'),
   });
 
+  const toggleSelect = (id: string) =>
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const allSelected = deletedProducts.length > 0 && selectedIds.length === deletedProducts.length;
+
+  const batchRestore = async () => {
+    setIsBatchBusy(true);
+    try {
+      await Promise.all(selectedIds.map(id => fetch(`/api/products/${id}/restore`, { method: 'POST' })));
+      queryClient.invalidateQueries({ queryKey: ['deleted-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory-batches'] });
+      toast.success(`Restored ${selectedIds.length} product${selectedIds.length !== 1 ? 's' : ''}`);
+      setSelectedIds([]);
+    } catch {
+      toast.error('Some products failed to restore');
+    } finally {
+      setIsBatchBusy(false);
+    }
+  };
+
+  const batchPermanentDelete = async () => {
+    setIsBatchBusy(true);
+    try {
+      await Promise.all(selectedIds.map(id => fetch(`/api/products/${id}/permanent`, { method: 'DELETE' })));
+      queryClient.invalidateQueries({ queryKey: ['deleted-products'] });
+      toast.success(`Permanently deleted ${selectedIds.length} product${selectedIds.length !== 1 ? 's' : ''}`);
+      setSelectedIds([]);
+    } catch {
+      toast.error('Some products failed to delete');
+    } finally {
+      setIsBatchBusy(false);
+    }
+  };
+
   return (
-    <Collapsible open={showDeleted} onOpenChange={setShowDeleted}>
+    <Collapsible open={showDeleted} onOpenChange={open => { setShowDeleted(open); if (!open) setSelectedIds([]); }}>
       <CollapsibleTrigger asChild>
         <Button variant="outline" className="w-full justify-between text-muted-foreground" data-testid="button-toggle-deleted-products">
           <span className="flex items-center gap-2">
@@ -4310,8 +4346,62 @@ function DeletedProductsSection() {
           <p className="text-sm text-muted-foreground text-center py-4">No deleted products</p>
         ) : (
           <div className="space-y-2">
+            {/* Select-all header + batch actions */}
+            <div className="flex items-center gap-3 px-2 py-1.5 border rounded-lg bg-muted/20">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={checked => setSelectedIds(checked ? deletedProducts.map((p: any) => p.id) : [])}
+              />
+              <span className="text-xs text-muted-foreground flex-1">
+                {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all'}
+              </span>
+              {selectedIds.length > 0 && (
+                <div className="flex gap-1">
+                  <Button
+                    size="sm" variant="outline" className="h-7 px-2 text-xs text-primary border-primary/30"
+                    onClick={batchRestore} disabled={isBatchBusy}
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" />
+                    Restore ({selectedIds.length})
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-destructive border-destructive/30" disabled={isBatchBusy}>
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Delete Forever ({selectedIds.length})
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Permanently Delete {selectedIds.length} Product{selectedIds.length !== 1 ? 's' : ''}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete {selectedIds.length} product{selectedIds.length !== 1 ? 's' : ''} and cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={batchPermanentDelete}>
+                          Delete Forever
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
+            </div>
+
             {deletedProducts.map((product: any) => (
-              <div key={product.id} className="flex items-center gap-3 p-2 border rounded-lg bg-muted/30" data-testid={`deleted-product-${product.id}`}>
+              <div
+                key={product.id}
+                className={`flex items-center gap-3 p-2 border rounded-lg bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50 ${selectedIds.includes(product.id) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                onClick={() => toggleSelect(product.id)}
+                data-testid={`deleted-product-${product.id}`}
+              >
+                <Checkbox
+                  checked={selectedIds.includes(product.id)}
+                  onCheckedChange={() => toggleSelect(product.id)}
+                  onClick={e => e.stopPropagation()}
+                />
                 {product.image && (
                   <img src={product.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
                 )}
@@ -4319,27 +4409,18 @@ function DeletedProductsSection() {
                   <p className="text-sm font-medium truncate">{product.name}</p>
                   <p className="text-xs text-muted-foreground">{product.productCode}</p>
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
+                <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                   <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-primary"
+                    size="sm" variant="ghost" className="h-7 px-2 text-primary"
                     onClick={() => restoreMutation.mutate(product.id)}
                     disabled={restoreMutation.isPending}
                     data-testid={`button-restore-product-${product.id}`}
                   >
-                    <RotateCcw className="w-3 h-3 mr-1" />
-                    Restore
+                    <RotateCcw className="w-3 h-3 mr-1" />Restore
                   </Button>
                   <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-destructive"
-                    onClick={() => {
-                      if (confirm('Permanently delete this product? This cannot be undone.')) {
-                        permanentDeleteMutation.mutate(product.id);
-                      }
-                    }}
+                    size="sm" variant="ghost" className="h-7 px-2 text-destructive"
+                    onClick={() => { if (confirm('Permanently delete this product? This cannot be undone.')) permanentDeleteMutation.mutate(product.id); }}
                     disabled={permanentDeleteMutation.isPending}
                     data-testid={`button-permanent-delete-product-${product.id}`}
                   >
