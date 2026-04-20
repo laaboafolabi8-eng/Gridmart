@@ -1,10 +1,24 @@
 import puppeteer from 'puppeteer';
 
+interface CustomBox {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  textAlign: 'left' | 'center' | 'right';
+  bold: boolean;
+  color: string;
+}
+
 interface PriceTagData {
   name: string;
   price: string;
   templateKey: string;
   imageUrl?: string;
+  customBoxes?: CustomBox[];
 }
 
 interface PriceTagElement {
@@ -54,6 +68,7 @@ function renderTagCell(tag: PriceTagData, tmpl: PriceTagTemplate): string {
     ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${logoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${logoUrl ? `<img src="${escapeHtml(logoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : DEFAULT_LOGO_SVG}</div>` : ''}
     ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${escapeHtml(tag.name)}</div>` : ''}
     ${price?.visible ? `<div style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${escapeHtml(tag.price)}</div>` : ''}
+    ${(tag.customBoxes || []).map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${escapeHtml(box.text)}</div>`).join('')}
   </div>`;
 }
 

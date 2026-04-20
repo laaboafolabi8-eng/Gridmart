@@ -56,6 +56,21 @@ interface PriceTagTemplate {
   customLogoUrl: string;
 }
 
+interface CustomBox {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  textAlign: 'left' | 'center' | 'right';
+  bold: boolean;
+  color: string;
+}
+
+const CEDIT = 4; // scale for the per-product custom-box mini editor
+
 function makeDefaultElements(w: number, h: number): PriceTagElement[] {
   const pad = Math.round(w * 0.03);
   // Image: right ~35% of width, full inner height
@@ -160,6 +175,16 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const [newTemplateWidth, setNewTemplateWidth] = useState('1.75');
   const [newTemplateHeight, setNewTemplateHeight] = useState('1.0');
 
+  const [productCustomizations, setProductCustomizations] = useState<Record<string, CustomBox[]>>({});
+  const [openCustomProductId, setOpenCustomProductId] = useState<string | null>(null);
+  const [selectedCustomBoxId, setSelectedCustomBoxId] = useState<string | null>(null);
+  const customDragRef = useRef<{
+    productId: string; boxId: string;
+    type: 'move' | 'resize'; handle: string;
+    startX: number; startY: number;
+    origX: number; origY: number; origW: number; origH: number;
+  } | null>(null);
+
   const logoInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -215,6 +240,40 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     load();
   }, [isOpen]);
 
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const d = customDragRef.current;
+      if (!d) return;
+      e.preventDefault();
+      const dx = (e.clientX - d.startX) / CEDIT;
+      const dy = (e.clientY - d.startY) / CEDIT;
+      setProductCustomizations(prev => {
+        const boxes = prev[d.productId] || [];
+        return {
+          ...prev,
+          [d.productId]: boxes.map(b => {
+            if (b.id !== d.boxId) return b;
+            if (d.type === 'move') {
+              return { ...b, x: Math.round(d.origX + dx), y: Math.round(d.origY + dy) };
+            }
+            const h = d.handle;
+            const rawW = d.origW + (h.includes('e') ? dx : h.includes('w') ? -dx : 0);
+            const rawH = d.origH + (h.includes('s') ? dy : h.includes('n') ? -dy : 0);
+            const newW = Math.max(20, Math.round(rawW));
+            const newH = Math.max(10, Math.round(rawH));
+            const newX = h.includes('w') ? Math.round(d.origX + d.origW - newW) : d.origX;
+            const newY = h.includes('n') ? Math.round(d.origY + d.origH - newH) : d.origY;
+            return { ...b, x: newX, y: newY, width: newW, height: newH };
+          }),
+        };
+      });
+    };
+    const onUp = () => { customDragRef.current = null; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, []);
+
   const commitToHistory = useCallback((newTemplates: Record<string, PriceTagTemplate>) => {
     const history = historyRef.current;
     if (history.isRestoring) return;
@@ -249,6 +308,35 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
 
   const canUndo = historyRef.current.pointer > 0;
   const canRedo = historyRef.current.pointer < historyRef.current.stack.length - 1;
+
+  const addCustomBox = useCallback((productId: string, tmpl: PriceTagTemplate) => {
+    const id = `cb-${Date.now()}`;
+    const box: CustomBox = {
+      id, text: 'Custom text',
+      x: Math.round(tmpl.widthPx * 0.05),
+      y: Math.round(tmpl.heightPx * 0.78),
+      width: Math.round(tmpl.widthPx * 0.9),
+      height: Math.round(tmpl.heightPx * 0.16),
+      fontSize: 7, textAlign: 'center', bold: false, color: '#000000',
+    };
+    setProductCustomizations(prev => ({ ...prev, [productId]: [...(prev[productId] || []), box] }));
+    setSelectedCustomBoxId(id);
+  }, []);
+
+  const updateCustomBox = useCallback((productId: string, boxId: string, updates: Partial<CustomBox>) => {
+    setProductCustomizations(prev => ({
+      ...prev,
+      [productId]: (prev[productId] || []).map(b => b.id === boxId ? { ...b, ...updates } : b),
+    }));
+  }, []);
+
+  const deleteCustomBox = useCallback((productId: string, boxId: string) => {
+    setProductCustomizations(prev => ({
+      ...prev,
+      [productId]: (prev[productId] || []).filter(b => b.id !== boxId),
+    }));
+    setSelectedCustomBoxId(s => s === boxId ? null : s);
+  }, []);
 
   const currentTemplate = templates[currentTemplateKey] || STANDARD_TEMPLATE;
 
@@ -574,6 +662,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
           price: formatPrice(p.price),
           templateKey: tKey,
           imageUrl: p.image || p.images?.[0] || '',
+          customBoxes: productCustomizations[p.id] || [],
         }));
       });
       const res = await fetch('/api/pricetags/generate-pdf', {
@@ -608,13 +697,14 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     const COLS = 3, ROWS = 10, PER_SHEET = COLS * ROWS;
     const SHEET_W = 816, SHEET_H = 1056;
 
-    const entries: { name: string; price: string; imageUrl: string; tmpl: typeof currentTemplate }[] = [];
+    const entries: { name: string; price: string; imageUrl: string; tmpl: typeof currentTemplate; customBoxes: CustomBox[] }[] = [];
     displayProducts.forEach(product => {
       const qty = productQuantities[product.id] || 1;
       const tmpl = templates[productTemplateKeys[product.id] || currentTemplateKey] || currentTemplate;
       const imageUrl = product.image || product.images?.[0] || '';
+      const customBoxes = productCustomizations[product.id] || [];
       for (let i = 0; i < qty; i++) {
-        entries.push({ name: product.name, price: formatPrice(product.price), imageUrl, tmpl });
+        entries.push({ name: product.name, price: formatPrice(product.price), imageUrl, tmpl, customBoxes });
       }
     });
 
@@ -642,6 +732,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
         ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
         ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}
         ${price?.visible ? `<div style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
+        ${entry.customBoxes.map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${esc(box.text)}</div>`).join('')}
       </div>`;
     };
 
@@ -663,15 +754,16 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     setTimeout(() => win.print(), 300);
   };
 
-  const renderTagPreview = (product: any, templateKey?: string) => {
+  const renderTagPreview = (product: any, templateKey?: string, scale?: number, customBoxes?: CustomBox[]) => {
     const tmpl = templates[templateKey || currentTemplateKey] || currentTemplate;
     const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
-    const s = PREVIEW_SCALE;
+    const s = scale ?? PREVIEW_SCALE;
     const imgEl = elements.find(e => e.id === 'image');
     const logo = elements.find(e => e.id === 'logo');
     const name = elements.find(e => e.id === 'name');
     const price = elements.find(e => e.id === 'price');
     const productImageUrl = product.image || (product.images?.[0]);
+    const boxes = customBoxes ?? (productCustomizations[product.id] || []);
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
         {imgEl?.visible && (
@@ -697,6 +789,11 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
             {formatPrice(product.price)}
           </div>
         )}
+        {boxes.map(box => (
+          <div key={box.id} style={{ position: 'absolute', left: box.x * s, top: box.y * s, width: box.width * s, height: box.height * s, fontSize: box.fontSize * s, fontWeight: box.bold ? 'bold' : 'normal', color: box.color, display: 'flex', alignItems: 'center', justifyContent: box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start', fontFamily: 'Arial, sans-serif', lineHeight: 1.2 }}>
+            {box.text}
+          </div>
+        ))}
       </div>
     );
   };
@@ -780,43 +877,191 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                 {/* Preview tab */}
                 <TabsContent value="preview" className="mt-0">
                   <div className="space-y-3">
-                    {displayProducts.map(product => (
-                      <div key={product.id} className="flex items-center gap-4 p-3 border rounded-lg">
-                        {renderTagPreview(product, productTemplateKeys[product.id])}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Label className="text-xs">Qty:</Label>
-                          <Input
-                            type="number" min={1}
-                            value={productQuantities[product.id] || 1}
-                            onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
-                            className="w-16 h-7 text-xs"
-                          />
-                          {templateList.length > 1 && (
-                            <Select
-                              value={productTemplateKeys[product.id] || currentTemplateKey}
-                              onValueChange={v => setProductTemplateKeys(prev => ({ ...prev, [product.id]: v }))}
-                            >
-                              <SelectTrigger className="h-7 text-xs w-40">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {templateList.map(t => (
-                                  <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                    {displayProducts.map(product => {
+                      const isOpen = openCustomProductId === product.id;
+                      const tmpl = templates[productTemplateKeys[product.id] || currentTemplateKey] || currentTemplate;
+                      const customBoxes = productCustomizations[product.id] || [];
+                      const selBox = customBoxes.find(b => b.id === selectedCustomBoxId) ?? null;
+                      const handleCornerMouseDown = (e: React.MouseEvent, boxId: string, handle: string, box: CustomBox) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        customDragRef.current = { productId: product.id, boxId, type: 'resize', handle, startX: e.clientX, startY: e.clientY, origX: box.x, origY: box.y, origW: box.width, origH: box.height };
+                      };
+                      return (
+                        <div key={product.id} className={`border rounded-lg ${isOpen ? 'ring-2 ring-primary/40' : ''}`}>
+                          {/* Main row */}
+                          <div className="flex items-center gap-4 p-3">
+                            {renderTagPreview(product, productTemplateKeys[product.id])}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{product.name}</p>
+                              <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
+                              {customBoxes.length > 0 && (
+                                <p className="text-xs text-primary mt-0.5">{customBoxes.length} custom box{customBoxes.length !== 1 ? 'es' : ''}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Label className="text-xs">Qty:</Label>
+                              <Input
+                                type="number" min={1}
+                                value={productQuantities[product.id] || 1}
+                                onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                className="w-16 h-7 text-xs"
+                              />
+                              {templateList.length > 1 && (
+                                <Select
+                                  value={productTemplateKeys[product.id] || currentTemplateKey}
+                                  onValueChange={v => setProductTemplateKeys(prev => ({ ...prev, [product.id]: v }))}
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-40">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {templateList.map(t => (
+                                      <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              <Button
+                                variant={isOpen ? 'default' : 'outline'}
+                                size="sm" className="h-7 px-2"
+                                title="Customize this tag"
+                                onClick={() => {
+                                  setOpenCustomProductId(isOpen ? null : product.id);
+                                  setSelectedCustomBoxId(null);
+                                }}
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                                onClick={() => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))}>
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Per-product custom editor */}
+                          {isOpen && (
+                            <div className="border-t p-4 bg-muted/20">
+                              <div className="flex gap-6 flex-wrap">
+                                {/* Mini editor canvas */}
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-2">Drag boxes to reposition · Click to select · Handles to resize</p>
+                                  <div
+                                    style={{ position: 'relative', width: tmpl.widthPx * CEDIT, height: tmpl.heightPx * CEDIT, userSelect: 'none', cursor: 'default' }}
+                                    onMouseDown={() => setSelectedCustomBoxId(null)}
+                                  >
+                                    {/* Background: template at CEDIT scale (non-interactive) */}
+                                    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                                      {renderTagPreview(product, productTemplateKeys[product.id], CEDIT, [])}
+                                    </div>
+                                    {/* Interactive custom boxes */}
+                                    {customBoxes.map(box => {
+                                      const isSel = selectedCustomBoxId === box.id;
+                                      return (
+                                        <div
+                                          key={box.id}
+                                          style={{
+                                            position: 'absolute',
+                                            left: box.x * CEDIT, top: box.y * CEDIT,
+                                            width: box.width * CEDIT, height: box.height * CEDIT,
+                                            border: isSel ? '2px solid #3b82f6' : '1px dashed #94a3b8',
+                                            cursor: 'move',
+                                            display: 'flex', alignItems: 'center',
+                                            justifyContent: box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                                            fontSize: box.fontSize * CEDIT,
+                                            fontWeight: box.bold ? 'bold' : 'normal',
+                                            color: box.color,
+                                            fontFamily: 'Arial, sans-serif',
+                                            lineHeight: 1.2,
+                                            overflow: 'hidden',
+                                            boxSizing: 'border-box',
+                                          }}
+                                          onMouseDown={e => {
+                                            e.stopPropagation();
+                                            setSelectedCustomBoxId(box.id);
+                                            customDragRef.current = { productId: product.id, boxId: box.id, type: 'move', handle: '', startX: e.clientX, startY: e.clientY, origX: box.x, origY: box.y, origW: box.width, origH: box.height };
+                                          }}
+                                        >
+                                          <span style={{ padding: '0 2px', pointerEvents: 'none' }}>{box.text}</span>
+                                          {/* Corner resize handles */}
+                                          {isSel && (['nw','ne','se','sw'] as const).map(handle => (
+                                            <div
+                                              key={handle}
+                                              style={{
+                                                position: 'absolute',
+                                                width: 8, height: 8,
+                                                background: 'white', border: '2px solid #3b82f6', borderRadius: '50%',
+                                                cursor: `${handle}-resize`,
+                                                ...(handle === 'nw' ? { top: -4, left: -4 } : handle === 'ne' ? { top: -4, right: -4 } : handle === 'se' ? { bottom: -4, right: -4 } : { bottom: -4, left: -4 }),
+                                              }}
+                                              onMouseDown={e => handleCornerMouseDown(e, box.id, handle, box)}
+                                            />
+                                          ))}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Controls */}
+                                <div className="flex-1 min-w-[200px] space-y-3">
+                                  <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={() => addCustomBox(product.id, tmpl)}>
+                                    <Plus className="w-3 h-3 mr-1" />Add Text Box
+                                  </Button>
+
+                                  {selBox && (
+                                    <div className="space-y-2 p-3 border rounded-md bg-background">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium">Selected box</span>
+                                        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-destructive hover:text-destructive" onClick={() => deleteCustomBox(product.id, selBox.id)}>
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                      <textarea
+                                        className="w-full text-xs border rounded p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                                        rows={2}
+                                        value={selBox.text}
+                                        onChange={e => updateCustomBox(product.id, selBox.id, { text: e.target.value })}
+                                        placeholder="Enter text…"
+                                      />
+                                      <div className="flex items-center gap-2">
+                                        <Label className="text-xs shrink-0">Size</Label>
+                                        <input
+                                          type="number" min={5} max={40} step={1}
+                                          value={selBox.fontSize}
+                                          onChange={e => updateCustomBox(product.id, selBox.id, { fontSize: Math.max(5, parseInt(e.target.value) || 7) })}
+                                          className="w-14 h-6 text-xs border rounded px-1 text-center"
+                                        />
+                                        <Button size="sm" variant={selBox.bold ? 'default' : 'outline'} className="h-6 px-2 text-xs font-bold" onClick={() => updateCustomBox(product.id, selBox.id, { bold: !selBox.bold })}>B</Button>
+                                        <input
+                                          type="color"
+                                          value={selBox.color}
+                                          onChange={e => updateCustomBox(product.id, selBox.id, { color: e.target.value })}
+                                          className="w-7 h-6 border rounded cursor-pointer p-0.5"
+                                          title="Text color"
+                                        />
+                                      </div>
+                                      <div className="flex gap-1">
+                                        {(['left','center','right'] as const).map(a => (
+                                          <Button key={a} size="sm" variant={selBox.textAlign === a ? 'default' : 'outline'} className="flex-1 h-6 text-xs" onClick={() => updateCustomBox(product.id, selBox.id, { textAlign: a })}>
+                                            {a === 'left' ? <AlignLeft className="w-3 h-3" /> : a === 'center' ? <AlignCenter className="w-3 h-3" /> : <AlignRight className="w-3 h-3" />}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {customBoxes.length === 0 && (
+                                    <p className="text-xs text-muted-foreground text-center pt-2">No custom boxes yet.<br/>Click "Add Text Box" to start.</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           )}
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                            onClick={() => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))}>
-                            <X className="w-3 h-3" />
-                          </Button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {displayProducts.length === 0 && (
                       <div className="text-center py-12 text-muted-foreground text-sm">No products selected</div>
                     )}
