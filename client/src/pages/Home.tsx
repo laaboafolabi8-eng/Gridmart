@@ -299,28 +299,6 @@ export default function Home() {
     } catch { return {}; }
   }, [siteSettings.nodeBorderColors]);
 
-  const storefrontInfo = React.useMemo(() => {
-    try {
-      return siteSettings.storefront ? JSON.parse(siteSettings.storefront) as {
-        street?: string; city?: string; province?: string; postalCode?: string;
-        phone?: string; description?: string; heroImageUrl?: string;
-        hours?: Record<string, { open: string; close: string; closed: boolean }>;
-      } : null;
-    } catch { return null; }
-  }, [siteSettings.storefront]);
-
-  const isStoreOpen = React.useMemo(() => {
-    if (!storefrontInfo?.hours) return null;
-    const now = new Date();
-    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-    const todayH = storefrontInfo.hours[dayNames[now.getDay()]];
-    if (!todayH || todayH.closed) return false;
-    const [oh, om] = todayH.open.split(':').map(Number);
-    const [ch, cm] = todayH.close.split(':').map(Number);
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    return nowMins >= oh * 60 + om && nowMins < ch * 60 + cm;
-  }, [storefrontInfo]);
-
   const nodeOpacities = React.useMemo(() => {
     try {
       return siteSettings.nodeOpacities ? JSON.parse(siteSettings.nodeOpacities) as Record<string, number> : {};
@@ -823,116 +801,228 @@ export default function Home() {
         </div>
       )}
       
-      {/* Storefront Hero */}
-      <section
-        className="relative flex items-center overflow-hidden min-h-[65vh]"
-        style={{
-          backgroundImage: storefrontInfo?.heroImageUrl ? `url(${storefrontInfo.heroImageUrl})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundColor: storefrontInfo?.heroImageUrl ? undefined : '#0f172a',
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/20" />
-        <div className="relative z-10 container mx-auto px-6 py-16 md:py-24">
-          <div className="max-w-xl">
-            <h1 className="font-display text-5xl md:text-7xl font-bold text-white mb-3 tracking-tight">GridMart</h1>
-            {storefrontInfo?.description && (
-              <p className="text-white/80 text-lg mb-5">{storefrontInfo.description}</p>
-            )}
-            <div className="space-y-2 mb-5">
-              {(storefrontInfo?.street || storefrontInfo?.city) && (
-                <div className="flex items-center gap-2 text-white/90">
-                  <MapPin className="w-4 h-4 text-primary shrink-0" />
-                  <span className="text-sm">{[storefrontInfo.street, storefrontInfo.city, storefrontInfo.province, storefrontInfo.postalCode].filter(Boolean).join(', ')}</span>
-                </div>
-              )}
-              {storefrontInfo?.phone && (
-                <div className="flex items-center gap-2 text-white/90">
-                  <Phone className="w-4 h-4 text-primary shrink-0" />
-                  <span className="text-sm">{storefrontInfo.phone}</span>
-                </div>
+      <div className="relative bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 overflow-hidden">
+        {/* Shared Node Network Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="nodeNetwork" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+                <circle cx="10" cy="10" r="3" fill="currentColor" className="text-primary" />
+                <circle cx="60" cy="30" r="2" fill="currentColor" className="text-primary" />
+                <circle cx="110" cy="15" r="3" fill="currentColor" className="text-primary" />
+                <circle cx="30" cy="60" r="2.5" fill="currentColor" className="text-primary" />
+                <circle cx="80" cy="70" r="3" fill="currentColor" className="text-primary" />
+                <circle cx="20" cy="100" r="2" fill="currentColor" className="text-primary" />
+                <circle cx="70" cy="110" r="2.5" fill="currentColor" className="text-primary" />
+                <circle cx="100" cy="90" r="2" fill="currentColor" className="text-primary" />
+                <line x1="10" y1="10" x2="60" y2="30" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+                <line x1="60" y1="30" x2="110" y2="15" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+                <line x1="60" y1="30" x2="30" y2="60" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+                <line x1="60" y1="30" x2="80" y2="70" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+                <line x1="30" y1="60" x2="20" y2="100" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+                <line x1="80" y1="70" x2="70" y2="110" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+                <line x1="80" y1="70" x2="100" y2="90" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+                <line x1="30" y1="60" x2="80" y2="70" stroke="currentColor" strokeWidth="0.5" className="text-primary" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#nodeNetwork)" />
+          </svg>
+        </div>
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-10 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-primary/15 rounded-full blur-3xl" />
+        </div>
+
+      <section className="relative pt-4 md:pt-10 pb-2">
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-3xl mx-auto text-center flex flex-col items-center space-y-4 md:space-y-6">
+            <div className="md:hidden flex items-center justify-center gap-3">
+              <Link href="/apply">
+                <Button size="sm" className="h-8 px-3 text-[13px] gap-1 text-white hover:opacity-90" style={{ backgroundColor: '#fda612', borderColor: '#fda612', borderWidth: '2px' }} data-testid="button-become-node-mobile">
+                  <HomeIcon className="w-3.5 h-3.5" />
+                  Become a Node Host
+                </Button>
+              </Link>
+              {!isAuthenticated && (
+                <Link href="/login">
+                  <Button size="sm" className="gap-1 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] px-3 h-7" data-testid="nav-mobile-sign-in-hero">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <Phone className="w-3 h-3" />
+                    Sign In
+                  </Button>
+                </Link>
               )}
             </div>
-            {isStoreOpen !== null && (
-              <div className="flex items-center gap-3 mb-6">
-                <Badge className={isStoreOpen ? 'bg-green-500 hover:bg-green-500 text-white border-0' : 'bg-red-500 hover:bg-red-500 text-white border-0'}>
-                  {isStoreOpen ? 'Open Now' : 'Closed'}
-                </Badge>
-                {storefrontInfo?.hours && (() => {
-                  const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-                  const todayH = storefrontInfo.hours![dayNames[new Date().getDay()]];
-                  if (!todayH || todayH.closed) return <span className="text-white/60 text-sm">Closed today</span>;
-                  return <span className="text-white/60 text-sm">Today: {to12h(todayH.open)} – {to12h(todayH.close)}</span>;
-                })()}
+            <h1 className={`font-display ${siteSettings.heroLine1FontSize || 'text-4xl md:text-5xl lg:text-6xl'} ${siteSettings.heroLine1Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine1Weight] || 'font-bold' : 'font-bold'} tracking-tight`} style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+              {siteSettings.heroLine1 || (siteSettingsLoaded ? 'Buy Online.' : '\u00A0')}{' '}
+              <span className={`${siteSettings.heroLine2Color ? '' : 'text-gradient'} ${siteSettings.heroLine2FontSize || ''} ${siteSettings.heroLine2Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine2Weight] || '' : ''}`} style={{ color: siteSettings.heroLine2Color || undefined }}>{siteSettings.heroLine2 || (siteSettingsLoaded ? 'Pick Up Locally.' : '')}</span>
+            </h1>
+            <p className={`${siteSettings.heroSubtitleFontSize || 'text-lg md:text-xl'} ${siteSettings.heroSubtitleColor ? '' : 'text-muted-foreground'} ${siteSettings.heroSubtitleWeight ? ({ light: 'font-light', normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold' } as Record<string, string>)[siteSettings.heroSubtitleWeight] || '' : ''} max-w-2xl`} style={{ transform: siteSettings.heroSubtitleOffset ? `translateY(${siteSettings.heroSubtitleOffset}px)` : undefined, color: siteSettings.heroSubtitleColor || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+              {siteSettings.heroSubtitle || (siteSettingsLoaded ? 'Skip shipping costs and wait times. Brand-new goods from neighborhood nodes. Less overhead, better prices.' : '\u00A0')}
+            </p>
+            {activeNodes.length > 0 && (
+              <div className="w-full max-w-2xl md:max-w-4xl" data-testid="homepage-pickup-map">
+                <div className="relative group">
+                  {!screenshotMode && (
+                    <>
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none transition-opacity duration-300 group-hover:opacity-0">
+                        <span className="text-sm font-semibold text-gray-700 bg-white/80 backdrop-blur-sm px-5 py-1 rounded-full shadow-sm">{siteSettings.mapLabel || 'Pickup Zones'}</span>
+                      </div>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none whitespace-nowrap">
+                        <span className="text-[10px] sm:text-xs font-medium text-foreground bg-white/85 backdrop-blur-sm px-4 py-1 rounded-full shadow-sm">{siteSettings.mapHint || 'Each circle contains a pickup node. Click one to view available pickup times.'}</span>
+                      </div>
+                    </>
+                  )}
+                  <div 
+                    ref={(el) => {
+                      (homeMapRef as any).current = el;
+                      (screenshotMapRef as any).current = el;
+                    }}
+                    className="overflow-hidden shadow-sm rounded-xl h-[217px] md:h-[342px] border border-primary"
+                  />
+                  {showFreezeBtn && isAdmin && !screenshotMode && (
+                    <button
+                      onClick={handleFreeze}
+                      disabled={freezeSaving}
+                      className="absolute top-2 right-2 z-[1001] bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md shadow-lg transition-colors disabled:opacity-50"
+                      data-testid="button-freeze-map"
+                    >
+                      {freezeSaving ? 'Saving...' : 'Freeze'}
+                    </button>
+                  )}
+                  {showScreenshotBtn && isAdmin && !screenshotMode && (
+                    <button
+                      onClick={() => setScreenshotMode(true)}
+                      className="absolute top-2 left-2 z-[1001] bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md shadow-lg transition-colors flex items-center gap-1"
+                      data-testid="button-screenshot-map"
+                    >
+                      <Camera className="w-3 h-3" />
+                      Fullscreen
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3 justify-center" style={{ opacity: siteSettingsLoaded ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
+                  {activeNodes.filter(n => n.latitude && n.longitude).map((node, idx) => {
+                    const isSelected = mapSelectedNode?.id === String(node.id);
+                    return (
+                      <Badge 
+                        key={node.id}
+                        variant="outline" 
+                        className="text-sm cursor-pointer transition-all hover:scale-105"
+                        style={{ 
+                          borderColor: isSelected ? (nodeSelectedStrokeColors[String(node.id)] || '#f59e0b') : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]), 
+                          color: isSelected ? (nodeSelectedFillColors[String(node.id)] || '#f59e0b') : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]),
+                          backgroundColor: isSelected ? `${nodeSelectedFillColors[String(node.id)] || '#f59e0b'}15` : 'rgba(255,255,255,0.8)',
+                        }}
+                        onClick={() => {
+                          homeMapCirclesRef.current.forEach(c => {
+                            const base = (c as any)._baseStyle;
+                            if (base) c.setOptions(base);
+                          });
+                          const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
+                          if (target) target.setOptions((target as any)._selectedStyle);
+                          if (node.latitude && node.longitude && homeMapInstanceRef.current) {
+                            homeMapInstanceRef.current.panTo({ lat: Number(node.latitude), lng: Number(node.longitude) });
+                            homeMapInstanceRef.current.setZoom(Math.max(homeMapInstanceRef.current.getZoom() || 12, 13));
+                          }
+                          setMapSelectedNode({ id: String(node.id), name: node.name, availabilityNoticeHours: (node as any).availabilityNoticeHours || 48 });
+                          fetchMapSlots(String(node.id));
+                        }}
+                        data-testid={`badge-zone-${node.id}`}
+                      >
+                        {node.name}
+                      </Badge>
+                    );
+                  })}
+                </div>
+
+                {mapSelectedNode && (
+                  <div className="mt-4 p-4 bg-white/90 backdrop-blur-sm rounded-xl border shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span className="font-display font-semibold text-sm">{mapSelectedNode.name} - Pickup Windows</span>
+                    </div>
+                    {mapSlotsLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Loading available times...</span>
+                      </div>
+                    ) : mapSlots.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No pickup windows right now. Check back later!
+                      </p>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {mapSlots.map((slot, idx) => {
+                          const { label, subLabel } = formatSlotDay(slot.date);
+                          return (
+                            <div key={slot.id || idx} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30 border">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                <Clock className="w-4 h-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm">{label}</div>
+                                <div className="text-xs text-muted-foreground">{subLabel}</div>
+                              </div>
+                              <div className="text-right text-sm">{to12h(slot.startTime)} – {to12h(slot.endTime)}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
-            <div className="flex flex-wrap gap-3">
-              <Button
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-white font-display"
-                onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
-              >
-                Shop Now
-              </Button>
-              {(storefrontInfo?.street || storefrontInfo?.city) && (
-                <Button size="lg" variant="outline" className="border-white/50 text-white hover:bg-white/10 font-display" asChild>
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent([storefrontInfo.street, storefrontInfo.city, storefrontInfo.province, storefrontInfo.postalCode].filter(Boolean).join(', '))}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <MapPin className="w-4 h-4 mr-2" />
-                    Get Directions
-                  </a>
-                </Button>
-              )}
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Feature cards */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10">
-        <section className="relative py-8">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center shrink-0 shadow-sm">
-                  <Calendar className="w-6 h-6 text-accent" />
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold mb-1">{siteSettings.feature1Title || 'Same-Day Pickup'}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {siteSettings.feature1Desc || 'Choose your time slot and pick up when it\'s convenient for you.'}
-                  </p>
-                </div>
+      <section className="relative pt-8 pb-6 lg:pt-6">
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center shrink-0 shadow-sm">
+                <Calendar className="w-6 h-6 text-accent" />
               </div>
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center shrink-0 shadow-sm">
-                  <MapPin className="w-6 h-6" style={{ color: '#fda612' }} />
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold mb-1">{siteSettings.feature2Title || 'Neighborhood Nodes'}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {siteSettings.feature2Desc || 'Pick up orders from node hosts who store inventory in their homes.'}
-                  </p>
-                </div>
+              <div>
+                <h3 className="font-display font-semibold mb-1">{siteSettings.feature1Title || 'Same-Day Pickup'}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {siteSettings.feature1Desc || 'Choose your time slot and pick up when it\'s convenient for you.'}
+                </p>
               </div>
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center shrink-0 shadow-sm">
-                  <Wallet className="w-6 h-6 text-primary" style={{ transform: 'rotate(-22.5deg)' }} />
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold mb-1">{siteSettings.feature3Title || 'Shipping-Free Pricing'}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {siteSettings.feature3Desc || 'Zero shipping charges - your neighbourhood, your savings.'}
-                  </p>
-                </div>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center shrink-0 shadow-sm">
+                <MapPin className="w-6 h-6" style={{ color: '#fda612' }} />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold mb-1">{siteSettings.feature2Title || 'Neighborhood Nodes'}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {siteSettings.feature2Desc || 'Pick up orders from node hosts who store inventory in their homes.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center shrink-0 shadow-sm">
+                <Wallet className="w-6 h-6 text-primary" style={{ transform: 'rotate(-22.5deg)' }} />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold mb-1">{siteSettings.feature3Title || 'Shipping-Free Pricing'}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {siteSettings.feature3Desc || 'Zero shipping charges - your neighbourhood, your savings.'}
+                </p>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
       </div>
 
       <main className="flex-1 py-12" id="products">
@@ -1202,127 +1292,6 @@ export default function Home() {
           )}
         </div>
       </main>
-
-      {/* Also available nearby — node pickup locations */}
-      {activeNodes.length > 0 && (
-        <section className="py-12 bg-muted/30" id="locations">
-          <div className="container mx-auto px-4">
-            <div className="mb-6">
-              <h2 className="font-display text-2xl md:text-3xl font-bold mb-1">Also available nearby</h2>
-              <p className="text-muted-foreground text-sm">Pick up orders from a neighbourhood node close to you.</p>
-            </div>
-            <div data-testid="homepage-pickup-map">
-              <div className="relative group">
-                {!screenshotMode && (
-                  <>
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none transition-opacity duration-300 group-hover:opacity-0">
-                      <span className="text-sm font-semibold text-gray-700 bg-white/80 backdrop-blur-sm px-5 py-1 rounded-full shadow-sm">{siteSettings.mapLabel || 'Pickup Zones'}</span>
-                    </div>
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none whitespace-nowrap">
-                      <span className="text-[10px] sm:text-xs font-medium text-foreground bg-white/85 backdrop-blur-sm px-4 py-1 rounded-full shadow-sm">{siteSettings.mapHint || 'Each circle contains a pickup node. Click one to view available pickup times.'}</span>
-                    </div>
-                  </>
-                )}
-                <div
-                  ref={(el) => {
-                    (homeMapRef as any).current = el;
-                    (screenshotMapRef as any).current = el;
-                  }}
-                  className="overflow-hidden shadow-sm rounded-xl h-[280px] md:h-[380px] border border-primary"
-                />
-                {showFreezeBtn && isAdmin && !screenshotMode && (
-                  <button
-                    onClick={handleFreeze}
-                    disabled={freezeSaving}
-                    className="absolute top-2 right-2 z-[1001] bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md shadow-lg transition-colors disabled:opacity-50"
-                    data-testid="button-freeze-map"
-                  >
-                    {freezeSaving ? 'Saving...' : 'Freeze'}
-                  </button>
-                )}
-                {showScreenshotBtn && isAdmin && !screenshotMode && (
-                  <button
-                    onClick={() => setScreenshotMode(true)}
-                    className="absolute top-2 left-2 z-[1001] bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md shadow-lg transition-colors flex items-center gap-1"
-                    data-testid="button-screenshot-map"
-                  >
-                    <Camera className="w-3 h-3" />
-                    Fullscreen
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 mt-3 justify-center" style={{ opacity: siteSettingsLoaded ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
-                {activeNodes.filter(n => n.latitude && n.longitude).map((node, idx) => {
-                  const isSelected = mapSelectedNode?.id === String(node.id);
-                  return (
-                    <Badge
-                      key={node.id}
-                      variant="outline"
-                      className="text-sm cursor-pointer transition-all hover:scale-105"
-                      style={{
-                        borderColor: isSelected ? (nodeSelectedStrokeColors[String(node.id)] || '#f59e0b') : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]),
-                        color: isSelected ? (nodeSelectedFillColors[String(node.id)] || '#f59e0b') : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]),
-                        backgroundColor: isSelected ? `${nodeSelectedFillColors[String(node.id)] || '#f59e0b'}15` : 'rgba(255,255,255,0.8)',
-                      }}
-                      onClick={() => {
-                        homeMapCirclesRef.current.forEach(c => {
-                          const base = (c as any)._baseStyle;
-                          if (base) c.setOptions(base);
-                        });
-                        const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
-                        if (target) target.setOptions((target as any)._selectedStyle);
-                        if (node.latitude && node.longitude && homeMapInstanceRef.current) {
-                          homeMapInstanceRef.current.panTo({ lat: Number(node.latitude), lng: Number(node.longitude) });
-                          homeMapInstanceRef.current.setZoom(Math.max(homeMapInstanceRef.current.getZoom() || 12, 13));
-                        }
-                        setMapSelectedNode({ id: String(node.id), name: node.name, availabilityNoticeHours: (node as any).availabilityNoticeHours || 48 });
-                        fetchMapSlots(String(node.id));
-                      }}
-                      data-testid={`badge-zone-${node.id}`}
-                    >
-                      {node.name}
-                    </Badge>
-                  );
-                })}
-              </div>
-              {mapSelectedNode && (
-                <div className="mt-4 p-4 bg-white/90 backdrop-blur-sm rounded-xl border shadow-sm max-w-2xl mx-auto">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span className="font-display font-semibold text-sm">{mapSelectedNode.name} - Pickup Windows</span>
-                  </div>
-                  {mapSlotsLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Loading available times...</span>
-                    </div>
-                  ) : mapSlots.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No pickup windows right now. Check back later!</p>
-                  ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {mapSlots.map((slot, idx) => {
-                        const { label, subLabel } = formatSlotDay(slot.date);
-                        return (
-                          <div key={slot.id || idx} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30 border">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <Clock className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm">{label}</div>
-                              <div className="text-xs text-muted-foreground">{subLabel}</div>
-                            </div>
-                            <div className="text-right text-sm">{to12h(slot.startTime)} – {to12h(slot.endTime)}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
 
       <Footer />
     </div>

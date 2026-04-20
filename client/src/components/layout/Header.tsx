@@ -40,16 +40,10 @@ export function Header() {
   const hasMultipleRoles = availableRoles.length > 1;
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch('/api/serving-cities');
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) setCities(data);
-      } catch (err) {
-        console.error('Failed to fetch serving cities:', err);
-      }
-    };
-    load();
+    fetch('/api/serving-cities')
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data) && data.length > 0) setCities(data); })
+      .catch(() => {});
   }, []);
   
   // Get seen notification/message IDs from localStorage (persists across sessions)
@@ -142,23 +136,6 @@ export function Header() {
                 Serving Windsor, Ontario
               </Badge>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-sm font-semibold gap-1.5 text-primary"
-              onClick={(e) => {
-                if (location === '/') {
-                  e.preventDefault();
-                  document.getElementById('locations')?.scrollIntoView({ behavior: 'smooth' });
-                }
-              }}
-              asChild
-            >
-              <a href="/#locations" data-testid="nav-pickup-locations">
-                <MapPin className="w-4 h-4" />
-                Pickup Locations
-              </a>
-            </Button>
             <span className="text-muted-foreground/30">|</span>
             <Link href="/apply">
               <Button size="sm" className="h-8 px-4 text-[15px] gap-1.5 text-white hover:opacity-90" style={{ backgroundColor: '#fda612', borderColor: '#fda612', borderWidth: '2px' }} data-testid="button-become-node">
@@ -356,23 +333,6 @@ export function Header() {
                 </PopoverContent>
               </Popover>
             )}
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              data-testid="button-locations-mobile"
-              onClick={() => {
-                if (location === '/') {
-                  document.getElementById('locations')?.scrollIntoView({ behavior: 'smooth' });
-                } else {
-                  navigate('/');
-                  setTimeout(() => document.getElementById('locations')?.scrollIntoView({ behavior: 'smooth' }), 400);
-                }
-              }}
-            >
-              <MapPin className="w-6 h-6 text-primary" />
-            </Button>
 
             <Link href="/cart">
               <Button variant="ghost" size="lg" className="relative p-2" data-testid="button-cart">
