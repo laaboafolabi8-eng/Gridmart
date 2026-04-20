@@ -21302,8 +21302,42 @@ Check other listings for more products`);
                     <Textarea placeholder="Your local grocery store..." value={storefrontInfo.description} onChange={e => setStorefrontInfo(p => ({ ...p, description: e.target.value }))} rows={2} />
                   </div>
                   <div>
-                    <Label className="text-sm">Hero Background Image URL</Label>
-                    <Input placeholder="https://..." value={storefrontInfo.heroImageUrl} onChange={e => setStorefrontInfo(p => ({ ...p, heroImageUrl: e.target.value }))} />
+                    <Label className="text-sm">Hero Background Image</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        placeholder="https://... or upload"
+                        value={storefrontInfo.heroImageUrl}
+                        onChange={e => setStorefrontInfo(p => ({ ...p, heroImageUrl: e.target.value }))}
+                        className="flex-1"
+                      />
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const url = await handleImageUpload(file);
+                            if (url) setStorefrontInfo(p => ({ ...p, heroImageUrl: url }));
+                            e.target.value = '';
+                          }}
+                        />
+                        <div className="flex items-center gap-1.5 h-9 px-3 text-sm border border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap">
+                          {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                          Upload
+                        </div>
+                      </label>
+                    </div>
+                    {storefrontInfo.heroImageUrl && (
+                      <div className="mt-2 relative w-full h-28 rounded-md overflow-hidden border">
+                        <img src={storefrontInfo.heroImageUrl} alt="Hero preview" className="w-full h-full object-cover" />
+                        <button
+                          className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs leading-none"
+                          onClick={() => setStorefrontInfo(p => ({ ...p, heroImageUrl: '' }))}
+                        >×</button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
