@@ -44,6 +44,8 @@ import {
   hostPayments, type InsertHostPayment, type HostPayment,
   landingPages, type InsertLandingPage, type LandingPage,
   savedQrCodes, type InsertSavedQrCode, type SavedQrCode,
+  productGroups, type ProductGroup,
+  productGroupMembers,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -176,6 +178,16 @@ export interface IStorage {
   getAllAdminSettings(): Promise<Record<string, string>>;
   upsertAdminSetting(key: string, value: string): Promise<void>;
   
+  // Product group operations
+  getAllProductGroups(): Promise<ProductGroup[]>;
+  createProductGroup(name: string, color: string): Promise<ProductGroup>;
+  updateProductGroup(id: string, data: { name?: string; color?: string }): Promise<ProductGroup | undefined>;
+  deleteProductGroup(id: string): Promise<boolean>;
+  getAllProductGroupMemberships(): Promise<{ productId: string; groupId: string }[]>;
+  addProductsToGroup(groupId: string, productIds: string[]): Promise<void>;
+  removeProductsFromGroup(groupId: string, productIds: string[]): Promise<void>;
+  setProductGroupMembers(groupId: string, productIds: string[]): Promise<void>;
+
   // User label template operations
   getUserLabelTemplates(userId: string): Promise<UserLabelTemplate[]>;
   upsertUserLabelTemplate(userId: string, labelSize: string, template: any): Promise<UserLabelTemplate>;
@@ -1144,6 +1156,53 @@ export class DBStorage implements IStorage {
       });
   }
   
+  // Product group operations
+  async getAllProductGroups(): Promise<ProductGroup[]> {
+    return await db.select().from(productGroups).orderBy(productGroups.createdAt);
+  }
+
+  async createProductGroup(name: string, color: string): Promise<ProductGroup> {
+    const [group] = await db.insert(productGroups).values({ name, color }).returning();
+    return group;
+  }
+
+  async updateProductGroup(id: string, data: { name?: string; color?: string }): Promise<ProductGroup | undefined> {
+    const [group] = await db.update(productGroups).set(data).where(eq(productGroups.id, id)).returning();
+    return group;
+  }
+
+  async deleteProductGroup(id: string): Promise<boolean> {
+    await db.delete(productGroupMembers).where(eq(productGroupMembers.groupId, id));
+    const result = await db.delete(productGroups).where(eq(productGroups.id, id));
+    return (result as any).rowCount > 0;
+  }
+
+  async getAllProductGroupMemberships(): Promise<{ productId: string; groupId: string }[]> {
+    return await db.select().from(productGroupMembers);
+  }
+
+  async addProductsToGroup(groupId: string, productIds: string[]): Promise<void> {
+    if (!productIds.length) return;
+    await db.insert(productGroupMembers)
+      .values(productIds.map(productId => ({ productId, groupId })))
+      .onConflictDoNothing();
+  }
+
+  async removeProductsFromGroup(groupId: string, productIds: string[]): Promise<void> {
+    if (!productIds.length) return;
+    await db.delete(productGroupMembers).where(
+      and(eq(productGroupMembers.groupId, groupId), inArray(productGroupMembers.productId, productIds))
+    );
+  }
+
+  async setProductGroupMembers(groupId: string, productIds: string[]): Promise<void> {
+    await db.delete(productGroupMembers).where(eq(productGroupMembers.groupId, groupId));
+    if (productIds.length) {
+      await db.insert(productGroupMembers)
+        .values(productIds.map(productId => ({ productId, groupId })));
+    }
+  }
+
   // User label template operations
   async getUserLabelTemplates(userId: string): Promise<UserLabelTemplate[]> {
     return await db.select().from(userLabelTemplates).where(eq(userLabelTemplates.userId, userId));

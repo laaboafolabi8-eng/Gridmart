@@ -5314,6 +5314,23 @@ export default function AdminDashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; barX: number; barY: number } | null>(null);
   
+  // Fetch product groups
+  const fetchProductGroups = async () => {
+    try {
+      const res = await fetch('/api/product-groups', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setProductGroups(data.groups || []);
+      const map: Record<string, string[]> = {};
+      (data.memberships || []).forEach(({ productId, groupId }: { productId: string; groupId: string }) => {
+        if (!map[productId]) map[productId] = [];
+        map[productId].push(groupId);
+      });
+      setProductGroupMemberships(map);
+    } catch {}
+  };
+  useEffect(() => { fetchProductGroups(); }, []);
+
   // Fetch categories from API
   const { data: categoryList = [], refetch: refetchCategories } = useQuery<Category[]>({
     queryKey: ['categories'],
@@ -5350,6 +5367,14 @@ export default function AdminDashboard() {
   const [lastSelectedProductIndex, setLastSelectedProductIndex] = useState<number | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [crateFilter, setCrateFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [productGroups, setProductGroups] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [productGroupMemberships, setProductGroupMemberships] = useState<Record<string, string[]>>({});
+  const [showAssignGroupDialog, setShowAssignGroupDialog] = useState(false);
+  const [assignGroupPending, setAssignGroupPending] = useState<Record<string, boolean>>({});
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupColor, setNewGroupColor] = useState('#6366f1');
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [showExTax, setShowExTax] = useState(false);
@@ -8250,6 +8275,7 @@ Check other listings for more products`);
   const filteredProducts = productList
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     .filter(p => categoryFilter === 'all' || p.category === categoryFilter)
+    .filter(p => groupFilter === 'all' || (productGroupMemberships[p.id] || []).includes(groupFilter))
     .filter(p => !crateProductIds || crateProductIds.has(p.id))
     .filter(p => {
       const min = parseFloat(priceMin);
@@ -8981,6 +9007,24 @@ Check other listings for more products`);
                 </SelectContent>
               </Select>
               
+              <Select value={groupFilter} onValueChange={setGroupFilter}>
+                <SelectTrigger className="w-40">
+                  <Tag className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {productGroups.map(g => (
+                    <SelectItem key={g.id} value={g.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ background: g.color }} />
+                        {g.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <div className="flex items-center gap-1">
                 <Input
                   type="number"
@@ -9377,6 +9421,23 @@ Check other listings for more products`);
                     </AlertDialogContent>
                   </AlertDialog>
                   
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const initialState: Record<string, boolean> = {};
+                      productGroups.forEach(g => {
+                        const allIn = selectedProducts.every(pid => (productGroupMemberships[pid] || []).includes(g.id));
+                        initialState[g.id] = allIn;
+                      });
+                      setAssignGroupPending(initialState);
+                      setShowAssignGroupDialog(true);
+                    }}
+                  >
+                    <Tag className="w-4 h-4 mr-2" />
+                    Groups
+                  </Button>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -12713,7 +12774,7 @@ Check other listings for more products`);
                             <div className={`w-2 h-2 rounded-full ${variantColor.dot} shrink-0 mt-1.5 hidden md:block`} title="Linked variant" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <button 
+                            <button
                               type="button"
                               className="font-display font-semibold hover:text-primary hover:underline cursor-pointer text-left line-clamp-1 text-sm md:text-base"
                               onClick={(e) => {
@@ -12723,11 +12784,23 @@ Check other listings for more products`);
                             >
                               {product.name}
                             </button>
-                            {product.variantName && (
-                              <Badge variant="outline" className={`text-[10px] md:text-xs mt-0.5 line-clamp-1 md:line-clamp-2 max-w-[80px] md:max-w-[120px] h-auto py-0.5 whitespace-normal ${variantColor ? variantColor.border.replace('border-l-', 'border-') : 'bg-primary/10 border-primary/30 text-primary'}`}>
-                                {product.variantName}
-                              </Badge>
-                            )}
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {product.variantName && (
+                                <Badge variant="outline" className={`text-[10px] md:text-xs line-clamp-1 md:line-clamp-2 max-w-[80px] md:max-w-[120px] h-auto py-0.5 whitespace-normal ${variantColor ? variantColor.border.replace('border-l-', 'border-') : 'bg-primary/10 border-primary/30 text-primary'}`}>
+                                  {product.variantName}
+                                </Badge>
+                              )}
+                              {(productGroupMemberships[product.id] || []).map(gid => {
+                                const g = productGroups.find(g => g.id === gid);
+                                if (!g) return null;
+                                return (
+                                  <span key={gid} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium" style={{ borderColor: g.color + '60', background: g.color + '18', color: g.color }}>
+                                    <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: g.color }} />
+                                    {g.name}
+                                  </span>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
@@ -25042,6 +25115,116 @@ Check other listings for more products`);
         isOpen={isPriceTagDialogOpen}
         onClose={() => setIsPriceTagDialogOpen(false)}
       />
+
+      {/* Assign Group Dialog */}
+      <Dialog open={showAssignGroupDialog} onOpenChange={setShowAssignGroupDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="w-4 h-4" />
+              Assign Groups — {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''}
+            </DialogTitle>
+            <DialogDescription>Check groups to add these products to them; uncheck to remove.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-y-auto py-1">
+            {productGroups.map(g => (
+              <label key={g.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer">
+                <Checkbox
+                  checked={!!assignGroupPending[g.id]}
+                  onCheckedChange={(v) => setAssignGroupPending(prev => ({ ...prev, [g.id]: !!v }))}
+                />
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: g.color }} />
+                <span className="text-sm flex-1">{g.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {selectedProducts.filter(pid => (productGroupMemberships[pid] || []).includes(g.id)).length}/{selectedProducts.length} in group
+                </span>
+              </label>
+            ))}
+            {productGroups.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-2">No groups yet — create one below.</p>
+            )}
+          </div>
+          <div className="border-t pt-3 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Create new group</p>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                value={newGroupColor}
+                onChange={e => setNewGroupColor(e.target.value)}
+                className="w-8 h-8 border rounded cursor-pointer p-0.5 shrink-0"
+              />
+              <Input
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                placeholder="Group name…"
+                className="h-8 text-sm flex-1"
+                onKeyDown={async e => {
+                  if (e.key === 'Enter' && newGroupName.trim()) {
+                    setIsCreatingGroup(true);
+                    try {
+                      const res = await fetch('/api/product-groups', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ name: newGroupName.trim(), color: newGroupColor }),
+                      });
+                      if (res.ok) {
+                        const g = await res.json();
+                        setProductGroups(prev => [...prev, g]);
+                        setAssignGroupPending(prev => ({ ...prev, [g.id]: true }));
+                        setNewGroupName('');
+                      }
+                    } finally { setIsCreatingGroup(false); }
+                  }
+                }}
+              />
+              <Button size="sm" className="h-8 px-3" disabled={!newGroupName.trim() || isCreatingGroup}
+                onClick={async () => {
+                  if (!newGroupName.trim()) return;
+                  setIsCreatingGroup(true);
+                  try {
+                    const res = await fetch('/api/product-groups', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ name: newGroupName.trim(), color: newGroupColor }),
+                    });
+                    if (res.ok) {
+                      const g = await res.json();
+                      setProductGroups(prev => [...prev, g]);
+                      setAssignGroupPending(prev => ({ ...prev, [g.id]: true }));
+                      setNewGroupName('');
+                    }
+                  } finally { setIsCreatingGroup(false); }
+                }}>
+                Add
+              </Button>
+            </div>
+          </div>
+          <div className="flex justify-between pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setShowAssignGroupDialog(false)}>Cancel</Button>
+            <Button size="sm" onClick={async () => {
+              const allGroupIds = productGroups.map(g => g.id);
+              await Promise.all(allGroupIds.map(async gid => {
+                const shouldBeIn = !!assignGroupPending[gid];
+                const currentlyIn = selectedProducts.some(pid => (productGroupMemberships[pid] || []).includes(gid));
+                if (shouldBeIn === currentlyIn) return;
+                await fetch(`/api/product-groups/${gid}/assign`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ productIds: selectedProducts, action: shouldBeIn ? 'add' : 'remove' }),
+                });
+              }));
+              await fetchProductGroups();
+              setShowAssignGroupDialog(false);
+              toast.success('Group assignments saved');
+            }}>
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       <LabelEditor
         products={crateLabelItems}

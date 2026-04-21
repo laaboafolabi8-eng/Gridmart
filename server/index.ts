@@ -18,6 +18,28 @@ import { db } from '../db/index';
 import { applicationStatuses } from '../shared/schema';
 import { sql } from 'drizzle-orm';
 
+async function ensureProductGroupTables() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS product_groups (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#6366f1',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS product_group_members (
+        product_id VARCHAR NOT NULL,
+        group_id VARCHAR NOT NULL,
+        PRIMARY KEY (product_id, group_id)
+      )
+    `);
+  } catch (error) {
+    console.error('Product group table creation warning:', error);
+  }
+}
+
 async function cleanupDuplicateInventory() {
   try {
     const result = await db.execute(sql`
@@ -273,6 +295,7 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      ensureProductGroupTables();
       cleanupDuplicateInventory();
       seedDefaultApplicationStatuses();
       startOrderExpirationJob(1);
