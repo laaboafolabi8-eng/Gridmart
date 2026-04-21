@@ -159,6 +159,10 @@ function formatPrice(price: any): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 }
 
+function getTagPrice(product: any): string {
+  return product._isCustom ? (product.price || '') : formatPrice(product.price);
+}
+
 function getResizeHandleStyle(handle: string): React.CSSProperties {
   const base: React.CSSProperties = {
     position: 'absolute', width: 8, height: 8, background: 'white',
@@ -374,6 +378,16 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       [productId]: (prev[productId] || []).filter(b => b.id !== boxId),
     }));
     setSelectedCustomBoxId(s => s === boxId ? null : s);
+  }, []);
+
+  const addStandaloneTag = useCallback(() => {
+    const id = `custom-${Date.now()}`;
+    setDisplayProducts(prev => [...prev, { id, name: '', price: '', _isCustom: true }]);
+    setProductQuantities(prev => ({ ...prev, [id]: 1 }));
+  }, []);
+
+  const updateStandaloneTag = useCallback((id: string, updates: { name?: string; price?: string }) => {
+    setDisplayProducts(prev => prev.map((p: any) => p.id === id ? { ...p, ...updates } : p));
   }, []);
 
   const currentTemplate = templates[currentTemplateKey] || STANDARD_TEMPLATE;
@@ -697,7 +711,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
         const tKey = productTemplateKeys[p.id] || currentTemplateKey;
         tagsByProduct[p.id] = Array.from({ length: qty }, () => ({
           name: p.name,
-          price: formatPrice(p.price),
+          price: getTagPrice(p),
           templateKey: tKey,
           imageUrl: toAbsoluteUrl(getProductImageUrl(p)),
           customBoxes: productCustomizations[p.id] || [],
@@ -741,7 +755,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       const imageUrl = toAbsoluteUrl(getProductImageUrl(product));
       const customBoxes = productCustomizations[product.id] || [];
       for (let i = 0; i < qty; i++) {
-        entries.push({ name: product.name, price: formatPrice(product.price), imageUrl, tmpl, customBoxes });
+        entries.push({ name: product.name, price: getTagPrice(product), imageUrl, tmpl, customBoxes });
       }
     });
 
@@ -811,7 +825,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       ? fitFontSize(product.name || '', name.width * s, name.height * s, true)
       : (name?.fontSize ?? 10) * s;
     const priceFontSize = (autoFitText && price)
-      ? fitFontSize(formatPrice(product.price), price.width * s, price.height * s, true)
+      ? fitFontSize(getTagPrice(product), price.width * s, price.height * s, true)
       : (price?.fontSize ?? 10) * s;
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
@@ -839,7 +853,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
         )}
         {price?.visible && (
           <div style={{ position: 'absolute', left: price.x * s, top: price.y * s, width: price.width * s, height: price.height * s, fontSize: priceFontSize, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: price.textAlign === 'center' ? 'center' : price.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: price.textAlign || 'left', fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
-            {formatPrice(product.price)}
+            {getTagPrice(product)}
           </div>
         )}
         {boxes.map(box => (
@@ -938,6 +952,15 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
 
                 {/* Preview tab */}
                 <TabsContent value="preview" className="mt-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-muted-foreground">
+                      {displayProducts.length} tag{displayProducts.length !== 1 ? 's' : ''}
+                      {displayProducts.some((p: any) => p._isCustom) && ` (${displayProducts.filter((p: any) => p._isCustom).length} custom)`}
+                    </p>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addStandaloneTag}>
+                      <Plus className="w-3 h-3 mr-1" />Add Custom Tag
+                    </Button>
+                  </div>
                   <div className="space-y-3">
                     {displayProducts.map(product => {
                       const isOpen = openCustomProductId === product.id;
@@ -950,13 +973,35 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                         customDragRef.current = { productId: product.id, boxId, type: 'resize', handle, startX: e.clientX, startY: e.clientY, origX: box.x, origY: box.y, origW: box.width, origH: box.height };
                       };
                       return (
-                        <div key={product.id} className={`border rounded-lg ${isOpen ? 'ring-2 ring-primary/40' : ''}`}>
+                        <div key={product.id} className={`border rounded-lg ${product._isCustom ? 'border-dashed border-amber-400/60' : ''} ${isOpen ? 'ring-2 ring-primary/40' : ''}`}>
                           {/* Main row */}
                           <div className="flex items-center gap-4 p-3">
                             {renderTagPreview(product, productTemplateKeys[product.id])}
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{product.name}</p>
-                              <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
+                              {product._isCustom ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">Custom</span>
+                                  </div>
+                                  <Input
+                                    value={product.name}
+                                    onChange={e => updateStandaloneTag(product.id, { name: e.target.value })}
+                                    placeholder="Product name"
+                                    className="h-7 text-sm"
+                                  />
+                                  <Input
+                                    value={product.price}
+                                    onChange={e => updateStandaloneTag(product.id, { price: e.target.value })}
+                                    placeholder="Price (e.g. $1.99)"
+                                    className="h-7 text-xs"
+                                  />
+                                </div>
+                              ) : (
+                                <>
+                                  <p className="font-medium text-sm truncate">{product.name}</p>
+                                  <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
+                                </>
+                              )}
                               {customBoxes.length > 0 && (
                                 <p className="text-xs text-primary mt-0.5">{customBoxes.length} custom box{customBoxes.length !== 1 ? 'es' : ''}</p>
                               )}
@@ -1125,7 +1170,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                       );
                     })}
                     {displayProducts.length === 0 && (
-                      <div className="text-center py-12 text-muted-foreground text-sm">No products selected</div>
+                      <div className="text-center py-12 text-muted-foreground text-sm">
+                        No products selected — use "Add Custom Tag" above to create a standalone tag.
+                      </div>
                     )}
                   </div>
                 </TabsContent>
@@ -1209,7 +1256,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           )}
                           {element.type === 'price' && (
                             <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: element.textAlign || 'left', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
-                              {formatPrice(displayProducts[0]?.price || 0)}
+                              {displayProducts[0] ? getTagPrice(displayProducts[0]) : '$0.00'}
                             </div>
                           )}
                           {/* Resize handles */}
