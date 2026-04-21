@@ -201,6 +201,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const [displayProducts, setDisplayProducts] = useState<any[]>(products);
   const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
   const [productTemplateKeys, setProductTemplateKeys] = useState<Record<string, string>>({});
+  const [productNameFontSizes, setProductNameFontSizes] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<'preview' | 'editor'>('preview');
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -715,6 +716,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
           templateKey: tKey,
           imageUrl: toAbsoluteUrl(getProductImageUrl(p)),
           customBoxes: productCustomizations[p.id] || [],
+          nameFontSize: productNameFontSizes[p.id],
         }));
       });
       const res = await fetch('/api/pricetags/generate-pdf', {
@@ -748,14 +750,14 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
 
     const SHEET_W = 816, SHEET_H = 1056;
 
-    const entries: { name: string; price: string; imageUrl: string; tmpl: typeof currentTemplate; customBoxes: CustomBox[] }[] = [];
+    const entries: { name: string; price: string; imageUrl: string; tmpl: typeof currentTemplate; customBoxes: CustomBox[]; nameFontSize?: number }[] = [];
     displayProducts.forEach(product => {
       const qty = productQuantities[product.id] || 1;
       const tmpl = templates[productTemplateKeys[product.id] || currentTemplateKey] || currentTemplate;
       const imageUrl = toAbsoluteUrl(getProductImageUrl(product));
       const customBoxes = productCustomizations[product.id] || [];
       for (let i = 0; i < qty; i++) {
-        entries.push({ name: product.name, price: getTagPrice(product), imageUrl, tmpl, customBoxes });
+        entries.push({ name: product.name, price: getTagPrice(product), imageUrl, tmpl, customBoxes, nameFontSize: productNameFontSizes[product.id] });
       }
     });
 
@@ -784,7 +786,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
         ${imgEl?.visible && entry.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${esc(entry.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
         ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
-        ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}
+        ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${entry.nameFontSize ?? name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}
         ${price?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${price.width}" data-boxh="${price.height}" data-bold="true" ` : ''}style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
         ${entry.customBoxes.map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${esc(box.text)}</div>`).join('')}
       </div>`;
@@ -811,7 +813,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     setTimeout(() => win.print(), 300);
   };
 
-  const renderTagPreview = (product: any, templateKey?: string, scale?: number, customBoxes?: CustomBox[]) => {
+  const renderTagPreview = (product: any, templateKey?: string, scale?: number, customBoxes?: CustomBox[], nameFontSizeOverride?: number) => {
     const tmpl = templates[templateKey || currentTemplateKey] || currentTemplate;
     const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
     const s = scale ?? PREVIEW_SCALE;
@@ -823,7 +825,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     const boxes = customBoxes ?? (productCustomizations[product.id] || []);
     const nameFontSize = (autoFitText && name)
       ? fitFontSize(product.name || '', name.width * s, name.height * s, true)
-      : (name?.fontSize ?? 10) * s;
+      : nameFontSizeOverride !== undefined ? nameFontSizeOverride * s : (name?.fontSize ?? 10) * s;
     const priceFontSize = (autoFitText && price)
       ? fitFontSize(getTagPrice(product), price.width * s, price.height * s, true)
       : (price?.fontSize ?? 10) * s;
@@ -976,7 +978,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                         <div key={product.id} className={`border rounded-lg ${product._isCustom ? 'border-dashed border-amber-400/60' : ''} ${isOpen ? 'ring-2 ring-primary/40' : ''}`}>
                           {/* Main row */}
                           <div className="flex items-center gap-4 p-3">
-                            {renderTagPreview(product, productTemplateKeys[product.id])}
+                            {renderTagPreview(product, productTemplateKeys[product.id], undefined, undefined, productNameFontSizes[product.id])}
                             <div className="flex-1 min-w-0">
                               {product._isCustom ? (
                                 <div className="space-y-1">
@@ -1013,6 +1015,18 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                                 value={productQuantities[product.id] || 1}
                                 onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
                                 className="w-16 h-7 text-xs"
+                              />
+                              <Label className="text-xs whitespace-nowrap" title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size'}>Title px:</Label>
+                              <Input
+                                type="number" min={4} max={200}
+                                disabled={autoFitText}
+                                value={productNameFontSizes[product.id] ?? tmpl.elements.find(e => e.id === 'name')?.fontSize ?? 10}
+                                onChange={e => {
+                                  const v = parseInt(e.target.value);
+                                  if (!isNaN(v) && v >= 4) setProductNameFontSizes(prev => ({ ...prev, [product.id]: v }));
+                                }}
+                                className="w-16 h-7 text-xs"
+                                title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size override'}
                               />
                               {templateList.length > 1 && (
                                 <Select

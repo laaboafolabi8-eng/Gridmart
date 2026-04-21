@@ -19,6 +19,7 @@ interface PriceTagData {
   templateKey: string;
   imageUrl?: string;
   customBoxes?: CustomBox[];
+  nameFontSize?: number;
 }
 
 interface PriceTagElement {
@@ -63,7 +64,7 @@ function renderTagCell(tag: PriceTagData, tmpl: PriceTagTemplate, autoFitText = 
   return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
     ${imgEl?.visible && tag.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${escapeHtml(tag.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
     ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${logoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${logoUrl ? `<img src="${escapeHtml(logoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : DEFAULT_LOGO_SVG}</div>` : ''}
-    ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${escapeHtml(tag.name)}</div>` : ''}
+    ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${tag.nameFontSize ?? name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${escapeHtml(tag.name)}</div>` : ''}
     ${price?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${price.width}" data-boxh="${price.height}" data-bold="true" ` : ''}style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${escapeHtml(tag.price)}</div>` : ''}
     ${(tag.customBoxes || []).map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${escapeHtml(box.text)}</div>`).join('')}
   </div>`;
