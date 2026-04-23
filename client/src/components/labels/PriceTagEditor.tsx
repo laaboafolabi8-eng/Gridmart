@@ -890,7 +890,7 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
         ${imgEl?.visible && entry.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${esc(entry.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
         ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
         ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-pad="${autoFitPadding}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${entry.nameFontSize ?? name.fontSize}px;overflow:hidden;display:flex;align-items:center;justify-content:${justify(name)};"><span style="font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;word-break:break-word;width:100%;text-align:${name.textAlign||'left'};">${esc(entry.name)}</span></div>` : ''}
-        ${price?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${price.width}" data-boxh="${price.height}" data-pad="${autoFitPadding}" data-bold="true" ` : ''}style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
+        ${price?.visible ? `<div style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
         ${entry.customBoxes.map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${esc(box.text)}</div>`).join('')}
       </div>`;
     };
@@ -930,9 +930,7 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
     const nameFontSize = (autoFitText && name)
       ? fitFontSize(product.name || '', (name.width - 2 * pad) * s, (name.height - 2 * pad) * s, true)
       : nameFontSizeOverride !== undefined ? nameFontSizeOverride * s : (name?.fontSize ?? 10) * s;
-    const priceFontSize = (autoFitText && price)
-      ? fitFontSize(getTagPrice(product), (price.width - 2 * pad) * s, (price.height - 2 * pad) * s, true)
-      : (price?.fontSize ?? 10) * s;
+    const priceFontSize = (price?.fontSize ?? 10) * s;
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
         {imgEl?.visible && (
