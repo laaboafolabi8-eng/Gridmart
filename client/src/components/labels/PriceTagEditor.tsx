@@ -235,6 +235,7 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
   const [snapGuides, setSnapGuides] = useState<{ type: 'v' | 'h'; pos: number }[]>([]);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [autoFitText, setAutoFitText] = useState(false);
+  const [autoFitPadding, setAutoFitPadding] = useState(4);
   const [showSessionDialog, setShowSessionDialog] = useState(false);
   const [savedSessions, setSavedSessions] = useState<TagSession[]>([]);
   const [sessionNameInput, setSessionNameInput] = useState('');
@@ -813,7 +814,7 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ tagsByProduct, templates, autoFitText }),
+        body: JSON.stringify({ tagsByProduct, templates, autoFitText, autoFitPadding }),
       });
       if (!res.ok) throw new Error('PDF generation failed');
       const blob = await res.blob();
@@ -876,8 +877,8 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
       return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
         ${imgEl?.visible && entry.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${esc(entry.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
         ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
-        ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${entry.nameFontSize ?? name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}
-        ${price?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${price.width}" data-boxh="${price.height}" data-bold="true" ` : ''}style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
+        ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-pad="${autoFitPadding}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${entry.nameFontSize ?? name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}
+        ${price?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${price.width}" data-boxh="${price.height}" data-pad="${autoFitPadding}" data-bold="true" ` : ''}style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
         ${entry.customBoxes.map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${esc(box.text)}</div>`).join('')}
       </div>`;
     };
@@ -891,7 +892,7 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
     ).join('');
 
     const fitScript = autoFitText
-      ? `<script>(function(){var els=document.querySelectorAll('[data-autofit]');for(var i=0;i<els.length;i++){var el=els[i];var text=el.textContent.trim();if(!text)continue;var bold=el.dataset.bold==='true';var boxW=parseFloat(el.dataset.boxw)||0;var boxH=parseFloat(el.dataset.boxh)||0;if(!boxW||!boxH)continue;var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var lo=4,hi=300;while(lo<hi){var mid=Math.floor((lo+hi+1)/2);ctx.font=(bold?'bold ':'')+mid+'px Arial';var w=ctx.measureText(text).width;var h=mid*1.3;if(w<=boxW&&h<=boxH){lo=mid;}else{hi=mid-1;}}el.style.fontSize=lo+'px';}})();<\/script>`
+      ? `<script>(function(){var els=document.querySelectorAll('[data-autofit]');for(var i=0;i<els.length;i++){var el=els[i];var text=el.textContent.trim();if(!text)continue;var bold=el.dataset.bold==='true';var boxW=parseFloat(el.dataset.boxw)||0;var boxH=parseFloat(el.dataset.boxh)||0;var pad=parseFloat(el.dataset.pad)||0;var effW=Math.max(1,boxW-2*pad);var effH=Math.max(1,boxH-2*pad);if(!boxW||!boxH)continue;var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var lo=4,hi=300;while(lo<hi){var mid=Math.floor((lo+hi+1)/2);ctx.font=(bold?'bold ':'')+mid+'px Arial';var w=ctx.measureText(text).width;var h=mid*1.3;if(w<=effW&&h<=effH){lo=mid;}else{hi=mid-1;}}el.style.fontSize=lo+'px';}})();<\/script>`
       : '';
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}@page{size:8.5in 11in;margin:0;}</style></head><body>${sheetsHtml}${fitScript}</body></html>`;
 
@@ -913,11 +914,12 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
     const price = elements.find(e => e.id === 'price');
     const productImageUrl = getProductImageUrl(product);
     const boxes = customBoxes ?? (productCustomizations[product.id] || []);
+    const pad = autoFitPadding;
     const nameFontSize = (autoFitText && name)
-      ? fitFontSize(product.name || '', name.width * s, name.height * s, true)
+      ? fitFontSize(product.name || '', (name.width - 2 * pad) * s, (name.height - 2 * pad) * s, true)
       : nameFontSizeOverride !== undefined ? nameFontSizeOverride * s : (name?.fontSize ?? 10) * s;
     const priceFontSize = (autoFitText && price)
-      ? fitFontSize(getTagPrice(product), price.width * s, price.height * s, true)
+      ? fitFontSize(getTagPrice(product), (price.width - 2 * pad) * s, (price.height - 2 * pad) * s, true)
       : (price?.fontSize ?? 10) * s;
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
@@ -1010,6 +1012,18 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
               />
               Auto-fit text
             </label>
+            {autoFitText && (
+              <div className="flex items-center gap-1.5 text-xs ml-1">
+                <span className="text-muted-foreground whitespace-nowrap">Padding:</span>
+                <input
+                  type="range" min={0} max={24} step={1}
+                  value={autoFitPadding}
+                  onChange={e => setAutoFitPadding(parseInt(e.target.value))}
+                  className="w-20 accent-primary cursor-pointer"
+                />
+                <span className="text-muted-foreground w-6 tabular-nums">{autoFitPadding}px</span>
+              </div>
+            )}
             <div className="flex-1" />
             <Button variant="ghost" size="sm" className="h-8 px-2" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
               <Undo2 className="w-4 h-4" />

@@ -10036,11 +10036,11 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
       if (!req.session?.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const { tagsByProduct, templates, autoFitText } = req.body;
+      const { tagsByProduct, templates, autoFitText, autoFitPadding } = req.body;
       if (!tagsByProduct || !templates) {
         return res.status(400).json({ error: "Missing tagsByProduct or templates" });
       }
-      const result = await generatePriceTagPdfs(tagsByProduct, templates, !!autoFitText);
+      const result = await generatePriceTagPdfs(tagsByProduct, templates, !!autoFitText, typeof autoFitPadding === 'number' ? autoFitPadding : 4);
       const contentType = result.type === 'pdf' ? 'application/pdf' : 'application/zip';
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
