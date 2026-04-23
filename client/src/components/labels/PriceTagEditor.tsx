@@ -1102,6 +1102,15 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                                   className="w-14 h-7 text-xs"
                                   title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size override'}
                                 />
+                                {productNameFontSizes[product.id] !== undefined && !autoFitText && (
+                                  <Button
+                                    variant="ghost" size="sm" className="h-7 px-1 text-muted-foreground hover:text-destructive -ml-1"
+                                    title="Reset to template default"
+                                    onClick={() => setProductNameFontSizes(prev => { const next = { ...prev }; delete next[product.id]; return next; })}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                )}
                               </div>
                               <div className="flex items-center gap-2">
                                 {templateList.length > 1 && (
