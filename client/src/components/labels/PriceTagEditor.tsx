@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tag, Printer, Download, X, Save, RotateCcw, Upload, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Plus, Trash2, Magnet, Pencil } from 'lucide-react';
+import { Tag, Printer, Download, X, Save, RotateCcw, Upload, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Plus, Trash2, Magnet, Pencil, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,27 @@ import {
 import { toast } from 'sonner';
 
 const INCH_TO_PX = 96;
+const SESSIONS_KEY = 'gridmart_pricetag_sessions';
+
+interface TagSession {
+  id: string;
+  name: string;
+  savedAt: string;
+  currentTemplateKey: string;
+  autoFitText: boolean;
+  products: any[];
+  productQuantities: Record<string, number>;
+  productTemplateKeys: Record<string, string>;
+  productNameFontSizes: Record<string, number>;
+  productCustomizations: Record<string, CustomBox[]>;
+}
+
+function loadSessionsFromStorage(): TagSession[] {
+  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); } catch { return []; }
+}
+function saveSessionsToStorage(sessions: TagSession[]) {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+}
 const EDITOR_SCALE = 3;
 const PREVIEW_SCALE = 2.4;
 const SNAP_THRESHOLD = 5;
@@ -213,6 +234,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const [snapGuides, setSnapGuides] = useState<{ type: 'v' | 'h'; pos: number }[]>([]);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [autoFitText, setAutoFitText] = useState(false);
+  const [showSessionDialog, setShowSessionDialog] = useState(false);
+  const [savedSessions, setSavedSessions] = useState<TagSession[]>([]);
+  const [sessionNameInput, setSessionNameInput] = useState('');
   const [showNewTemplateDialog, setShowNewTemplateDialog] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateWidth, setNewTemplateWidth] = useState('1.75');
@@ -390,6 +414,52 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const updateStandaloneTag = useCallback((id: string, updates: { name?: string; price?: string }) => {
     setDisplayProducts(prev => prev.map((p: any) => p.id === id ? { ...p, ...updates } : p));
   }, []);
+
+  const openSessionDialog = () => {
+    setSavedSessions(loadSessionsFromStorage());
+    setShowSessionDialog(true);
+  };
+
+  const saveSession = () => {
+    const name = sessionNameInput.trim();
+    if (!name) { toast.error('Enter a session name'); return; }
+    const session: TagSession = {
+      id: `session-${Date.now()}`,
+      name,
+      savedAt: new Date().toISOString(),
+      currentTemplateKey,
+      autoFitText,
+      products: displayProducts,
+      productQuantities,
+      productTemplateKeys,
+      productNameFontSizes,
+      productCustomizations,
+    };
+    const existing = loadSessionsFromStorage();
+    const updated = [session, ...existing.filter(s => s.name !== name)];
+    saveSessionsToStorage(updated);
+    setSavedSessions(updated);
+    setSessionNameInput('');
+    toast.success(`Session "${name}" saved`);
+  };
+
+  const restoreSession = (session: TagSession) => {
+    setCurrentTemplateKey(session.currentTemplateKey);
+    setAutoFitText(session.autoFitText);
+    setDisplayProducts(session.products);
+    setProductQuantities(session.productQuantities);
+    setProductTemplateKeys(session.productTemplateKeys);
+    setProductNameFontSizes(session.productNameFontSizes);
+    setProductCustomizations(session.productCustomizations);
+    setShowSessionDialog(false);
+    toast.success(`Session "${session.name}" loaded`);
+  };
+
+  const deleteSession = (id: string) => {
+    const updated = savedSessions.filter(s => s.id !== id);
+    saveSessionsToStorage(updated);
+    setSavedSessions(updated);
+  };
 
   const currentTemplate = templates[currentTemplateKey] || STANDARD_TEMPLATE;
 
@@ -933,6 +1003,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
             <Button variant="outline" size="sm" className="h-8" onClick={saveTemplates}>
               <Save className="w-3 h-3 mr-1" />Save Template
             </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={openSessionDialog}>
+              <Bookmark className="w-3 h-3 mr-1" />Sessions
+            </Button>
             <Button variant="outline" size="sm" className="h-8" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-1" />Print
             </Button>
@@ -1401,6 +1474,52 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                 );
               })}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sessions dialog */}
+      <Dialog open={showSessionDialog} onOpenChange={setShowSessionDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Tag Sessions</DialogTitle>
+            <DialogDescription>Save and restore your product selection and settings.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="flex gap-2">
+              <Input
+                value={sessionNameInput}
+                onChange={e => setSessionNameInput(e.target.value)}
+                placeholder="Session name…"
+                className="h-8 text-sm"
+                onKeyDown={e => e.key === 'Enter' && saveSession()}
+              />
+              <Button size="sm" className="h-8 shrink-0" onClick={saveSession}>
+                <Save className="w-3 h-3 mr-1" />Save
+              </Button>
+            </div>
+            {savedSessions.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No saved sessions yet.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {savedSessions.map(session => (
+                  <div key={session.id} className="flex items-center gap-2 p-2 border rounded-md hover:bg-muted/40">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{session.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {session.products.length} product{session.products.length !== 1 ? 's' : ''} · {new Date(session.savedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs shrink-0" onClick={() => restoreSession(session)}>
+                      Load
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-1.5 text-muted-foreground hover:text-destructive shrink-0" onClick={() => deleteSession(session.id)}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
