@@ -1050,7 +1050,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                       return (
                         <div key={product.id} className={`border rounded-lg ${product._isCustom ? 'border-dashed border-amber-400/60' : ''} ${isOpen ? 'ring-2 ring-primary/40' : ''}`}>
                           {/* Main row */}
-                          <div className="flex items-center gap-4 p-3">
+                          <div className="flex items-start gap-4 p-3">
                             {renderTagPreview(product, productTemplateKeys[product.id], undefined, undefined, productNameFontSizes[product.id])}
                             <div className="flex-1 min-w-0">
                               {product._isCustom ? (
@@ -1081,56 +1081,60 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                                 <p className="text-xs text-primary mt-0.5">{customBoxes.length} custom box{customBoxes.length !== 1 ? 'es' : ''}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Label className="text-xs">Qty:</Label>
-                              <Input
-                                type="number" min={1}
-                                value={productQuantities[product.id] || 1}
-                                onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
-                                className="w-16 h-7 text-xs"
-                              />
-                              <Label className="text-xs whitespace-nowrap" title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size'}>Title px:</Label>
-                              <Input
-                                type="number" min={4} max={200}
-                                disabled={autoFitText}
-                                value={productNameFontSizes[product.id] ?? tmpl.elements.find(e => e.id === 'name')?.fontSize ?? 10}
-                                onChange={e => {
-                                  const v = parseInt(e.target.value);
-                                  if (!isNaN(v) && v >= 4) setProductNameFontSizes(prev => ({ ...prev, [product.id]: v }));
-                                }}
-                                className="w-16 h-7 text-xs"
-                                title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size override'}
-                              />
-                              {templateList.length > 1 && (
-                                <Select
-                                  value={productTemplateKeys[product.id] || currentTemplateKey}
-                                  onValueChange={v => setProductTemplateKeys(prev => ({ ...prev, [product.id]: v }))}
+                            <div className="flex flex-col gap-1.5 shrink-0 items-end">
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs">Qty:</Label>
+                                <Input
+                                  type="number" min={1}
+                                  value={productQuantities[product.id] || 1}
+                                  onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                  className="w-14 h-7 text-xs"
+                                />
+                                <Label className="text-xs whitespace-nowrap" title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size'}>Title px:</Label>
+                                <Input
+                                  type="number" min={4} max={200}
+                                  disabled={autoFitText}
+                                  value={productNameFontSizes[product.id] ?? tmpl.elements.find(e => e.id === 'name')?.fontSize ?? 10}
+                                  onChange={e => {
+                                    const v = parseInt(e.target.value);
+                                    if (!isNaN(v) && v >= 4) setProductNameFontSizes(prev => ({ ...prev, [product.id]: v }));
+                                  }}
+                                  className="w-14 h-7 text-xs"
+                                  title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size override'}
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {templateList.length > 1 && (
+                                  <Select
+                                    value={productTemplateKeys[product.id] || currentTemplateKey}
+                                    onValueChange={v => setProductTemplateKeys(prev => ({ ...prev, [product.id]: v }))}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs w-36">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {templateList.map(t => (
+                                        <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                <Button
+                                  variant={isOpen ? 'default' : 'outline'}
+                                  size="sm" className="h-7 px-2"
+                                  title="Customize this tag"
+                                  onClick={() => {
+                                    setOpenCustomProductId(isOpen ? null : product.id);
+                                    setSelectedCustomBoxId(null);
+                                  }}
                                 >
-                                  <SelectTrigger className="h-7 text-xs w-40">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {templateList.map(t => (
-                                      <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              )}
-                              <Button
-                                variant={isOpen ? 'default' : 'outline'}
-                                size="sm" className="h-7 px-2"
-                                title="Customize this tag"
-                                onClick={() => {
-                                  setOpenCustomProductId(isOpen ? null : product.id);
-                                  setSelectedCustomBoxId(null);
-                                }}
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                                onClick={() => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))}>
-                                <X className="w-3 h-3" />
-                              </Button>
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
 
