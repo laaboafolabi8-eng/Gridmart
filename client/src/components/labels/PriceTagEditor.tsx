@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tag, Printer, Download, X, Save, RotateCcw, Upload, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Plus, Trash2, Magnet, Pencil } from 'lucide-react';
+import { Tag, Printer, Download, X, Save, RotateCcw, Upload, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Plus, Trash2, Magnet, Pencil, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,27 @@ import {
 import { toast } from 'sonner';
 
 const INCH_TO_PX = 96;
+const SESSIONS_KEY = 'gridmart_pricetag_sessions';
+
+interface TagSession {
+  id: string;
+  name: string;
+  savedAt: string;
+  currentTemplateKey: string;
+  autoFitText: boolean;
+  products: any[];
+  productQuantities: Record<string, number>;
+  productTemplateKeys: Record<string, string>;
+  productNameFontSizes: Record<string, number>;
+  productCustomizations: Record<string, CustomBox[]>;
+}
+
+function loadSessionsFromStorage(): TagSession[] {
+  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); } catch { return []; }
+}
+function saveSessionsToStorage(sessions: TagSession[]) {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+}
 const EDITOR_SCALE = 3;
 const PREVIEW_SCALE = 2.4;
 const SNAP_THRESHOLD = 5;
@@ -31,6 +52,7 @@ interface PriceTagEditorProps {
   products: any[];
   isOpen: boolean;
   onClose: () => void;
+  onProductUpdate?: (id: string, name: string) => void;
 }
 
 interface PriceTagElement {
@@ -54,6 +76,43 @@ interface PriceTagTemplate {
   heightIn: number;
   elements: PriceTagElement[];
   customLogoUrl: string;
+}
+
+function getProductImageUrl(product: any): string {
+  const candidates = [
+    product.image,
+    product.imageUrl,
+    ...(Array.isArray(product.images) ? product.images : []),
+  ];
+  for (const url of candidates) {
+    if (typeof url === 'string' && url.trim()) return url.trim();
+  }
+  return '';
+}
+
+function toAbsoluteUrl(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return `${window.location.origin}${url.startsWith('/') ? url : '/' + url}`;
+}
+
+function fitFontSize(text: string, boxW: number, boxH: number, bold: boolean): number {
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 12;
+    let lo = 4, hi = 300;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi + 1) / 2);
+      ctx.font = `${bold ? 'bold ' : ''}${mid}px Arial`;
+      const w = ctx.measureText(text).width;
+      const h = mid * 1.3;
+      if (w <= boxW && h <= boxH) lo = mid; else hi = mid - 1;
+    }
+    return lo;
+  } catch {
+    return 12;
+  }
 }
 
 interface CustomBox {
@@ -122,6 +181,10 @@ function formatPrice(price: any): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 }
 
+function getTagPrice(product: any): string {
+  return product._isCustom ? (product.price || '') : formatPrice(product.price);
+}
+
 function getResizeHandleStyle(handle: string): React.CSSProperties {
   const base: React.CSSProperties = {
     position: 'absolute', width: 8, height: 8, background: 'white',
@@ -151,7 +214,7 @@ function LogoContent({ customLogoUrl, size }: { customLogoUrl: string; size: num
   );
 }
 
-export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProps) {
+export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: PriceTagEditorProps) {
   const [currentTemplateKey, setCurrentTemplateKey] = useState('standard');
   const [templates, setTemplates] = useState<Record<string, PriceTagTemplate>>(
     JSON.parse(JSON.stringify(DEFAULT_TEMPLATES))
@@ -160,6 +223,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const [displayProducts, setDisplayProducts] = useState<any[]>(products);
   const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
   const [productTemplateKeys, setProductTemplateKeys] = useState<Record<string, string>>({});
+  const [productNameFontSizes, setProductNameFontSizes] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<'preview' | 'editor'>('preview');
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -170,6 +234,11 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const [marquee, setMarquee] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [snapGuides, setSnapGuides] = useState<{ type: 'v' | 'h'; pos: number }[]>([]);
   const [snapEnabled, setSnapEnabled] = useState(true);
+  const [autoFitText, setAutoFitText] = useState(false);
+  const [autoFitPadding, setAutoFitPadding] = useState(4);
+  const [showSessionDialog, setShowSessionDialog] = useState(false);
+  const [savedSessions, setSavedSessions] = useState<TagSession[]>([]);
+  const [sessionNameInput, setSessionNameInput] = useState('');
   const [showNewTemplateDialog, setShowNewTemplateDialog] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateWidth, setNewTemplateWidth] = useState('1.75');
@@ -337,6 +406,81 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     }));
     setSelectedCustomBoxId(s => s === boxId ? null : s);
   }, []);
+
+  const addStandaloneTag = useCallback(() => {
+    const id = `custom-${Date.now()}`;
+    setDisplayProducts(prev => [...prev, { id, name: '', price: '', _isCustom: true }]);
+    setProductQuantities(prev => ({ ...prev, [id]: 1 }));
+  }, []);
+
+  const updateStandaloneTag = useCallback((id: string, updates: { name?: string; price?: string }) => {
+    setDisplayProducts(prev => prev.map((p: any) => p.id === id ? { ...p, ...updates } : p));
+  }, []);
+
+  const updateProductName = useCallback(async (id: string, name: string) => {
+    setDisplayProducts(prev => prev.map((p: any) => p.id === id ? { ...p, name } : p));
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        onProductUpdate?.(id, name);
+      } else {
+        toast.error('Failed to save product name');
+      }
+    } catch {
+      toast.error('Failed to save product name');
+    }
+  }, [onProductUpdate]);
+
+  const openSessionDialog = () => {
+    setSavedSessions(loadSessionsFromStorage());
+    setShowSessionDialog(true);
+  };
+
+  const saveSession = () => {
+    const name = sessionNameInput.trim();
+    if (!name) { toast.error('Enter a session name'); return; }
+    const session: TagSession = {
+      id: `session-${Date.now()}`,
+      name,
+      savedAt: new Date().toISOString(),
+      currentTemplateKey,
+      autoFitText,
+      products: displayProducts,
+      productQuantities,
+      productTemplateKeys,
+      productNameFontSizes,
+      productCustomizations,
+    };
+    const existing = loadSessionsFromStorage();
+    const updated = [session, ...existing.filter(s => s.name !== name)];
+    saveSessionsToStorage(updated);
+    setSavedSessions(updated);
+    setSessionNameInput('');
+    toast.success(`Session "${name}" saved`);
+  };
+
+  const restoreSession = (session: TagSession) => {
+    setCurrentTemplateKey(session.currentTemplateKey);
+    setAutoFitText(session.autoFitText);
+    setDisplayProducts(session.products);
+    setProductQuantities(session.productQuantities);
+    setProductTemplateKeys(session.productTemplateKeys);
+    setProductNameFontSizes(session.productNameFontSizes);
+    setProductCustomizations(session.productCustomizations);
+    setShowSessionDialog(false);
+    toast.success(`Session "${session.name}" loaded`);
+  };
+
+  const deleteSession = (id: string) => {
+    const updated = savedSessions.filter(s => s.id !== id);
+    saveSessionsToStorage(updated);
+    setSavedSessions(updated);
+  };
 
   const currentTemplate = templates[currentTemplateKey] || STANDARD_TEMPLATE;
 
@@ -659,17 +803,18 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
         const tKey = productTemplateKeys[p.id] || currentTemplateKey;
         tagsByProduct[p.id] = Array.from({ length: qty }, () => ({
           name: p.name,
-          price: formatPrice(p.price),
+          price: getTagPrice(p),
           templateKey: tKey,
-          imageUrl: p.image || p.images?.[0] || '',
+          imageUrl: toAbsoluteUrl(getProductImageUrl(p)),
           customBoxes: productCustomizations[p.id] || [],
+          nameFontSize: productNameFontSizes[p.id],
         }));
       });
       const res = await fetch('/api/pricetags/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ tagsByProduct, templates }),
+        body: JSON.stringify({ tagsByProduct, templates, autoFitText, autoFitPadding }),
       });
       if (!res.ok) throw new Error('PDF generation failed');
       const blob = await res.blob();
@@ -696,14 +841,14 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
 
     const SHEET_W = 816, SHEET_H = 1056;
 
-    const entries: { name: string; price: string; imageUrl: string; tmpl: typeof currentTemplate; customBoxes: CustomBox[] }[] = [];
+    const entries: { name: string; price: string; imageUrl: string; tmpl: typeof currentTemplate; customBoxes: CustomBox[]; nameFontSize?: number }[] = [];
     displayProducts.forEach(product => {
       const qty = productQuantities[product.id] || 1;
       const tmpl = templates[productTemplateKeys[product.id] || currentTemplateKey] || currentTemplate;
-      const imageUrl = product.image || product.images?.[0] || '';
+      const imageUrl = toAbsoluteUrl(getProductImageUrl(product));
       const customBoxes = productCustomizations[product.id] || [];
       for (let i = 0; i < qty; i++) {
-        entries.push({ name: product.name, price: formatPrice(product.price), imageUrl, tmpl, customBoxes });
+        entries.push({ name: product.name, price: getTagPrice(product), imageUrl, tmpl, customBoxes, nameFontSize: productNameFontSizes[product.id] });
       }
     });
 
@@ -732,8 +877,8 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
         ${imgEl?.visible && entry.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${esc(entry.imageUrl)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>` : ''}
         ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
-        ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}
-        ${price?.visible ? `<div style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
+        ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-pad="${autoFitPadding}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${entry.nameFontSize ?? name.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;display:flex;align-items:center;justify-content:${justify(name)};">${esc(entry.name)}</div>` : ''}
+        ${price?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${price.width}" data-boxh="${price.height}" data-pad="${autoFitPadding}" data-bold="true" ` : ''}style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
         ${entry.customBoxes.map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${esc(box.text)}</div>`).join('')}
       </div>`;
     };
@@ -746,7 +891,10 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
       </div>`
     ).join('');
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}@page{size:8.5in 11in;margin:0;}</style></head><body>${sheetsHtml}</body></html>`;
+    const fitScript = autoFitText
+      ? `<script>(function(){var els=document.querySelectorAll('[data-autofit]');for(var i=0;i<els.length;i++){var el=els[i];var text=el.textContent.trim();if(!text)continue;var bold=el.dataset.bold==='true';var boxW=parseFloat(el.dataset.boxw)||0;var boxH=parseFloat(el.dataset.boxh)||0;var pad=parseFloat(el.dataset.pad)||0;var effW=Math.max(1,boxW-2*pad);var effH=Math.max(1,boxH-2*pad);if(!boxW||!boxH)continue;var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var lo=4,hi=300;while(lo<hi){var mid=Math.floor((lo+hi+1)/2);ctx.font=(bold?'bold ':'')+mid+'px Arial';var w=ctx.measureText(text).width;var h=mid*1.3;if(w<=effW&&h<=effH){lo=mid;}else{hi=mid-1;}}el.style.fontSize=lo+'px';}})();<\/script>`
+      : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}@page{size:8.5in 11in;margin:0;}</style></head><body>${sheetsHtml}${fitScript}</body></html>`;
 
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) { toast.error('Popup blocked — please allow popups for this site.'); return; }
@@ -756,7 +904,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     setTimeout(() => win.print(), 300);
   };
 
-  const renderTagPreview = (product: any, templateKey?: string, scale?: number, customBoxes?: CustomBox[]) => {
+  const renderTagPreview = (product: any, templateKey?: string, scale?: number, customBoxes?: CustomBox[], nameFontSizeOverride?: number) => {
     const tmpl = templates[templateKey || currentTemplateKey] || currentTemplate;
     const { widthPx, heightPx, elements, customLogoUrl } = tmpl;
     const s = scale ?? PREVIEW_SCALE;
@@ -764,16 +912,27 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
     const logo = elements.find(e => e.id === 'logo');
     const name = elements.find(e => e.id === 'name');
     const price = elements.find(e => e.id === 'price');
-    const productImageUrl = product.image || (product.images?.[0]);
+    const productImageUrl = getProductImageUrl(product);
     const boxes = customBoxes ?? (productCustomizations[product.id] || []);
+    const pad = autoFitPadding;
+    const nameFontSize = (autoFitText && name)
+      ? fitFontSize(product.name || '', (name.width - 2 * pad) * s, (name.height - 2 * pad) * s, true)
+      : nameFontSizeOverride !== undefined ? nameFontSizeOverride * s : (name?.fontSize ?? 10) * s;
+    const priceFontSize = (autoFitText && price)
+      ? fitFontSize(getTagPrice(product), (price.width - 2 * pad) * s, (price.height - 2 * pad) * s, true)
+      : (price?.fontSize ?? 10) * s;
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
         {imgEl?.visible && (
-          <div style={{ position: 'absolute', left: imgEl.x * s, top: imgEl.y * s, width: imgEl.width * s, height: imgEl.height * s, background: productImageUrl ? 'transparent' : '#f1f5f9', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {productImageUrl
-              ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              : <span style={{ fontSize: imgEl.width * s * 0.3, color: '#94a3b8' }}>📷</span>
-            }
+          <div style={{ position: 'absolute', left: imgEl.x * s, top: imgEl.y * s, width: imgEl.width * s, height: imgEl.height * s, background: '#f1f5f9', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <span style={{ position: 'absolute', fontSize: imgEl.width * s * 0.3, color: '#94a3b8' }}>📷</span>
+            {productImageUrl && (
+              <img
+                src={productImageUrl}
+                style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }}
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
           </div>
         )}
         {logo?.visible && (
@@ -782,13 +941,13 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
           </div>
         )}
         {name?.visible && (
-          <div style={{ position: 'absolute', left: name.x * s, top: name.y * s, width: name.width * s, height: name.height * s, fontSize: name.fontSize * s, fontWeight: 'bold', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: name.textAlign === 'center' ? 'center' : name.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: name.textAlign || 'left', fontFamily: 'Arial, sans-serif', lineHeight: 1.2 }}>
+          <div style={{ position: 'absolute', left: name.x * s, top: name.y * s, width: name.width * s, height: name.height * s, fontSize: nameFontSize, fontWeight: 'bold', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: name.textAlign === 'center' ? 'center' : name.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: name.textAlign || 'left', fontFamily: 'Arial, sans-serif', lineHeight: 1.2 }}>
             {product.name}
           </div>
         )}
         {price?.visible && (
-          <div style={{ position: 'absolute', left: price.x * s, top: price.y * s, width: price.width * s, height: price.height * s, fontSize: price.fontSize * s, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: price.textAlign === 'center' ? 'center' : price.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: price.textAlign || 'left', fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
-            {formatPrice(product.price)}
+          <div style={{ position: 'absolute', left: price.x * s, top: price.y * s, width: price.width * s, height: price.height * s, fontSize: priceFontSize, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: price.textAlign === 'center' ? 'center' : price.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: price.textAlign || 'left', fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
+            {getTagPrice(product)}
           </div>
         )}
         {boxes.map(box => (
@@ -844,6 +1003,27 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
             <span className="text-xs text-muted-foreground border-l pl-2 ml-1">
               {currentTemplate.widthIn}" × {currentTemplate.heightIn}"
             </span>
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none ml-2 border-l pl-3">
+              <input
+                type="checkbox"
+                checked={autoFitText}
+                onChange={e => setAutoFitText(e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-primary"
+              />
+              Auto-fit text
+            </label>
+            {autoFitText && (
+              <div className="flex items-center gap-1.5 text-xs ml-1">
+                <span className="text-muted-foreground whitespace-nowrap">Padding:</span>
+                <input
+                  type="range" min={0} max={24} step={1}
+                  value={autoFitPadding}
+                  onChange={e => setAutoFitPadding(parseInt(e.target.value))}
+                  className="w-20 accent-primary cursor-pointer"
+                />
+                <span className="text-muted-foreground w-6 tabular-nums">{autoFitPadding}px</span>
+              </div>
+            )}
             <div className="flex-1" />
             <Button variant="ghost" size="sm" className="h-8 px-2" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
               <Undo2 className="w-4 h-4" />
@@ -856,6 +1036,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
             </Button>
             <Button variant="outline" size="sm" className="h-8" onClick={saveTemplates}>
               <Save className="w-3 h-3 mr-1" />Save Template
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={openSessionDialog}>
+              <Bookmark className="w-3 h-3 mr-1" />Sessions
             </Button>
             <Button variant="outline" size="sm" className="h-8" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-1" />Print
@@ -878,6 +1061,15 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
 
                 {/* Preview tab */}
                 <TabsContent value="preview" className="mt-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-muted-foreground">
+                      {displayProducts.length} tag{displayProducts.length !== 1 ? 's' : ''}
+                      {displayProducts.some((p: any) => p._isCustom) && ` (${displayProducts.filter((p: any) => p._isCustom).length} custom)`}
+                    </p>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addStandaloneTag}>
+                      <Plus className="w-3 h-3 mr-1" />Add Custom Tag
+                    </Button>
+                  </div>
                   <div className="space-y-3">
                     {displayProducts.map(product => {
                       const isOpen = openCustomProductId === product.id;
@@ -890,55 +1082,109 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                         customDragRef.current = { productId: product.id, boxId, type: 'resize', handle, startX: e.clientX, startY: e.clientY, origX: box.x, origY: box.y, origW: box.width, origH: box.height };
                       };
                       return (
-                        <div key={product.id} className={`border rounded-lg ${isOpen ? 'ring-2 ring-primary/40' : ''}`}>
+                        <div key={product.id} className={`border rounded-lg ${product._isCustom ? 'border-dashed border-amber-400/60' : ''} ${isOpen ? 'ring-2 ring-primary/40' : ''}`}>
                           {/* Main row */}
-                          <div className="flex items-center gap-4 p-3">
-                            {renderTagPreview(product, productTemplateKeys[product.id])}
+                          <div className="flex items-start gap-4 p-3">
+                            {renderTagPreview(product, productTemplateKeys[product.id], undefined, undefined, productNameFontSizes[product.id])}
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{product.name}</p>
-                              <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
+                              {product._isCustom ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">Custom</span>
+                                  </div>
+                                  <Input
+                                    value={product.name}
+                                    onChange={e => updateStandaloneTag(product.id, { name: e.target.value })}
+                                    placeholder="Product name"
+                                    className="h-7 text-sm"
+                                  />
+                                  <Input
+                                    value={product.price}
+                                    onChange={e => updateStandaloneTag(product.id, { price: e.target.value })}
+                                    placeholder="Price (e.g. $1.99)"
+                                    className="h-7 text-xs"
+                                  />
+                                </div>
+                              ) : (
+                                <>
+                                  <Input
+                                    value={product.name}
+                                    onChange={e => setDisplayProducts(prev => prev.map((p: any) => p.id === product.id ? { ...p, name: e.target.value } : p))}
+                                    onBlur={e => { if (e.target.value !== products.find(p => p.id === product.id)?.name) updateProductName(product.id, e.target.value); }}
+                                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                    className="h-7 text-sm font-medium"
+                                    placeholder="Product name"
+                                  />
+                                  <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
+                                </>
+                              )}
                               {customBoxes.length > 0 && (
                                 <p className="text-xs text-primary mt-0.5">{customBoxes.length} custom box{customBoxes.length !== 1 ? 'es' : ''}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Label className="text-xs">Qty:</Label>
-                              <Input
-                                type="number" min={1}
-                                value={productQuantities[product.id] || 1}
-                                onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
-                                className="w-16 h-7 text-xs"
-                              />
-                              {templateList.length > 1 && (
-                                <Select
-                                  value={productTemplateKeys[product.id] || currentTemplateKey}
-                                  onValueChange={v => setProductTemplateKeys(prev => ({ ...prev, [product.id]: v }))}
+                            <div className="flex flex-col gap-1.5 shrink-0 items-end">
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs">Qty:</Label>
+                                <Input
+                                  type="number" min={1}
+                                  value={productQuantities[product.id] || 1}
+                                  onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                  className="w-14 h-7 text-xs"
+                                />
+                                <Label className="text-xs whitespace-nowrap" title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size'}>Title px:</Label>
+                                <Input
+                                  type="number" min={4} max={200}
+                                  disabled={autoFitText}
+                                  value={productNameFontSizes[product.id] ?? tmpl.elements.find(e => e.id === 'name')?.fontSize ?? 10}
+                                  onChange={e => {
+                                    const v = parseInt(e.target.value);
+                                    if (!isNaN(v) && v >= 4) setProductNameFontSizes(prev => ({ ...prev, [product.id]: v }));
+                                  }}
+                                  className="w-14 h-7 text-xs"
+                                  title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size override'}
+                                />
+                                {productNameFontSizes[product.id] !== undefined && !autoFitText && (
+                                  <Button
+                                    variant="ghost" size="sm" className="h-7 px-1 text-muted-foreground hover:text-destructive -ml-1"
+                                    title="Reset to template default"
+                                    onClick={() => setProductNameFontSizes(prev => { const next = { ...prev }; delete next[product.id]; return next; })}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {templateList.length > 1 && (
+                                  <Select
+                                    value={productTemplateKeys[product.id] || currentTemplateKey}
+                                    onValueChange={v => setProductTemplateKeys(prev => ({ ...prev, [product.id]: v }))}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs w-36">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {templateList.map(t => (
+                                        <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                <Button
+                                  variant={isOpen ? 'default' : 'outline'}
+                                  size="sm" className="h-7 px-2"
+                                  title="Customize this tag"
+                                  onClick={() => {
+                                    setOpenCustomProductId(isOpen ? null : product.id);
+                                    setSelectedCustomBoxId(null);
+                                  }}
                                 >
-                                  <SelectTrigger className="h-7 text-xs w-40">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {templateList.map(t => (
-                                      <SelectItem key={t.key} value={t.key} className="text-xs">{t.displayName}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              )}
-                              <Button
-                                variant={isOpen ? 'default' : 'outline'}
-                                size="sm" className="h-7 px-2"
-                                title="Customize this tag"
-                                onClick={() => {
-                                  setOpenCustomProductId(isOpen ? null : product.id);
-                                  setSelectedCustomBoxId(null);
-                                }}
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                                onClick={() => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))}>
-                                <X className="w-3 h-3" />
-                              </Button>
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
 
@@ -1065,7 +1311,9 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                       );
                     })}
                     {displayProducts.length === 0 && (
-                      <div className="text-center py-12 text-muted-foreground text-sm">No products selected</div>
+                      <div className="text-center py-12 text-muted-foreground text-sm">
+                        No products selected — use "Add Custom Tag" above to create a standalone tag.
+                      </div>
                     )}
                   </div>
                 </TabsContent>
@@ -1131,10 +1379,13 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           onMouseDown={e => element.visible && handleMouseDown(e, element.id)}
                         >
                           {element.type === 'image' && (() => {
-                            const imgUrl = displayProducts[0]?.image || displayProducts[0]?.images?.[0];
-                            return imgUrl
-                              ? <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                              : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: element.width * EDITOR_SCALE * 0.25, color: '#94a3b8' }}>📷</div>;
+                            const imgUrl = getProductImageUrl(displayProducts[0] || {});
+                            return (
+                              <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                <span style={{ position: 'absolute', fontSize: element.width * EDITOR_SCALE * 0.25, color: '#94a3b8' }}>📷</span>
+                                {imgUrl && <img src={imgUrl} style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
+                              </div>
+                            );
                           })()}
                           {element.type === 'logo' && (
                             <LogoContent customLogoUrl={currentTemplate.customLogoUrl} size={element.width * EDITOR_SCALE} />
@@ -1146,7 +1397,7 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                           )}
                           {element.type === 'price' && (
                             <div style={{ width: '100%', height: '100%', fontSize: element.fontSize * EDITOR_SCALE, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: element.textAlign === 'center' ? 'center' : element.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: element.textAlign || 'left', padding: '0 2px', overflow: 'hidden', fontFamily: 'Arial', color: '#1a1a1a' }}>
-                              {formatPrice(displayProducts[0]?.price || 0)}
+                              {displayProducts[0] ? getTagPrice(displayProducts[0]) : '$0.00'}
                             </div>
                           )}
                           {/* Resize handles */}
@@ -1277,6 +1528,52 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                 );
               })}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sessions dialog */}
+      <Dialog open={showSessionDialog} onOpenChange={setShowSessionDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Tag Sessions</DialogTitle>
+            <DialogDescription>Save and restore your product selection and settings.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="flex gap-2">
+              <Input
+                value={sessionNameInput}
+                onChange={e => setSessionNameInput(e.target.value)}
+                placeholder="Session name…"
+                className="h-8 text-sm"
+                onKeyDown={e => e.key === 'Enter' && saveSession()}
+              />
+              <Button size="sm" className="h-8 shrink-0" onClick={saveSession}>
+                <Save className="w-3 h-3 mr-1" />Save
+              </Button>
+            </div>
+            {savedSessions.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No saved sessions yet.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {savedSessions.map(session => (
+                  <div key={session.id} className="flex items-center gap-2 p-2 border rounded-md hover:bg-muted/40">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{session.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {session.products.length} product{session.products.length !== 1 ? 's' : ''} · {new Date(session.savedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs shrink-0" onClick={() => restoreSession(session)}>
+                      Load
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-1.5 text-muted-foreground hover:text-destructive shrink-0" onClick={() => deleteSession(session.id)}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

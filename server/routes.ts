@@ -9960,6 +9960,75 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
     }
   });
 
+  // ===== Product Groups =====
+
+  app.get("/api/product-groups", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Not authenticated" });
+      const groups = await storage.getAllProductGroups();
+      const memberships = await storage.getAllProductGroupMemberships();
+      res.json({ groups, memberships });
+    } catch (error) {
+      console.error("Get product groups error:", error);
+      res.status(500).json({ error: "Failed to get product groups" });
+    }
+  });
+
+  app.post("/api/product-groups", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Not authenticated" });
+      const { name, color } = req.body;
+      if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
+      const group = await storage.createProductGroup(name.trim(), color || '#6366f1');
+      res.json(group);
+    } catch (error) {
+      console.error("Create product group error:", error);
+      res.status(500).json({ error: "Failed to create product group" });
+    }
+  });
+
+  app.put("/api/product-groups/:id", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Not authenticated" });
+      const { name, color } = req.body;
+      const group = await storage.updateProductGroup(req.params.id, { name, color });
+      if (!group) return res.status(404).json({ error: "Group not found" });
+      res.json(group);
+    } catch (error) {
+      console.error("Update product group error:", error);
+      res.status(500).json({ error: "Failed to update product group" });
+    }
+  });
+
+  app.delete("/api/product-groups/:id", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Not authenticated" });
+      await storage.deleteProductGroup(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete product group error:", error);
+      res.status(500).json({ error: "Failed to delete product group" });
+    }
+  });
+
+  app.post("/api/product-groups/:id/assign", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Not authenticated" });
+      const { productIds, action } = req.body;
+      if (!Array.isArray(productIds)) return res.status(400).json({ error: "productIds must be an array" });
+      const groupId = req.params.id;
+      if (action === 'remove') {
+        await storage.removeProductsFromGroup(groupId, productIds);
+      } else {
+        await storage.addProductsToGroup(groupId, productIds);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Assign product group error:", error);
+      res.status(500).json({ error: "Failed to assign products to group" });
+    }
+  });
+
   // ===== Price Tag PDF Generation =====
 
   app.post("/api/pricetags/generate-pdf", async (req, res) => {
@@ -9967,11 +10036,11 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
       if (!req.session?.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const { tagsByProduct, templates } = req.body;
+      const { tagsByProduct, templates, autoFitText, autoFitPadding } = req.body;
       if (!tagsByProduct || !templates) {
         return res.status(400).json({ error: "Missing tagsByProduct or templates" });
       }
-      const result = await generatePriceTagPdfs(tagsByProduct, templates);
+      const result = await generatePriceTagPdfs(tagsByProduct, templates, !!autoFitText, typeof autoFitPadding === 'number' ? autoFitPadding : 4);
       const contentType = result.type === 'pdf' ? 'application/pdf' : 'application/zip';
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);

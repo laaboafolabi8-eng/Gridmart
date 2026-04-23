@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, varchar, text, integer, decimal, timestamp, boolean, jsonb, json, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, integer, decimal, timestamp, boolean, jsonb, json, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1167,3 +1167,23 @@ export const dropoutSurveys = pgTable("dropout_surveys", {
   email: text("email"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ===== Product Groups =====
+
+export const productGroups = pgTable("product_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  color: text("color").notNull().default('#6366f1'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const productGroupMembers = pgTable("product_group_members", {
+  productId: varchar("product_id").notNull(),
+  groupId: varchar("group_id").notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.productId, t.groupId] }),
+}));
+
+export const insertProductGroupSchema = createInsertSchema(productGroups).omit({ id: true, createdAt: true });
+export type InsertProductGroup = z.infer<typeof insertProductGroupSchema>;
+export type ProductGroup = typeof productGroups.$inferSelect;

@@ -16,7 +16,6 @@ import { startOrderExpirationJob, stopOrderExpirationJob } from './services/orde
 import { startOrderReminderJob, stopOrderReminderJob } from './services/orderReminder';
 import { db } from '../db/index';
 import { applicationStatuses } from '../shared/schema';
-import { sql } from 'drizzle-orm';
 
 async function cleanupDuplicateInventory() {
   try {
