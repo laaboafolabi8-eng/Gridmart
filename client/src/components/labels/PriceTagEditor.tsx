@@ -52,6 +52,7 @@ interface PriceTagEditorProps {
   products: any[];
   isOpen: boolean;
   onClose: () => void;
+  onProductUpdate?: (id: string, name: string) => void;
 }
 
 interface PriceTagElement {
@@ -213,7 +214,7 @@ function LogoContent({ customLogoUrl, size }: { customLogoUrl: string; size: num
   );
 }
 
-export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProps) {
+export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: PriceTagEditorProps) {
   const [currentTemplateKey, setCurrentTemplateKey] = useState('standard');
   const [templates, setTemplates] = useState<Record<string, PriceTagTemplate>>(
     JSON.parse(JSON.stringify(DEFAULT_TEMPLATES))
@@ -414,6 +415,25 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
   const updateStandaloneTag = useCallback((id: string, updates: { name?: string; price?: string }) => {
     setDisplayProducts(prev => prev.map((p: any) => p.id === id ? { ...p, ...updates } : p));
   }, []);
+
+  const updateProductName = useCallback(async (id: string, name: string) => {
+    setDisplayProducts(prev => prev.map((p: any) => p.id === id ? { ...p, name } : p));
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        onProductUpdate?.(id, name);
+      } else {
+        toast.error('Failed to save product name');
+      }
+    } catch {
+      toast.error('Failed to save product name');
+    }
+  }, [onProductUpdate]);
 
   const openSessionDialog = () => {
     setSavedSessions(loadSessionsFromStorage());
@@ -1073,7 +1093,14 @@ export function PriceTagEditor({ products, isOpen, onClose }: PriceTagEditorProp
                                 </div>
                               ) : (
                                 <>
-                                  <p className="font-medium text-sm truncate">{product.name}</p>
+                                  <Input
+                                    value={product.name}
+                                    onChange={e => setDisplayProducts(prev => prev.map((p: any) => p.id === product.id ? { ...p, name: e.target.value } : p))}
+                                    onBlur={e => { if (e.target.value !== products.find(p => p.id === product.id)?.name) updateProductName(product.id, e.target.value); }}
+                                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                    className="h-7 text-sm font-medium"
+                                    placeholder="Product name"
+                                  />
                                   <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
                                 </>
                               )}

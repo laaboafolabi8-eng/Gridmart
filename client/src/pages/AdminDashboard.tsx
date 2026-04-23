@@ -25114,6 +25114,11 @@ Check other listings for more products`);
         products={productsForLabels}
         isOpen={isPriceTagDialogOpen}
         onClose={() => setIsPriceTagDialogOpen(false)}
+        onProductUpdate={(id, name) => {
+          queryClient.setQueryData<Product[]>(['products'], prev =>
+            prev ? prev.map(p => p.id === id ? { ...p, name } : p) : prev
+          );
+        }}
       />
 
       {/* Assign Group Dialog */}
