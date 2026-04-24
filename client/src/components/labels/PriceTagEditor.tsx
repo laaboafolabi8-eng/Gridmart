@@ -810,16 +810,22 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
     setIsGenerating(true);
     try {
       const tagsByProduct: Record<string, { name: string; price: string; templateKey: string }[]> = {};
+      const pdfAfPad = autoFitText ? autoFitPadding : 0;
       displayProducts.forEach(p => {
         const qty = productQuantities[p.id] || 1;
         const tKey = productTemplateKeys[p.id] || currentTemplateKey;
+        const tmpl = templates[tKey] || currentTemplate;
+        const nameEl = tmpl.elements.find(e => e.id === 'name');
+        const nameFontSize = productNameFontSizes[p.id] !== undefined
+          ? productNameFontSizes[p.id]
+          : (nameEl ? fitFontSize(p.name || '', Math.max(1, nameEl.width - 2 * pdfAfPad), Math.max(1, nameEl.height - 2 * pdfAfPad), true) : undefined);
         tagsByProduct[p.id] = Array.from({ length: qty }, () => ({
           name: p.name,
           price: getTagPrice(p),
           templateKey: tKey,
           imageUrl: toAbsoluteUrl(getProductImageUrl(p)),
           customBoxes: productCustomizations[p.id] || [],
-          nameFontSize: productNameFontSizes[p.id],
+          nameFontSize,
         }));
       });
       const res = await fetch('/api/pricetags/generate-pdf', {
@@ -879,6 +885,7 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
     const sheetGroups: (typeof entries[0] | null)[][] = [];
     for (let i = 0; i < padded.length; i += PER_SHEET) sheetGroups.push(padded.slice(i, i + PER_SHEET));
 
+    const afPad = autoFitText ? autoFitPadding : 0;
     const renderCell = (entry: typeof entries[0] | null) => {
       if (!entry) return `<div style="width:${widthPx}px;height:${heightPx}px;outline:1px dashed rgba(0,0,0,0.15);outline-offset:-1px;"></div>`;
       const { elements, customLogoUrl } = entry.tmpl;
@@ -886,10 +893,15 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
       const logo = elements.find(e => e.id === 'logo');
       const name = elements.find(e => e.id === 'name');
       const price = elements.find(e => e.id === 'price');
+      const nameFontSz = name
+        ? (entry.nameFontSize !== undefined
+            ? entry.nameFontSize
+            : fitFontSize(entry.name || '', Math.max(1, name.width - 2 * afPad), Math.max(1, name.height - 2 * afPad), true))
+        : 10;
       return `<div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:white;overflow:hidden;outline:1px dashed rgba(0,0,0,0.25);outline-offset:-1px;">
         ${imgEl?.visible && entry.imageUrl ? `<div style="position:absolute;left:${imgEl.x}px;top:${imgEl.y}px;width:${imgEl.width}px;height:${imgEl.height}px;"><img src="${esc(entry.imageUrl)}" style="width:100%;height:100%;object-fit:contain;"></div>` : ''}
         ${logo?.visible ? `<div style="position:absolute;left:${logo.x}px;top:${logo.y}px;width:${logo.width}px;height:${logo.height}px;${customLogoUrl ? '' : 'background:#20B2AA;'}border-radius:3px;display:flex;align-items:center;justify-content:center;">${customLogoUrl ? `<img src="${esc(customLogoUrl)}" style="width:100%;height:100%;object-fit:contain;">` : LOGO_SVG}</div>` : ''}
-        ${name?.visible ? `<div ${autoFitText ? `data-autofit data-boxw="${name.width}" data-boxh="${name.height}" data-pad="${autoFitPadding}" data-bold="true" ` : ''}style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${entry.nameFontSize ?? name.fontSize}px;overflow:hidden;display:flex;align-items:flex-start;justify-content:${justify(name)};"><span style="font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;word-break:break-word;width:100%;text-align:${name.textAlign||'left'};">${esc(entry.name)}</span></div>` : ''}
+        ${name?.visible ? `<div style="position:absolute;left:${name.x}px;top:${name.y}px;width:${name.width}px;height:${name.height}px;font-size:${nameFontSz}px;overflow:hidden;display:flex;align-items:flex-start;justify-content:${justify(name)};"><span style="font-weight:bold;font-family:Arial,sans-serif;line-height:1.2;word-break:break-word;width:100%;text-align:${name.textAlign||'left'};">${esc(entry.name)}</span></div>` : ''}
         ${price?.visible ? `<div style="position:absolute;left:${price.x}px;top:${price.y}px;width:${price.width}px;height:${price.height}px;font-size:${price.fontSize}px;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:${justify(price)};color:#1a1a1a;">${esc(entry.price)}</div>` : ''}
         ${entry.customBoxes.map(box => `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;font-size:${box.fontSize}px;font-weight:${box.bold ? 'bold' : 'normal'};font-family:Arial,sans-serif;color:${box.color};display:flex;align-items:center;justify-content:${box.textAlign === 'center' ? 'center' : box.textAlign === 'right' ? 'flex-end' : 'flex-start'};line-height:1.2;">${esc(box.text)}</div>`).join('')}
       </div>`;
@@ -903,11 +915,8 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
       </div>`
     ).join('');
 
-    const fitScript = autoFitText
-      ? `<script>(function(){var LINE_H=1.2;var els=document.querySelectorAll('[data-autofit]');for(var i=0;i<els.length;i++){var el=els[i];var text=el.textContent.trim();if(!text)continue;var bold=el.dataset.bold==='true';var boxW=parseFloat(el.dataset.boxw)||0;var boxH=parseFloat(el.dataset.boxh)||0;var pad=parseFloat(el.dataset.pad)||0;var effW=Math.max(1,boxW-2*pad);var effH=Math.max(1,boxH-2*pad);if(!effW||!effH)continue;var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var words=text.split(/\s+/).filter(Boolean);var countLines=function(size){ctx.font=(bold?'bold ':'')+size+'px Arial';var spW=ctx.measureText(' ').width;var lines=1,lw=0;for(var j=0;j<words.length;j++){var w=ctx.measureText(words[j]).width;if(lw===0){lw=w;}else if(lw+spW+w>effW){lines++;lw=w;}else{lw+=spW+w;}}return lines;};var lo=4,hi=300;while(lo<hi){var mid=Math.floor((lo+hi+1)/2);if(countLines(mid)*mid*LINE_H<=effH){lo=mid;}else{hi=mid-1;}}el.style.fontSize=lo+'px';}})();<\/script>`
-      : '';
     const printScript = `<script>window.addEventListener('load',function(){window.print();});<\/script>`;
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}@page{size:8.5in 11in;margin:0;}</style></head><body>${sheetsHtml}${fitScript}${printScript}</body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:white;}@page{size:8.5in 11in;margin:0;}</style></head><body>${sheetsHtml}${printScript}</body></html>`;
 
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) { toast.error('Popup blocked — please allow popups for this site.'); return; }
