@@ -174,12 +174,12 @@ function makeDefaultElements(w: number, h: number): PriceTagElement[] {
 
 const STANDARD_TEMPLATE: PriceTagTemplate = {
   key: 'standard',
-  displayName: 'Standard (1.75" × 1")',
-  widthPx: 168,
-  heightPx: 96,
-  widthIn: 1.75,
-  heightIn: 1.0,
-  elements: makeDefaultElements(168, 96),
+  displayName: 'Standard (1.875" × 1.125")',
+  widthPx: 180,
+  heightPx: 108,
+  widthIn: 1.875,
+  heightIn: 1.125,
+  elements: makeDefaultElements(180, 108),
   customLogoUrl: '',
 };
 
