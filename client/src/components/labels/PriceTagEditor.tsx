@@ -936,9 +936,11 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
     const productImageUrl = getProductImageUrl(product);
     const boxes = customBoxes ?? (productCustomizations[product.id] || []);
     const pad = autoFitPadding;
-    const nameFontSize = (autoFitText && name)
-      ? fitFontSize(product.name || '', (name.width - 2 * pad) * s, (name.height - 2 * pad) * s, true)
-      : nameFontSizeOverride !== undefined ? nameFontSizeOverride * s : (name?.fontSize ?? 10) * s;
+    const nameFontSize = nameFontSizeOverride !== undefined
+      ? nameFontSizeOverride * s
+      : (autoFitText && name)
+        ? fitFontSize(product.name || '', (name.width - 2 * pad) * s, (name.height - 2 * pad) * s, true)
+        : (name?.fontSize ?? 10) * s;
     const priceFontSize = (price?.fontSize ?? 10) * s;
     return (
       <div style={{ position: 'relative', width: widthPx * s, height: heightPx * s, background: 'white', border: '1px solid #e2e8f0', borderRadius: 3, flexShrink: 0 }}>
@@ -1152,19 +1154,18 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
                                   onChange={e => setProductQuantities(prev => ({ ...prev, [product.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
                                   className="w-14 h-7 text-xs"
                                 />
-                                <Label className="text-xs whitespace-nowrap" title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size'}>Title px:</Label>
+                                <Label className="text-xs whitespace-nowrap" title="Title font size override">Title px:</Label>
                                 <Input
                                   type="number" min={4} max={200}
-                                  disabled={autoFitText}
                                   value={productNameFontSizes[product.id] ?? tmpl.elements.find(e => e.id === 'name')?.fontSize ?? 10}
                                   onChange={e => {
                                     const v = parseInt(e.target.value);
                                     if (!isNaN(v) && v >= 4) setProductNameFontSizes(prev => ({ ...prev, [product.id]: v }));
                                   }}
                                   className="w-14 h-7 text-xs"
-                                  title={autoFitText ? 'Disabled while auto-fit is on' : 'Title font size override'}
+                                  title="Title font size override (takes priority over auto-fit)"
                                 />
-                                {productNameFontSizes[product.id] !== undefined && !autoFitText && (
+                                {productNameFontSizes[product.id] !== undefined && (
                                   <Button
                                     variant="ghost" size="sm" className="h-7 px-1 text-muted-foreground hover:text-destructive -ml-1"
                                     title="Reset to template default"
