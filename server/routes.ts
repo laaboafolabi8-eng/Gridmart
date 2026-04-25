@@ -4622,7 +4622,7 @@ export async function registerRoutes(
           if (!nodeCurrentlyAvailable) {
             await storage.updateOrder(order.id, { hostNotificationQueued: true });
             console.log(`Order ${order.pickupCode} queued for notification (node outside availability window)`);
-          } else if (isSmsConfigured()) {
+          } else if (!order.hostNotifiedAt && isSmsConfigured()) {
             try {
               const node = await storage.getNode(order.nodeId);
               if (node) {
