@@ -8782,7 +8782,64 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
       res.status(500).json({ error: error.message || "Failed to export codes to spreadsheet" });
     }
   });
-  
+
+  // Transfer product prices to spreadsheet column F (cost column)
+  app.post("/api/spreadsheet-sync/export-prices", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { productIds } = req.body;
+
+      const syncSettings = await storage.getSpreadsheetSyncSettings();
+      const envSpreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+      const sheetId = envSpreadsheetId || syncSettings?.spreadsheetId;
+
+      if (!sheetId) {
+        return res.status(400).json({ error: "No spreadsheet configured" });
+      }
+
+      const allProducts = await storage.getAllProducts();
+      let productsToProcess = allProducts;
+
+      if (productIds && Array.isArray(productIds) && productIds.length > 0) {
+        const idSet = new Set(productIds);
+        productsToProcess = allProducts.filter((p: any) => idSet.has(p.id));
+      }
+
+      const productsWithSheet = productsToProcess.filter((p: any) =>
+        p.sheetSource === sheetId && p.sheetRow && p.price != null
+      );
+
+      if (productsWithSheet.length === 0) {
+        return res.json({ updated: 0, message: "No products with sheet references found" });
+      }
+
+      const { getSpreadsheetMetadata, batchUpdateSpreadsheetCells } = await import('./services/googleSheets');
+      const metadata = await getSpreadsheetMetadata(sheetId);
+      const sheetName = metadata.sheets?.[0]?.title || 'Sheet1';
+
+      const updates: { range: string; value: string }[] = [];
+      for (const product of productsWithSheet) {
+        updates.push({
+          range: `${sheetName}!F${product.sheetRow}`,
+          value: String(product.price),
+        });
+      }
+
+      await batchUpdateSpreadsheetCells(sheetId, updates);
+
+      res.json({
+        updated: updates.length,
+        message: `Updated ${updates.length} product price${updates.length !== 1 ? 's' : ''} to column F`,
+      });
+    } catch (error: any) {
+      console.error("Export prices error:", error);
+      res.status(500).json({ error: error.message || "Failed to export prices to spreadsheet" });
+    }
+  });
+
   // ===== AI Tag Generation Routes =====
   
   // Generate marketplace tags for products

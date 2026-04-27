@@ -255,6 +255,8 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateWidth, setNewTemplateWidth] = useState('1.75');
   const [newTemplateHeight, setNewTemplateHeight] = useState('1.0');
+  const [pushToSheetOption, setPushToSheetOption] = useState<'codes' | 'price'>('codes');
+  const [isPushingToSheet, setIsPushingToSheet] = useState(false);
 
   const [productCustomizations, setProductCustomizations] = useState<Record<string, CustomBox[]>>({});
   const [openCustomProductId, setOpenCustomProductId] = useState<string | null>(null);
@@ -806,6 +808,32 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
     commitToHistory(newTemplates);
   };
 
+  const handlePushToSheet = async () => {
+    setIsPushingToSheet(true);
+    try {
+      const productIds = displayProducts.filter((p: any) => !p._isCustom).map((p: any) => p.id);
+      const endpoint = pushToSheetOption === 'price'
+        ? '/api/spreadsheet-sync/export-prices'
+        : '/api/spreadsheet-sync/export-codes';
+      const body = pushToSheetOption === 'price'
+        ? { productIds }
+        : { columnName: 'code-G', productIds };
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Push failed');
+      toast.success(result.message || `Pushed ${pushToSheetOption} to sheet`);
+    } catch (err: any) {
+      toast.error('Push to sheet failed: ' + err.message);
+    } finally {
+      setIsPushingToSheet(false);
+    }
+  };
+
   const handleDownloadPDF = async () => {
     setIsGenerating(true);
     try {
@@ -1063,6 +1091,22 @@ export function PriceTagEditor({ products, isOpen, onClose, onProductUpdate }: P
             <Button variant="outline" size="sm" className="h-8" onClick={openSessionDialog}>
               <Bookmark className="w-3 h-3 mr-1" />Sessions
             </Button>
+            <div className="flex items-center gap-1">
+              <Select value={pushToSheetOption} onValueChange={(v) => setPushToSheetOption(v as 'codes' | 'price')}>
+                <SelectTrigger className="h-8 w-[80px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="codes">Codes</SelectItem>
+                  <SelectItem value="price">Price</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" className="h-8" onClick={handlePushToSheet} disabled={isPushingToSheet}>
+                {isPushingToSheet
+                  ? <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />Pushing...</>
+                  : <><Upload className="w-3 h-3 mr-1" />Push to Sheet</>}
+              </Button>
+            </div>
             <Button variant="outline" size="sm" className="h-8" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-1" />Print
             </Button>
