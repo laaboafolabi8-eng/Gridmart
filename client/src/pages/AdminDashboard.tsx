@@ -6376,7 +6376,7 @@ Check other listings for more products`);
         if (settings.taxEnabled !== undefined) setTaxEnabled(settings.taxEnabled !== 'false');
         if (settings.taxRate) setTaxRate(settings.taxRate);
         if (settings.taxLabel) setTaxLabel(settings.taxLabel);
-        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText'];
+        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
         const loadedCopy: Record<string, string> = {};
         copyKeys.forEach(k => { if (settings[k]) loadedCopy[k] = settings[k]; });
         if (Object.keys(loadedCopy).length > 0) setHomepageCopy(prev => ({ ...prev, ...loadedCopy }));
@@ -21656,6 +21656,59 @@ Check other listings for more products`);
                         />
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-3">
+                  <h4 className="text-sm font-semibold mb-1">Storefront Photos & Info</h4>
+                  <p className="text-xs text-muted-foreground mb-3">Shown in the hero section on the homepage. Paste image URLs (or upload to your storage and paste the URL).</p>
+                  <div>
+                    <Label className="text-sm font-medium">Exterior / Main Photo URL</Label>
+                    <Input
+                      placeholder="https://..."
+                      value={(homepageCopy as any).storefrontHeroImage || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Interior Photo URL</Label>
+                    <Input
+                      placeholder="https://... (optional — shown as a smaller strip below the main photo)"
+                      value={(homepageCopy as any).storefrontInteriorImage || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Store Address</Label>
+                    <Input
+                      placeholder="123 Main St, Windsor, ON"
+                      value={(homepageCopy as any).storefrontAddress || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontAddress: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Store Hours</Label>
+                    <Input
+                      placeholder="Mon–Fri 10am–6pm, Sat 10am–4pm"
+                      value={(homepageCopy as any).storefrontHours || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHours: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Pickup Section Title</Label>
+                    <Input
+                      placeholder="Community Pickup Locations"
+                      value={(homepageCopy as any).pickupSectionTitle || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, pickupSectionTitle: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Pickup Section Subtitle</Label>
+                    <Input
+                      placeholder="Can't make it to the store? Order online and pick up at a convenient community location near you."
+                      value={(homepageCopy as any).pickupSectionSubtitle || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, pickupSectionSubtitle: e.target.value } as any))}
+                    />
                   </div>
                 </div>
 
