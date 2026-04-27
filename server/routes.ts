@@ -8783,14 +8783,14 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
     }
   });
 
-  // Transfer product prices to spreadsheet column F (cost column)
+  // Transfer product prices to spreadsheet (finds column by header name)
   app.post("/api/spreadsheet-sync/export-prices", async (req, res) => {
     try {
       if (!req.session?.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { productIds } = req.body;
+      const { productIds, columnName = 'Default Unit Cost' } = req.body;
 
       const syncSettings = await storage.getSpreadsheetSyncSettings();
       const envSpreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
@@ -8816,14 +8816,34 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
         return res.json({ updated: 0, message: "No products with sheet references found" });
       }
 
-      const { getSpreadsheetMetadata, batchUpdateSpreadsheetCells } = await import('./services/googleSheets');
+      const { getSpreadsheetData, getSpreadsheetMetadata, batchUpdateSpreadsheetCells } = await import('./services/googleSheets');
       const metadata = await getSpreadsheetMetadata(sheetId);
       const sheetName = metadata.sheets?.[0]?.title || 'Sheet1';
+      const rows = await getSpreadsheetData(sheetId, sheetName);
+
+      if (rows.length === 0) {
+        return res.status(400).json({ error: "Spreadsheet is empty" });
+      }
+
+      const headerRow = rows[0];
+      const targetColIndex = headerRow.findIndex((h: string) =>
+        h && h.toString().toLowerCase().trim() === columnName.toLowerCase().trim()
+      );
+
+      if (targetColIndex === -1) {
+        return res.status(400).json({
+          error: `Column "${columnName}" not found in spreadsheet. Available columns: ${headerRow.join(', ')}`,
+        });
+      }
+
+      const colLetter = targetColIndex < 26
+        ? String.fromCharCode(65 + targetColIndex)
+        : String.fromCharCode(64 + Math.floor(targetColIndex / 26)) + String.fromCharCode(65 + (targetColIndex % 26));
 
       const updates: { range: string; value: string }[] = [];
       for (const product of productsWithSheet) {
         updates.push({
-          range: `${sheetName}!F${product.sheetRow}`,
+          range: `${sheetName}!${colLetter}${product.sheetRow}`,
           value: String(product.price),
         });
       }
@@ -8832,7 +8852,7 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
 
       res.json({
         updated: updates.length,
-        message: `Updated ${updates.length} product price${updates.length !== 1 ? 's' : ''} to column F`,
+        message: `Updated ${updates.length} product price${updates.length !== 1 ? 's' : ''} to "${columnName}" column`,
       });
     } catch (error: any) {
       console.error("Export prices error:", error);
