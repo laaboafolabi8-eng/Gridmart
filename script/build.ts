@@ -1,9 +1,25 @@
-import { build as esbuild } from "esbuild";
-import { build as viteBuild } from "vite";
-import { rm, readFile } from "fs/promises";
+import { spawnSync } from "child_process";
 
-// server deps to bundle to reduce openat(2) syscalls
-// which helps cold start times
+if (!process.env.BUILD_HEAP_BUMPED) {
+  const result = spawnSync(
+    process.execPath,
+    [...process.execArgv, ...process.argv.slice(1)],
+    {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --max-old-space-size=4096`.trim(),
+        BUILD_HEAP_BUMPED: "1",
+      },
+    },
+  );
+  process.exit(result.status ?? 1);
+}
+
+const { build: esbuild } = await import("esbuild");
+const { build: viteBuild } = await import("vite");
+const { rm, readFile } = await import("fs/promises");
+
 const allowlist = [
   "@google/generative-ai",
   "axios",
