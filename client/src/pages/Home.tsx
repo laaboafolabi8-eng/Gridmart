@@ -896,22 +896,18 @@ export default function Home() {
                 {siteSettings.heroSubtitle || (siteSettingsLoaded ? 'Browse our curated selection in person, or order online for local pickup.' : '\u00A0')}
               </p>
 
-              {(siteSettings.storefrontAddress || siteSettings.storefrontHours) && (
-                <div className="space-y-2 pt-1">
-                  {siteSettings.storefrontAddress && (
-                    <div className="flex items-start gap-2 text-sm text-foreground/80">
-                      <MapPin className="w-4 h-4 mt-0.5 text-primary shrink-0" />
-                      <span>{siteSettings.storefrontAddress}</span>
-                    </div>
-                  )}
-                  {siteSettings.storefrontHours && (
-                    <div className="flex items-start gap-2 text-sm text-foreground/80">
-                      <Clock className="w-4 h-4 mt-0.5 text-primary shrink-0" />
-                      <span>{siteSettings.storefrontHours}</span>
-                    </div>
-                  )}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-start gap-2 text-sm text-foreground/80">
+                  <MapPin className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                  <span>{siteSettings.storefrontAddress || '3176 Walker Rd, Windsor'}</span>
                 </div>
-              )}
+                {siteSettings.storefrontHours && (
+                  <div className="flex items-start gap-2 text-sm text-foreground/80">
+                    <Clock className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                    <span>{siteSettings.storefrontHours}</span>
+                  </div>
+                )}
+              </div>
 
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button size="lg" onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>
