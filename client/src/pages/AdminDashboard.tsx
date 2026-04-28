@@ -5407,6 +5407,7 @@ export default function AdminDashboard() {
   const [isInventorySheetSyncing, setIsInventorySheetSyncing] = useState(false);
   const [globalStoreCode, setGlobalStoreCode] = useState('');
   const [isStoreCodeSaving, setIsStoreCodeSaving] = useState(false);
+  const [pushSheetOption, setPushSheetOption] = useState<'codes' | 'price'>('codes');
 
   useEffect(() => {
     fetch('/api/admin-settings/google_store_code', { credentials: 'include' })
@@ -9955,40 +9956,54 @@ Check other listings for more products`);
                     </PopoverContent>
                   </Popover>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        toast.info('Pushing codes to spreadsheet...');
-                        const response = await fetch('/api/spreadsheet-sync/export-codes', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          credentials: 'include',
-                          body: JSON.stringify({ 
-                            columnName: 'code-G',
-                            productIds: selectedProducts 
-                          }),
-                        });
-                        if (!response.ok) {
-                          const err = await response.json();
-                          throw new Error(err.error || 'Export failed');
+                  <div className="flex items-center gap-1">
+                    <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
+                      <SelectTrigger className="h-8 w-24 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="codes">Codes</SelectItem>
+                        <SelectItem value="price">Price</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          toast.info(`Pushing ${pushSheetOption} to spreadsheet...`);
+                          const endpoint = pushSheetOption === 'price'
+                            ? '/api/spreadsheet-sync/export-prices'
+                            : '/api/spreadsheet-sync/export-codes';
+                          const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                              columnName: pushSheetOption === 'price' ? 'Default Unit Cost' : 'code-G',
+                              productIds: selectedProducts,
+                            }),
+                          });
+                          if (!response.ok) {
+                            const err = await response.json();
+                            throw new Error(err.error || 'Export failed');
+                          }
+                          const result = await response.json();
+                          if (result.updated > 0) {
+                            toast.success(`Pushed ${result.updated} product ${pushSheetOption === 'price' ? 'prices' : 'codes'} to sheet`);
+                          } else {
+                            toast.info(result.message || 'Nothing to push');
+                          }
+                        } catch (err: any) {
+                          toast.error('Push failed: ' + err.message);
                         }
-                        const result = await response.json();
-                        if (result.updated > 0) {
-                          toast.success(`Pushed ${result.updated} product codes to sheet`);
-                        } else {
-                          toast.info(result.message || 'No codes to push (already filled or no sheet reference)');
-                        }
-                      } catch (err: any) {
-                        toast.error('Push failed: ' + err.message);
-                      }
-                    }}
-                    data-testid="button-push-codes-sticky"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Push Codes
-                  </Button>
+                      }}
+                      data-testid="button-push-codes-sticky"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Push to Sheet
+                    </Button>
+                  </div>
                   
                   <div className="flex items-center gap-2">
                     <Label className="text-xs whitespace-nowrap">Store Code:</Label>
@@ -11682,35 +11697,51 @@ Check other listings for more products`);
                                 {isSheetSyncing ? 'Syncing...' : `Sync ${sheetSyncMode === 'new' ? '(New Only)' : sheetSyncMode === 'manual' ? '(Selected Rows)' : '(All Rows)'}`}
                               </Button>
                               
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    toast.info('Exporting product codes to spreadsheet...');
-                                    const response = await fetch('/api/spreadsheet-sync/export-codes', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      credentials: 'include',
-                                      body: JSON.stringify({ columnName: 'code-G' }),
-                                    });
-                                    if (!response.ok) {
-                                      const err = await response.json();
-                                      throw new Error(err.error || 'Export failed');
+                              <div className="flex items-center gap-1">
+                                <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
+                                  <SelectTrigger className="h-8 w-24 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="codes">Codes</SelectItem>
+                                    <SelectItem value="price">Price</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      toast.info(`Pushing ${pushSheetOption} to spreadsheet...`);
+                                      const endpoint = pushSheetOption === 'price'
+                                        ? '/api/spreadsheet-sync/export-prices'
+                                        : '/api/spreadsheet-sync/export-codes';
+                                      const response = await fetch(endpoint, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        credentials: 'include',
+                                        body: JSON.stringify({
+                                          columnName: pushSheetOption === 'price' ? 'Default Unit Cost' : 'code-G',
+                                        }),
+                                      });
+                                      if (!response.ok) {
+                                        const err = await response.json();
+                                        throw new Error(err.error || 'Export failed');
+                                      }
+                                      const result = await response.json();
+                                      toast.success(`Pushed ${result.updated} product ${pushSheetOption === 'price' ? 'prices' : 'codes'} to sheet`);
+                                    } catch (err: any) {
+                                      toast.error('Push failed: ' + err.message);
                                     }
-                                    const result = await response.json();
-                                    toast.success(`Exported ${result.updated} product codes to column G`);
-                                  } catch (err: any) {
-                                    toast.error('Export failed: ' + err.message);
-                                  }
-                                }}
-                                disabled={isSheetSyncing}
-                                data-testid="button-export-codes"
-                              >
-                                <Upload className="w-4 h-4 mr-1" />
-                                Push Codes to Sheet
-                              </Button>
+                                  }}
+                                  disabled={isSheetSyncing}
+                                  data-testid="button-export-codes"
+                                >
+                                  <Upload className="w-4 h-4 mr-1" />
+                                  Push to Sheet
+                                </Button>
+                              </div>
                               
                               <a
                                 href="https://docs.google.com/spreadsheets/d/17sLz-qN8wnGn2kdBWVg6LJ6ZjxhwX37-K8S8Sx-Yl70/edit"
