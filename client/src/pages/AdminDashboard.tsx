@@ -5444,6 +5444,8 @@ export default function AdminDashboard() {
     longitude: null as number | null,
     pickupInstructions: '',
     status: 'active' as 'active' | 'inactive',
+    nodeType: 'residential' as 'residential' | 'storefront',
+    storeHours: '',
   });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAddNodeKitDialogOpen, setIsAddNodeKitDialogOpen] = useState(false);
@@ -15752,9 +15754,34 @@ Check other listings for more products`);
                         />
                       </div>
                       <div className="flex items-center justify-between">
+                        <Label>Node Type</Label>
+                        <Select
+                          value={newNode.nodeType}
+                          onValueChange={(v) => setNewNode({ ...newNode, nodeType: v as 'residential' | 'storefront' })}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="residential">Residential</SelectItem>
+                            <SelectItem value="storefront">Storefront</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {newNode.nodeType === 'storefront' && (
+                        <div>
+                          <Label>Store Hours</Label>
+                          <Input
+                            value={newNode.storeHours}
+                            onChange={(e) => setNewNode({ ...newNode, storeHours: e.target.value })}
+                            placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
                         <Label>Status</Label>
-                        <Select 
-                          value={newNode.status} 
+                        <Select
+                          value={newNode.status}
                           onValueChange={(v) => setNewNode({ ...newNode, status: v as 'active' | 'inactive' })}
                         >
                           <SelectTrigger className="w-32">
@@ -15810,6 +15837,8 @@ Check other listings for more products`);
                               longitude: null,
                               pickupInstructions: '',
                               status: 'active',
+                              nodeType: 'residential',
+                              storeHours: '',
                             });
                             setIsAddNodeDialogOpen(false);
                           } catch (error) {
@@ -16314,6 +16343,9 @@ Check other listings for more products`);
                           <div className="flex items-center gap-1.5 min-w-0 shrink-0">
                             <span className="text-muted-foreground text-xs">#{index + 1}</span>
                             <span className="font-semibold truncate max-w-[120px]">{node.name}</span>
+                            {(node as any).nodeType === 'storefront' && (
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300 text-[10px] px-1 py-0">Storefront</Badge>
+                            )}
                             {node.isAdminNode && (
                               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[10px] px-1 py-0">Admin</Badge>
                             )}
@@ -16526,9 +16558,34 @@ Check other listings for more products`);
                                     These instructions will be shown to customers after checkout when they receive the pickup address.
                                   </p>
                                 </div>
-                                
 
-                                
+                                <div className="flex items-center justify-between">
+                                  <Label>Node Type</Label>
+                                  <Select
+                                    value={(managingNode as any).nodeType || 'residential'}
+                                    onValueChange={(v) => setManagingNode({ ...managingNode, nodeType: v } as any)}
+                                  >
+                                    <SelectTrigger className="w-40">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="residential">Residential</SelectItem>
+                                      <SelectItem value="storefront">Storefront</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {(managingNode as any).nodeType === 'storefront' && (
+                                  <div>
+                                    <Label>Store Hours</Label>
+                                    <Input
+                                      value={(managingNode as any).storeHours || ''}
+                                      onChange={(e) => setManagingNode({ ...managingNode, storeHours: e.target.value } as any)}
+                                      placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
+                                      data-testid="input-manage-node-store-hours"
+                                    />
+                                  </div>
+                                )}
+
                                 <div>
                                   <Label className="text-sm text-muted-foreground">Linked Account</Label>
                                   {(() => {

@@ -199,6 +199,8 @@ export const nodes = pgTable("nodes", {
   availabilityNoticeHours: integer("availability_notice_hours").default(48), // Hours in advance availability changes are locked
   minimumAvailabilityHours: integer("minimum_availability_hours").default(4), // Minimum hours of availability required per week
   isAdminNode: boolean("is_admin_node").default(false), // Admin nodes have special permissions (can set notice hours to 0)
+  nodeType: text("node_type").default('residential'), // 'residential' | 'storefront'
+  storeHours: text("store_hours"), // Display hours for storefront nodes, e.g. "Daily: 10 AM – 7 PM"
   handoffTiers: jsonb("handoff_tiers"), // Array of {minQty: number, fee: number} for tiered handoff fees
   availabilityOverrides: jsonb("availability_overrides"), // Date-specific schedule overrides {date: {type, windows}}
   notificationPhone: text("notification_phone"), // Phone number for receiving order update SMS

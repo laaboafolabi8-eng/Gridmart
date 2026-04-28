@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useSearch, useLocation } from 'wouter';
 import { loadGoogleMaps, GRIDMART_MAP_STYLES } from '@/lib/googleMaps';
-import { Search, MapPin, Package, Truck, Warehouse, ChevronLeft, ChevronRight, ChevronDown, Check, Plus, Home as HomeIcon, Wallet, Calendar, Zap, Clock, Loader2, User, Phone, LogOut, Settings, ShoppingBag, Heart, Shield, Camera } from 'lucide-react';
+import { Search, MapPin, Package, Truck, Warehouse, ChevronLeft, ChevronRight, ChevronDown, Check, Plus, Home as HomeIcon, Wallet, Calendar, Zap, Clock, Loader2, User, Phone, LogOut, Settings, ShoppingBag, Heart, Shield, Camera, Store } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -81,9 +81,10 @@ export default function Home() {
   const homeMapRef = useRef<HTMLDivElement>(null);
   const homeMapInstanceRef = useRef<google.maps.Map | null>(null);
   const homeMapCirclesRef = useRef<google.maps.Circle[]>([]);
+  const homeMapMarkersRef = useRef<google.maps.Marker[]>([]);
   const homeMapOverlaysRef = useRef<google.maps.OverlayView[]>([]);
   const [mapsReady, setMapsReady] = useState(false);
-  const [mapSelectedNode, setMapSelectedNode] = useState<{ id: string; name: string; availabilityNoticeHours?: number } | null>(null);
+  const [mapSelectedNode, setMapSelectedNode] = useState<{ id: string; name: string; availabilityNoticeHours?: number; isStorefront?: boolean; storeHours?: string } | null>(null);
   const [mapSlots, setMapSlots] = useState<any[]>([]);
   const [mapSlotsLoading, setMapSlotsLoading] = useState(false);
   const [mapClickCount, setMapClickCount] = useState(0);
@@ -382,6 +383,8 @@ export default function Home() {
 
     homeMapCirclesRef.current.forEach(c => c.setMap(null));
     homeMapCirclesRef.current = [];
+    homeMapMarkersRef.current.forEach(m => m.setMap(null));
+    homeMapMarkersRef.current = [];
     homeMapOverlaysRef.current.forEach(o => o.setMap(null));
     homeMapOverlaysRef.current = [];
     homeMapInstanceRef.current = null;
@@ -410,7 +413,10 @@ export default function Home() {
       const lat = Number(node.latitude);
       const lng = Number(node.longitude);
       const color = nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length];
-      const [circleLat, circleLng] = generateOffsetCenter(lat, lng, node.id);
+      const isStorefrontNode = (node as any).nodeType === 'storefront';
+      const [circleLat, circleLng] = isStorefrontNode
+        ? [lat, lng]
+        : generateOffsetCenter(lat, lng, node.id);
 
       const borderColor = nodeBorderColors[String(node.id)] || color;
       const fillOp = nodeOpacities[String(node.id)] ?? 0.2;
@@ -422,63 +428,113 @@ export default function Home() {
       const selFillOp = nodeSelectedFillOpacities[nodeId] ?? 0.4;
       const selStrokeOp = nodeSelectedStrokeOpacities[nodeId] ?? 1;
 
-      const circle = new google.maps.Circle({
-        center: { lat: circleLat, lng: circleLng },
-        radius: parseInt(siteSettings.nodeCircleSize || '500', 10),
-        strokeColor: borderColor,
-        fillColor: color,
-        fillOpacity: fillOp,
-        strokeOpacity: strokeOp,
-        strokeWeight: 2,
-        map,
-        clickable: true,
-      });
+      if (isStorefrontNode) {
+        const storefrontSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44"><path fill="#f59e0b" stroke="#b45309" stroke-width="1.5" d="M18 0C8.1 0 0 8.1 0 18c0 11.1 18 26 18 26s18-14.9 18-26C36 8.1 27.9 0 18 0z"/><rect x="8" y="10" width="20" height="15" rx="1.5" fill="white"/><rect x="8" y="7" width="20" height="5" rx="1" fill="white" opacity="0.75"/><rect x="14" y="17" width="8" height="8" rx="1" fill="#f59e0b"/></svg>`;
+        const sfMarker = new google.maps.Marker({
+          position: { lat, lng },
+          map,
+          title: node.name,
+          icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(storefrontSvg)}`,
+            scaledSize: new google.maps.Size(36, 44),
+            anchor: new google.maps.Point(18, 44),
+          },
+          zIndex: 100,
+        });
+        (sfMarker as any)._nodeId = nodeId;
 
-      (circle as any)._nodeId = nodeId;
-      (circle as any)._baseStyle = { fillColor: color, strokeColor: borderColor, fillOpacity: fillOp, strokeOpacity: strokeOp, strokeWeight: 2 };
-      (circle as any)._selectedStyle = { fillColor: selFillColor, strokeColor: selStrokeColor, fillOpacity: selFillOp, strokeOpacity: selStrokeOp, strokeWeight: 4 };
-
-      const hoverText = nodeHoverTexts[nodeId] || '';
-      if (hoverText) {
-        let hoverDiv: HTMLDivElement | null = null;
-        const HoverOverlay = class extends google.maps.OverlayView {
+        const hoursText = (node as any).storeHours || 'Daily: 10:00 AM – 7:00 PM';
+        let sfHoverDiv: HTMLDivElement | null = null;
+        const SfHoverOverlay = class extends google.maps.OverlayView {
           onAdd() {
-            hoverDiv = document.createElement('div');
-            hoverDiv.style.cssText = 'position:absolute;background:rgba(0,0,0,0.75);color:#fff;padding:4px 10px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%);margin-top:-8px;opacity:0;transition:opacity 0.15s;z-index:1000;';
-            hoverDiv.textContent = hoverText;
-            this.getPanes()?.floatPane.appendChild(hoverDiv);
+            sfHoverDiv = document.createElement('div');
+            sfHoverDiv.style.cssText = 'position:absolute;background:rgba(0,0,0,0.82);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%);margin-top:-52px;opacity:0;transition:opacity 0.15s;z-index:1000;';
+            sfHoverDiv.innerHTML = `<div style="font-weight:700">${node.name}</div><div style="opacity:0.85;margin-top:2px;font-size:11px">${hoursText}</div>`;
+            this.getPanes()?.floatPane.appendChild(sfHoverDiv);
           }
           draw() {
-            if (!hoverDiv) return;
+            if (!sfHoverDiv) return;
             const proj = this.getProjection();
-            const pos = proj?.fromLatLngToDivPixel(circle.getCenter()!);
-            if (pos) {
-              hoverDiv.style.left = pos.x + 'px';
-              hoverDiv.style.top = pos.y + 'px';
-            }
+            const pos = proj?.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
+            if (pos) { sfHoverDiv.style.left = pos.x + 'px'; sfHoverDiv.style.top = pos.y + 'px'; }
           }
-          show() { if (hoverDiv) hoverDiv.style.opacity = '1'; }
-          hide() { if (hoverDiv) hoverDiv.style.opacity = '0'; }
-          onRemove() { hoverDiv?.remove(); hoverDiv = null; }
+          show() { if (sfHoverDiv) sfHoverDiv.style.opacity = '1'; }
+          hide() { if (sfHoverDiv) sfHoverDiv.style.opacity = '0'; }
+          onRemove() { sfHoverDiv?.remove(); sfHoverDiv = null; }
         };
-        const hoverOverlay = new HoverOverlay();
-        hoverOverlay.setMap(map);
-        circle.addListener('mouseover', () => { hoverOverlay.show(); hoverOverlay.draw(); });
-        circle.addListener('mouseout', () => { hoverOverlay.hide(); });
-        homeMapOverlaysRef.current.push(hoverOverlay);
-      }
+        const sfHoverOverlay = new SfHoverOverlay();
+        sfHoverOverlay.setMap(map);
+        sfMarker.addListener('mouseover', () => { sfHoverOverlay.show(); sfHoverOverlay.draw(); });
+        sfMarker.addListener('mouseout', () => { sfHoverOverlay.hide(); });
+        homeMapOverlaysRef.current.push(sfHoverOverlay);
 
-      circle.addListener('click', () => {
-        homeMapCirclesRef.current.forEach(c => {
-          const base = (c as any)._baseStyle;
-          if (base) c.setOptions(base);
+        sfMarker.addListener('click', () => {
+          homeMapCirclesRef.current.forEach(c => {
+            const base = (c as any)._baseStyle;
+            if (base) c.setOptions(base);
+          });
+          setMapSelectedNode({ id: nodeId, name: node.name, isStorefront: true, storeHours: (node as any).storeHours || 'Daily: 10:00 AM – 7:00 PM' });
         });
-        circle.setOptions((circle as any)._selectedStyle);
-        setMapSelectedNode({ id: nodeId, name: node.name, availabilityNoticeHours: (node as any).availabilityNoticeHours || 48 });
-        fetchMapSlots(nodeId);
-      });
+        homeMapMarkersRef.current.push(sfMarker);
+      } else {
+        const circle = new google.maps.Circle({
+          center: { lat: circleLat, lng: circleLng },
+          radius: parseInt(siteSettings.nodeCircleSize || '500', 10),
+          strokeColor: borderColor,
+          fillColor: color,
+          fillOpacity: fillOp,
+          strokeOpacity: strokeOp,
+          strokeWeight: 2,
+          map,
+          clickable: true,
+        });
 
-      homeMapCirclesRef.current.push(circle);
+        (circle as any)._nodeId = nodeId;
+        (circle as any)._baseStyle = { fillColor: color, strokeColor: borderColor, fillOpacity: fillOp, strokeOpacity: strokeOp, strokeWeight: 2 };
+        (circle as any)._selectedStyle = { fillColor: selFillColor, strokeColor: selStrokeColor, fillOpacity: selFillOp, strokeOpacity: selStrokeOp, strokeWeight: 4 };
+
+        const hoverText = nodeHoverTexts[nodeId] || '';
+        if (hoverText) {
+          let hoverDiv: HTMLDivElement | null = null;
+          const HoverOverlay = class extends google.maps.OverlayView {
+            onAdd() {
+              hoverDiv = document.createElement('div');
+              hoverDiv.style.cssText = 'position:absolute;background:rgba(0,0,0,0.75);color:#fff;padding:4px 10px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%);margin-top:-8px;opacity:0;transition:opacity 0.15s;z-index:1000;';
+              hoverDiv.textContent = hoverText;
+              this.getPanes()?.floatPane.appendChild(hoverDiv);
+            }
+            draw() {
+              if (!hoverDiv) return;
+              const proj = this.getProjection();
+              const pos = proj?.fromLatLngToDivPixel(circle.getCenter()!);
+              if (pos) {
+                hoverDiv.style.left = pos.x + 'px';
+                hoverDiv.style.top = pos.y + 'px';
+              }
+            }
+            show() { if (hoverDiv) hoverDiv.style.opacity = '1'; }
+            hide() { if (hoverDiv) hoverDiv.style.opacity = '0'; }
+            onRemove() { hoverDiv?.remove(); hoverDiv = null; }
+          };
+          const hoverOverlay = new HoverOverlay();
+          hoverOverlay.setMap(map);
+          circle.addListener('mouseover', () => { hoverOverlay.show(); hoverOverlay.draw(); });
+          circle.addListener('mouseout', () => { hoverOverlay.hide(); });
+          homeMapOverlaysRef.current.push(hoverOverlay);
+        }
+
+        circle.addListener('click', () => {
+          homeMapCirclesRef.current.forEach(c => {
+            const base = (c as any)._baseStyle;
+            if (base) c.setOptions(base);
+          });
+          circle.setOptions((circle as any)._selectedStyle);
+          setMapSelectedNode({ id: nodeId, name: node.name, availabilityNoticeHours: (node as any).availabilityNoticeHours || 48 });
+          fetchMapSlots(nodeId);
+        });
+
+        homeMapCirclesRef.current.push(circle);
+      }
 
       const overlays = nodeOverlays[String(node.id)] || [];
       overlays.forEach((overlay) => {
@@ -580,6 +636,8 @@ export default function Home() {
     return () => {
       homeMapCirclesRef.current.forEach(c => c.setMap(null));
       homeMapCirclesRef.current = [];
+      homeMapMarkersRef.current.forEach(m => m.setMap(null));
+      homeMapMarkersRef.current = [];
       homeMapOverlaysRef.current.forEach(o => o.setMap(null));
       homeMapOverlaysRef.current = [];
       homeMapInstanceRef.current = null;
@@ -1216,32 +1274,44 @@ export default function Home() {
               <div className="flex flex-wrap gap-2 mt-3 justify-center" style={{ opacity: siteSettingsLoaded ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
                 {activeNodes.filter(n => n.latitude && n.longitude).map((node, idx) => {
                   const isSelected = mapSelectedNode?.id === String(node.id);
+                  const nodeIsStorefront = (node as any).nodeType === 'storefront';
+                  const baseColor = nodeIsStorefront ? '#f59e0b' : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]);
+                  const selColor = nodeIsStorefront ? '#b45309' : (nodeSelectedStrokeColors[String(node.id)] || '#f59e0b');
                   return (
                     <Badge
                       key={node.id}
                       variant="outline"
-                      className="text-sm cursor-pointer transition-all hover:scale-105"
+                      className="text-sm cursor-pointer transition-all hover:scale-105 flex items-center gap-1"
                       style={{
-                        borderColor: isSelected ? (nodeSelectedStrokeColors[String(node.id)] || '#f59e0b') : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]),
-                        color: isSelected ? (nodeSelectedFillColors[String(node.id)] || '#f59e0b') : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]),
-                        backgroundColor: isSelected ? `${nodeSelectedFillColors[String(node.id)] || '#f59e0b'}15` : 'rgba(255,255,255,0.8)',
+                        borderColor: isSelected ? selColor : baseColor,
+                        color: isSelected ? selColor : baseColor,
+                        backgroundColor: isSelected ? `${selColor}20` : nodeIsStorefront ? '#fef3c720' : 'rgba(255,255,255,0.8)',
                       }}
                       onClick={() => {
                         homeMapCirclesRef.current.forEach(c => {
                           const base = (c as any)._baseStyle;
                           if (base) c.setOptions(base);
                         });
-                        const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
-                        if (target) target.setOptions((target as any)._selectedStyle);
+                        if (!nodeIsStorefront) {
+                          const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
+                          if (target) target.setOptions((target as any)._selectedStyle);
+                        }
                         if (node.latitude && node.longitude && homeMapInstanceRef.current) {
                           homeMapInstanceRef.current.panTo({ lat: Number(node.latitude), lng: Number(node.longitude) });
                           homeMapInstanceRef.current.setZoom(Math.max(homeMapInstanceRef.current.getZoom() || 12, 13));
                         }
-                        setMapSelectedNode({ id: String(node.id), name: node.name, availabilityNoticeHours: (node as any).availabilityNoticeHours || 48 });
-                        fetchMapSlots(String(node.id));
+                        setMapSelectedNode({
+                          id: String(node.id),
+                          name: node.name,
+                          availabilityNoticeHours: (node as any).availabilityNoticeHours || 48,
+                          isStorefront: nodeIsStorefront,
+                          storeHours: (node as any).storeHours || undefined,
+                        });
+                        if (!nodeIsStorefront) fetchMapSlots(String(node.id));
                       }}
                       data-testid={`badge-zone-${node.id}`}
                     >
+                      {nodeIsStorefront && <Store className="w-3 h-3" />}
                       {node.name}
                     </Badge>
                   );
@@ -1249,40 +1319,59 @@ export default function Home() {
               </div>
 
               {mapSelectedNode && (
-                <div className="mt-4 p-4 bg-white/90 backdrop-blur-sm rounded-xl border shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span className="font-display font-semibold text-sm">{mapSelectedNode.name} - Pickup Windows</span>
+                mapSelectedNode.isStorefront ? (
+                  <div className="mt-4 p-4 bg-white/90 backdrop-blur-sm rounded-xl border border-amber-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Store className="w-4 h-4 text-amber-500" />
+                      <span className="font-display font-semibold text-sm">{mapSelectedNode.name} — Store Hours</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">Open</div>
+                        <div className="text-xs text-muted-foreground">{mapSelectedNode.storeHours}</div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">Visit us in person to browse our full selection!</p>
                   </div>
-                  {mapSlotsLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Loading available times...</span>
+                ) : (
+                  <div className="mt-4 p-4 bg-white/90 backdrop-blur-sm rounded-xl border shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span className="font-display font-semibold text-sm">{mapSelectedNode.name} - Pickup Windows</span>
                     </div>
-                  ) : mapSlots.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No pickup windows right now. Check back later!
-                    </p>
-                  ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {mapSlots.map((slot, idx) => {
-                        const { label, subLabel } = formatSlotDay(slot.date);
-                        return (
-                          <div key={slot.id || idx} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30 border">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <Clock className="w-4 h-4 text-primary" />
+                    {mapSlotsLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Loading available times...</span>
+                      </div>
+                    ) : mapSlots.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No pickup windows right now. Check back later!
+                      </p>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {mapSlots.map((slot, idx) => {
+                          const { label, subLabel } = formatSlotDay(slot.date);
+                          return (
+                            <div key={slot.id || idx} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30 border">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                <Clock className="w-4 h-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm">{label}</div>
+                                <div className="text-xs text-muted-foreground">{subLabel}</div>
+                              </div>
+                              <div className="text-right text-sm">{to12h(slot.startTime)} – {to12h(slot.endTime)}</div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm">{label}</div>
-                              <div className="text-xs text-muted-foreground">{subLabel}</div>
-                            </div>
-                            <div className="text-right text-sm">{to12h(slot.startTime)} – {to12h(slot.endTime)}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
               )}
             </div>
           )}
