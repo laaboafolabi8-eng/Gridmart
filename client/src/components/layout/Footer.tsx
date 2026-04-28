@@ -52,6 +52,7 @@ export function Footer() {
               <li><a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
               <li><a href="/agreement/terms" className="hover:text-foreground transition-colors">Terms of Service</a></li>
               <li><a href="/agreement/refund" className="hover:text-foreground transition-colors">Refund Policy</a></li>
+              <li><a href="/return-policy" className="hover:text-foreground transition-colors">Return Policy</a></li>
               <li><a href="/agreement/host_handoff" className="hover:text-foreground transition-colors">Host Handoff Responsibilities</a></li>
             </ul>
           </div>

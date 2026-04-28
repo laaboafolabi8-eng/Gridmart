@@ -6376,7 +6376,7 @@ Check other listings for more products`);
         if (settings.taxEnabled !== undefined) setTaxEnabled(settings.taxEnabled !== 'false');
         if (settings.taxRate) setTaxRate(settings.taxRate);
         if (settings.taxLabel) setTaxLabel(settings.taxLabel);
-        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
+        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle','returnPolicyTitle','returnPolicyContent','returnPolicyLayout','returnPolicyBgColor','returnPolicyAccentColor','returnPolicyBannerImage','returnPolicyBannerTitle'];
         const loadedCopy: Record<string, string> = {};
         copyKeys.forEach(k => { if (settings[k]) loadedCopy[k] = settings[k]; });
         if (Object.keys(loadedCopy).length > 0) setHomepageCopy(prev => ({ ...prev, ...loadedCopy }));
@@ -21733,6 +21733,74 @@ Check other listings for more products`);
                     rows={8}
                     data-testid="input-about-us-text"
                   />
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold mb-1">Return Policy Page</h4>
+                  <p className="text-xs text-muted-foreground mb-3">Customize the /return-policy page. Content supports plain text or HTML.</p>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium">Page Title</Label>
+                      <Input
+                        placeholder="Return Policy"
+                        value={(homepageCopy as any).returnPolicyTitle || ''}
+                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyTitle: e.target.value } as any))}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Layout</Label>
+                      <select
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                        value={(homepageCopy as any).returnPolicyLayout || 'centered'}
+                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyLayout: e.target.value } as any))}
+                      >
+                        <option value="centered">Centered (narrow)</option>
+                        <option value="wide">Wide</option>
+                        <option value="full">Full width</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm font-medium">Page Background Color</Label>
+                        <div className="flex gap-2 items-center">
+                          <Input type="color" className="w-10 h-9 p-0.5" value={(homepageCopy as any).returnPolicyBgColor || '#ffffff'} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBgColor: e.target.value } as any))} />
+                          <Input placeholder="#ffffff or leave blank" value={(homepageCopy as any).returnPolicyBgColor || ''} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBgColor: e.target.value } as any))} className="flex-1" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Heading Accent Color</Label>
+                        <div className="flex gap-2 items-center">
+                          <Input type="color" className="w-10 h-9 p-0.5" value={(homepageCopy as any).returnPolicyAccentColor || '#000000'} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyAccentColor: e.target.value } as any))} />
+                          <Input placeholder="#000000 or leave blank" value={(homepageCopy as any).returnPolicyAccentColor || ''} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyAccentColor: e.target.value } as any))} className="flex-1" />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Banner Image URL</Label>
+                      <Input
+                        placeholder="https://... (optional hero banner at top of page)"
+                        value={(homepageCopy as any).returnPolicyBannerImage || ''}
+                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBannerImage: e.target.value } as any))}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Banner Overlay Text</Label>
+                      <Input
+                        placeholder="Leave blank to use Page Title"
+                        value={(homepageCopy as any).returnPolicyBannerTitle || ''}
+                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBannerTitle: e.target.value } as any))}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Policy Content</Label>
+                      <Textarea
+                        placeholder="Write your return policy here. Plain text or HTML supported."
+                        value={(homepageCopy as any).returnPolicyContent || ''}
+                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyContent: e.target.value } as any))}
+                        rows={10}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <Button

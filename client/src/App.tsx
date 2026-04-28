@@ -35,6 +35,7 @@ const JoinNode = lazy(() => import("@/pages/JoinNode"));
 const Account = lazy(() => import("@/pages/Account"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
 const AboutUs = lazy(() => import("@/pages/AboutUs"));
+const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const Screening = lazy(() => import("@/pages/Screening"));
 const DropoutSurvey = lazy(() => import("@/pages/DropoutSurvey"));
 const ThankYou = lazy(() => import("@/pages/ThankYou"));
@@ -80,6 +81,7 @@ function Router() {
         <Route path="/agreement/:key" component={Agreement} />
         <Route path="/join/:token" component={JoinNode} />
         <Route path="/about" component={AboutUs} />
+        <Route path="/return-policy" component={ReturnPolicy} />
         <Route path="/thank-you" component={ThankYou} />
         <Route path="/feedback" component={Feedback} />
         <Route path="/screening/:token" component={Screening} />
