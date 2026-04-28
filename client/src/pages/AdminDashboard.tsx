@@ -21504,7 +21504,7 @@ Check other listings for more products`);
                     <div>
                       <Label className="text-sm font-medium">Hero Line 1</Label>
                       <Input
-                        placeholder="Buy Online."
+                        placeholder="Shop Local."
                         value={homepageCopy.heroLine1}
                         onChange={e => setHomepageCopy(prev => ({ ...prev, heroLine1: e.target.value }))}
                         data-testid="input-hero-line1"
@@ -21538,7 +21538,7 @@ Check other listings for more products`);
                     <div>
                       <Label className="text-sm font-medium">Hero Line 2 (highlighted)</Label>
                       <Input
-                        placeholder="Pick Up Locally."
+                        placeholder="In-Store & Online."
                         value={homepageCopy.heroLine2}
                         onChange={e => setHomepageCopy(prev => ({ ...prev, heroLine2: e.target.value }))}
                         data-testid="input-hero-line2"
@@ -21572,7 +21572,7 @@ Check other listings for more products`);
                     <div>
                       <Label className="text-sm font-medium">Hero Subtitle</Label>
                       <Textarea
-                        placeholder="Skip shipping costs and wait times. Brand-new goods from neighborhood nodes. Less overhead, better prices."
+                        placeholder="Browse our curated selection in person, or order online for local pickup."
                         value={homepageCopy.heroSubtitle}
                         onChange={e => setHomepageCopy(prev => ({ ...prev, heroSubtitle: e.target.value }))}
                         rows={2}
