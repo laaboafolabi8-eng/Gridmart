@@ -5330,6 +5330,11 @@ export default function AdminDashboard() {
     } catch {}
   };
   useEffect(() => { fetchProductGroups(); }, []);
+  useEffect(() => {
+    if (editingProduct) {
+      setEditProductGroupIds(productGroupMemberships[editingProduct.id] || []);
+    }
+  }, [editingProduct?.id]);
 
   // Fetch categories from API
   const { data: categoryList = [], refetch: refetchCategories } = useQuery<Category[]>({
@@ -5510,6 +5515,7 @@ export default function AdminDashboard() {
   }, []);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
+  const [editProductGroupIds, setEditProductGroupIds] = useState<string[]>([]);
   const [editRewordPrompt, setEditRewordPrompt] = useState('');
   const [isEditRewording, setIsEditRewording] = useState(false);
   const [isManualRewording, setIsManualRewording] = useState(false);
@@ -14032,8 +14038,45 @@ Check other listings for more products`);
                                     </Button>
                                   </div>
                                 </div>
+                                {productGroups.length > 0 && (
+                                  <div className="border rounded-lg p-3 space-y-2">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Groups</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {productGroups.map(g => {
+                                        const isIn = editProductGroupIds.includes(g.id);
+                                        return (
+                                          <button
+                                            key={g.id}
+                                            type="button"
+                                            className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all ${isIn ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+                                            style={{ borderColor: g.color + '80', background: isIn ? g.color + '22' : 'transparent', color: g.color }}
+                                            onClick={async () => {
+                                              if (!editingProduct) return;
+                                              const adding = !isIn;
+                                              const newIds = adding
+                                                ? [...editProductGroupIds, g.id]
+                                                : editProductGroupIds.filter(id => id !== g.id);
+                                              setEditProductGroupIds(newIds);
+                                              setProductGroupMemberships(prev => ({ ...prev, [editingProduct.id]: newIds }));
+                                              await fetch(`/api/product-groups/${g.id}/assign`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                credentials: 'include',
+                                                body: JSON.stringify({ productIds: [editingProduct.id], action: adding ? 'add' : 'remove' }),
+                                              });
+                                            }}
+                                          >
+                                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.color }} />
+                                            {g.name}
+                                            {isIn && <Check className="w-3 h-3" />}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                                 <DialogFooter className="flex flex-wrap gap-2">
-                                  <Button 
+                                  <Button
                                     variant="outline"
                                     onClick={async () => {
                                       try {
