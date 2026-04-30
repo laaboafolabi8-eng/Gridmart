@@ -17,6 +17,7 @@ import { startOrderReminderJob, stopOrderReminderJob } from './services/orderRem
 import { db } from '../db/index';
 import { sql } from 'drizzle-orm';
 import { applicationStatuses } from '../shared/schema';
+import { storage } from './storage';
 
 async function cleanupDuplicateInventory() {
   try {
@@ -54,6 +55,35 @@ async function seedDefaultApplicationStatuses() {
     }
   } catch (error) {
     console.error('Failed to seed application statuses:', error);
+  }
+}
+
+const REFUND_POLICY_CONTENT = `Refunds & Issues
+
+Refunds or replacements may be offered at GridMart's discretion for:
+
+• Incorrect item handed off
+• Incorrect quantity provided
+• Items that were purchased damaged or defective
+
+Returns accepted in-store within 30 days of purchase with original packaging at:
+3170 Walker Rd, Windsor, ON N8W 3R5
+
+Refunds are not provided for:
+
+• Buyer remorse
+• Manufacturer warranty, promotional or product registration failures
+• Compatibility or preference issues`;
+
+async function migrateRefundPolicy() {
+  try {
+    const existing = await storage.getAgreement('refund');
+    if (!existing || existing.content === 'Please add your Refund Policy content here.' || existing.content.indexOf('3170 Walker Rd') === -1) {
+      await storage.upsertAgreement('refund', 'Refund Policy', REFUND_POLICY_CONTENT);
+      console.log('Refund policy updated');
+    }
+  } catch (error) {
+    console.error('Failed to migrate refund policy:', error);
   }
 }
 
@@ -275,6 +305,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       cleanupDuplicateInventory();
       seedDefaultApplicationStatuses();
+      migrateRefundPolicy();
       startOrderExpirationJob(1);
       startOrderReminderJob(5); // Check for reminders every 5 minutes
       startOrderNotificationQueue(); // Check for queued order notifications every 60s
