@@ -15,6 +15,7 @@ import { WebhookHandlers } from './webhookHandlers';
 import { startOrderExpirationJob, stopOrderExpirationJob } from './services/orderExpiration';
 import { startOrderReminderJob, stopOrderReminderJob } from './services/orderReminder';
 import { db } from '../db/index';
+import { sql } from 'drizzle-orm';
 import { applicationStatuses } from '../shared/schema';
 
 async function cleanupDuplicateInventory() {

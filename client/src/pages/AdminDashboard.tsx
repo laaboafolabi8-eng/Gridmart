@@ -5517,6 +5517,11 @@ export default function AdminDashboard() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [editProductGroupIds, setEditProductGroupIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (editingProduct) {
+      setEditProductGroupIds(productGroupMemberships[editingProduct.id] || []);
+    }
+  }, [editingProduct?.id]);
   const [editRewordPrompt, setEditRewordPrompt] = useState('');
   const [isEditRewording, setIsEditRewording] = useState(false);
   const [isManualRewording, setIsManualRewording] = useState(false);
