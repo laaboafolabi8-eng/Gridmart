@@ -18,6 +18,7 @@ import {
   Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
+const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
 const LandingPageEditor = lazy(() => import('@/components/admin/LandingPageEditor'));
 import logoIcon from '@/assets/gridmart-logo-icon.png';
@@ -5330,6 +5331,11 @@ export default function AdminDashboard() {
     } catch {}
   };
   useEffect(() => { fetchProductGroups(); }, []);
+  useEffect(() => {
+    if (editingProduct) {
+      setEditProductGroupIds(productGroupMemberships[editingProduct.id] || []);
+    }
+  }, [editingProduct?.id]);
 
   // Fetch categories from API
   const { data: categoryList = [], refetch: refetchCategories } = useQuery<Category[]>({
@@ -5407,6 +5413,7 @@ export default function AdminDashboard() {
   const [isInventorySheetSyncing, setIsInventorySheetSyncing] = useState(false);
   const [globalStoreCode, setGlobalStoreCode] = useState('');
   const [isStoreCodeSaving, setIsStoreCodeSaving] = useState(false);
+  const [pushSheetOption, setPushSheetOption] = useState<'codes' | 'price'>('codes');
 
   useEffect(() => {
     fetch('/api/admin-settings/google_store_code', { credentials: 'include' })
@@ -5443,6 +5450,8 @@ export default function AdminDashboard() {
     longitude: null as number | null,
     pickupInstructions: '',
     status: 'active' as 'active' | 'inactive',
+    nodeType: 'residential' as 'residential' | 'storefront',
+    storeHours: '',
   });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAddNodeKitDialogOpen, setIsAddNodeKitDialogOpen] = useState(false);
@@ -5507,6 +5516,7 @@ export default function AdminDashboard() {
   }, []);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
+  const [editProductGroupIds, setEditProductGroupIds] = useState<string[]>([]);
   const [editRewordPrompt, setEditRewordPrompt] = useState('');
   const [isEditRewording, setIsEditRewording] = useState(false);
   const [isManualRewording, setIsManualRewording] = useState(false);
@@ -6376,7 +6386,7 @@ Check other listings for more products`);
         if (settings.taxEnabled !== undefined) setTaxEnabled(settings.taxEnabled !== 'false');
         if (settings.taxRate) setTaxRate(settings.taxRate);
         if (settings.taxLabel) setTaxLabel(settings.taxLabel);
-        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText'];
+        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
         const loadedCopy: Record<string, string> = {};
         copyKeys.forEach(k => { if (settings[k]) loadedCopy[k] = settings[k]; });
         if (Object.keys(loadedCopy).length > 0) setHomepageCopy(prev => ({ ...prev, ...loadedCopy }));
@@ -8860,7 +8870,7 @@ Check other listings for more products`);
                     icon: <LayoutGrid className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                   },
                   flyers: {
-                    label: 'Flyers',
+                    label: 'Advertising',
                     icon: <Megaphone className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                   },
                   'qr-codes': {
@@ -9955,40 +9965,54 @@ Check other listings for more products`);
                     </PopoverContent>
                   </Popover>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        toast.info('Pushing codes to spreadsheet...');
-                        const response = await fetch('/api/spreadsheet-sync/export-codes', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          credentials: 'include',
-                          body: JSON.stringify({ 
-                            columnName: 'code-G',
-                            productIds: selectedProducts 
-                          }),
-                        });
-                        if (!response.ok) {
-                          const err = await response.json();
-                          throw new Error(err.error || 'Export failed');
+                  <div className="flex items-center gap-1">
+                    <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
+                      <SelectTrigger className="h-8 w-24 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="codes">Codes</SelectItem>
+                        <SelectItem value="price">Price</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          toast.info(`Pushing ${pushSheetOption} to spreadsheet...`);
+                          const endpoint = pushSheetOption === 'price'
+                            ? '/api/spreadsheet-sync/export-prices'
+                            : '/api/spreadsheet-sync/export-codes';
+                          const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                              columnName: pushSheetOption === 'price' ? 'Default Unit Cost' : 'code-G',
+                              productIds: selectedProducts,
+                            }),
+                          });
+                          if (!response.ok) {
+                            const err = await response.json();
+                            throw new Error(err.error || 'Export failed');
+                          }
+                          const result = await response.json();
+                          if (result.updated > 0) {
+                            toast.success(`Pushed ${result.updated} product ${pushSheetOption === 'price' ? 'prices' : 'codes'} to sheet`);
+                          } else {
+                            toast.info(result.message || 'Nothing to push');
+                          }
+                        } catch (err: any) {
+                          toast.error('Push failed: ' + err.message);
                         }
-                        const result = await response.json();
-                        if (result.updated > 0) {
-                          toast.success(`Pushed ${result.updated} product codes to sheet`);
-                        } else {
-                          toast.info(result.message || 'No codes to push (already filled or no sheet reference)');
-                        }
-                      } catch (err: any) {
-                        toast.error('Push failed: ' + err.message);
-                      }
-                    }}
-                    data-testid="button-push-codes-sticky"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Push Codes
-                  </Button>
+                      }}
+                      data-testid="button-push-codes-sticky"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Push to Sheet
+                    </Button>
+                  </div>
                   
                   <div className="flex items-center gap-2">
                     <Label className="text-xs whitespace-nowrap">Store Code:</Label>
@@ -11682,35 +11706,51 @@ Check other listings for more products`);
                                 {isSheetSyncing ? 'Syncing...' : `Sync ${sheetSyncMode === 'new' ? '(New Only)' : sheetSyncMode === 'manual' ? '(Selected Rows)' : '(All Rows)'}`}
                               </Button>
                               
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    toast.info('Exporting product codes to spreadsheet...');
-                                    const response = await fetch('/api/spreadsheet-sync/export-codes', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      credentials: 'include',
-                                      body: JSON.stringify({ columnName: 'code-G' }),
-                                    });
-                                    if (!response.ok) {
-                                      const err = await response.json();
-                                      throw new Error(err.error || 'Export failed');
+                              <div className="flex items-center gap-1">
+                                <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
+                                  <SelectTrigger className="h-8 w-24 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="codes">Codes</SelectItem>
+                                    <SelectItem value="price">Price</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      toast.info(`Pushing ${pushSheetOption} to spreadsheet...`);
+                                      const endpoint = pushSheetOption === 'price'
+                                        ? '/api/spreadsheet-sync/export-prices'
+                                        : '/api/spreadsheet-sync/export-codes';
+                                      const response = await fetch(endpoint, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        credentials: 'include',
+                                        body: JSON.stringify({
+                                          columnName: pushSheetOption === 'price' ? 'Default Unit Cost' : 'code-G',
+                                        }),
+                                      });
+                                      if (!response.ok) {
+                                        const err = await response.json();
+                                        throw new Error(err.error || 'Export failed');
+                                      }
+                                      const result = await response.json();
+                                      toast.success(`Pushed ${result.updated} product ${pushSheetOption === 'price' ? 'prices' : 'codes'} to sheet`);
+                                    } catch (err: any) {
+                                      toast.error('Push failed: ' + err.message);
                                     }
-                                    const result = await response.json();
-                                    toast.success(`Exported ${result.updated} product codes to column G`);
-                                  } catch (err: any) {
-                                    toast.error('Export failed: ' + err.message);
-                                  }
-                                }}
-                                disabled={isSheetSyncing}
-                                data-testid="button-export-codes"
-                              >
-                                <Upload className="w-4 h-4 mr-1" />
-                                Push Codes to Sheet
-                              </Button>
+                                  }}
+                                  disabled={isSheetSyncing}
+                                  data-testid="button-export-codes"
+                                >
+                                  <Upload className="w-4 h-4 mr-1" />
+                                  Push to Sheet
+                                </Button>
+                              </div>
                               
                               <a
                                 href="https://docs.google.com/spreadsheets/d/17sLz-qN8wnGn2kdBWVg6LJ6ZjxhwX37-K8S8Sx-Yl70/edit"
@@ -13999,8 +14039,45 @@ Check other listings for more products`);
                                     </Button>
                                   </div>
                                 </div>
+                                {productGroups.length > 0 && (
+                                  <div className="border rounded-lg p-3 space-y-2">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Groups</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {productGroups.map(g => {
+                                        const isIn = editProductGroupIds.includes(g.id);
+                                        return (
+                                          <button
+                                            key={g.id}
+                                            type="button"
+                                            className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all ${isIn ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+                                            style={{ borderColor: g.color + '80', background: isIn ? g.color + '22' : 'transparent', color: g.color }}
+                                            onClick={async () => {
+                                              if (!editingProduct) return;
+                                              const adding = !isIn;
+                                              const newIds = adding
+                                                ? [...editProductGroupIds, g.id]
+                                                : editProductGroupIds.filter(id => id !== g.id);
+                                              setEditProductGroupIds(newIds);
+                                              setProductGroupMemberships(prev => ({ ...prev, [editingProduct.id]: newIds }));
+                                              await fetch(`/api/product-groups/${g.id}/assign`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                credentials: 'include',
+                                                body: JSON.stringify({ productIds: [editingProduct.id], action: adding ? 'add' : 'remove' }),
+                                              });
+                                            }}
+                                          >
+                                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.color }} />
+                                            {g.name}
+                                            {isIn && <Check className="w-3 h-3" />}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                                 <DialogFooter className="flex flex-wrap gap-2">
-                                  <Button 
+                                  <Button
                                     variant="outline"
                                     onClick={async () => {
                                       try {
@@ -15721,9 +15798,34 @@ Check other listings for more products`);
                         />
                       </div>
                       <div className="flex items-center justify-between">
+                        <Label>Node Type</Label>
+                        <Select
+                          value={newNode.nodeType}
+                          onValueChange={(v) => setNewNode({ ...newNode, nodeType: v as 'residential' | 'storefront' })}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="residential">Residential</SelectItem>
+                            <SelectItem value="storefront">Storefront</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {newNode.nodeType === 'storefront' && (
+                        <div>
+                          <Label>Store Hours</Label>
+                          <Input
+                            value={newNode.storeHours}
+                            onChange={(e) => setNewNode({ ...newNode, storeHours: e.target.value })}
+                            placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
                         <Label>Status</Label>
-                        <Select 
-                          value={newNode.status} 
+                        <Select
+                          value={newNode.status}
                           onValueChange={(v) => setNewNode({ ...newNode, status: v as 'active' | 'inactive' })}
                         >
                           <SelectTrigger className="w-32">
@@ -15779,6 +15881,8 @@ Check other listings for more products`);
                               longitude: null,
                               pickupInstructions: '',
                               status: 'active',
+                              nodeType: 'residential',
+                              storeHours: '',
                             });
                             setIsAddNodeDialogOpen(false);
                           } catch (error) {
@@ -16283,6 +16387,9 @@ Check other listings for more products`);
                           <div className="flex items-center gap-1.5 min-w-0 shrink-0">
                             <span className="text-muted-foreground text-xs">#{index + 1}</span>
                             <span className="font-semibold truncate max-w-[120px]">{node.name}</span>
+                            {(node as any).nodeType === 'storefront' && (
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300 text-[10px] px-1 py-0">Storefront</Badge>
+                            )}
                             {node.isAdminNode && (
                               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[10px] px-1 py-0">Admin</Badge>
                             )}
@@ -16495,9 +16602,34 @@ Check other listings for more products`);
                                     These instructions will be shown to customers after checkout when they receive the pickup address.
                                   </p>
                                 </div>
-                                
 
-                                
+                                <div className="flex items-center justify-between">
+                                  <Label>Node Type</Label>
+                                  <Select
+                                    value={(managingNode as any).nodeType || 'residential'}
+                                    onValueChange={(v) => setManagingNode({ ...managingNode, nodeType: v } as any)}
+                                  >
+                                    <SelectTrigger className="w-40">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="residential">Residential</SelectItem>
+                                      <SelectItem value="storefront">Storefront</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {(managingNode as any).nodeType === 'storefront' && (
+                                  <div>
+                                    <Label>Store Hours</Label>
+                                    <Input
+                                      value={(managingNode as any).storeHours || ''}
+                                      onChange={(e) => setManagingNode({ ...managingNode, storeHours: e.target.value } as any)}
+                                      placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
+                                      data-testid="input-manage-node-store-hours"
+                                    />
+                                  </div>
+                                )}
+
                                 <div>
                                   <Label className="text-sm text-muted-foreground">Linked Account</Label>
                                   {(() => {
@@ -21416,7 +21548,7 @@ Check other listings for more products`);
                     <div>
                       <Label className="text-sm font-medium">Hero Line 1</Label>
                       <Input
-                        placeholder="Buy Online."
+                        placeholder="Shop Local."
                         value={homepageCopy.heroLine1}
                         onChange={e => setHomepageCopy(prev => ({ ...prev, heroLine1: e.target.value }))}
                         data-testid="input-hero-line1"
@@ -21450,7 +21582,7 @@ Check other listings for more products`);
                     <div>
                       <Label className="text-sm font-medium">Hero Line 2 (highlighted)</Label>
                       <Input
-                        placeholder="Pick Up Locally."
+                        placeholder="In-Store & Online."
                         value={homepageCopy.heroLine2}
                         onChange={e => setHomepageCopy(prev => ({ ...prev, heroLine2: e.target.value }))}
                         data-testid="input-hero-line2"
@@ -21484,7 +21616,7 @@ Check other listings for more products`);
                     <div>
                       <Label className="text-sm font-medium">Hero Subtitle</Label>
                       <Textarea
-                        placeholder="Skip shipping costs and wait times. Brand-new goods from neighborhood nodes. Less overhead, better prices."
+                        placeholder="Browse our curated selection in person, or order online for local pickup."
                         value={homepageCopy.heroSubtitle}
                         onChange={e => setHomepageCopy(prev => ({ ...prev, heroSubtitle: e.target.value }))}
                         rows={2}
@@ -21656,6 +21788,59 @@ Check other listings for more products`);
                         />
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-3">
+                  <h4 className="text-sm font-semibold mb-1">Storefront Photos & Info</h4>
+                  <p className="text-xs text-muted-foreground mb-3">Shown in the hero section on the homepage. Paste image URLs (or upload to your storage and paste the URL).</p>
+                  <div>
+                    <Label className="text-sm font-medium">Exterior / Main Photo URL</Label>
+                    <Input
+                      placeholder="https://..."
+                      value={(homepageCopy as any).storefrontHeroImage || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Interior Photo URL</Label>
+                    <Input
+                      placeholder="https://... (optional — shown as a smaller strip below the main photo)"
+                      value={(homepageCopy as any).storefrontInteriorImage || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Store Address</Label>
+                    <Input
+                      placeholder="123 Main St, Windsor, ON"
+                      value={(homepageCopy as any).storefrontAddress || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontAddress: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Store Hours</Label>
+                    <Input
+                      placeholder="Mon–Fri 10am–6pm, Sat 10am–4pm"
+                      value={(homepageCopy as any).storefrontHours || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHours: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Pickup Section Title</Label>
+                    <Input
+                      placeholder="Community Pickup Locations"
+                      value={(homepageCopy as any).pickupSectionTitle || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, pickupSectionTitle: e.target.value } as any))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Pickup Section Subtitle</Label>
+                    <Input
+                      placeholder="Can't make it to the store? Order online and pick up at a convenient community location near you."
+                      value={(homepageCopy as any).pickupSectionSubtitle || ''}
+                      onChange={e => setHomepageCopy(prev => ({ ...prev, pickupSectionSubtitle: e.target.value } as any))}
+                    />
                   </div>
                 </div>
 
@@ -24793,10 +24978,29 @@ Check other listings for more products`);
             <LandingPagesTab productList={productList} promoCodeList={promoCodeList} />
           </TabsContent>
 
-          <TabsContent value="flyers" className="space-y-6" data-testid="tab-content-flyers">
-            <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
-              <FlyerDistribution />
-            </Suspense>
+          <TabsContent value="flyers" className="space-y-4" data-testid="tab-content-flyers">
+            <Tabs defaultValue="distribution">
+              <TabsList className="mb-4">
+                <TabsTrigger value="distribution" className="gap-1.5">
+                  <Navigation className="w-3.5 h-3.5" />
+                  Flyer Distribution
+                </TabsTrigger>
+                <TabsTrigger value="builder" className="gap-1.5">
+                  <FileText className="w-3.5 h-3.5" />
+                  Print Builder
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="distribution">
+                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+                  <FlyerDistribution />
+                </Suspense>
+              </TabsContent>
+              <TabsContent value="builder">
+                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+                  <BrochureBuilder productList={productList} />
+                </Suspense>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="qr-codes" className="space-y-6" data-testid="tab-content-qr-codes">

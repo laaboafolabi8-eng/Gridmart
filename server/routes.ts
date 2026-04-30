@@ -2023,7 +2023,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Admin access required" });
       }
       
-      const { name, address, city, servingCityId, latitude, longitude, pickupInstructions, status, kitCount, kitFee, earningsPerHandoff, handoffTiers, availabilityNoticeHours, minimumAvailabilityHours } = req.body;
+      const { name, address, city, servingCityId, latitude, longitude, pickupInstructions, status, kitCount, kitFee, earningsPerHandoff, handoffTiers, availabilityNoticeHours, minimumAvailabilityHours, nodeType, storeHours } = req.body;
       
       if (!name || !address || !city) {
         return res.status(400).json({ error: "Name, address, and city are required" });
@@ -2046,6 +2046,8 @@ export async function registerRoutes(
         ...(handoffTiers ? { handoffTiers } : {}),
         ...(availabilityNoticeHours != null ? { availabilityNoticeHours: Number(availabilityNoticeHours) } : {}),
         ...(minimumAvailabilityHours != null ? { minimumAvailabilityHours: Number(minimumAvailabilityHours) } : {}),
+        ...(nodeType ? { nodeType } : {}),
+        ...(storeHours ? { storeHours } : {}),
       });
       
       res.json(node);
