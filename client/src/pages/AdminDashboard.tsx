@@ -18,6 +18,7 @@ import {
   Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
+const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
 const LandingPageEditor = lazy(() => import('@/components/admin/LandingPageEditor'));
 import logoIcon from '@/assets/gridmart-logo-icon.png';
@@ -8869,7 +8870,7 @@ Check other listings for more products`);
                     icon: <LayoutGrid className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                   },
                   flyers: {
-                    label: 'Flyers',
+                    label: 'Advertising',
                     icon: <Megaphone className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                   },
                   'qr-codes': {
@@ -24977,10 +24978,29 @@ Check other listings for more products`);
             <LandingPagesTab productList={productList} promoCodeList={promoCodeList} />
           </TabsContent>
 
-          <TabsContent value="flyers" className="space-y-6" data-testid="tab-content-flyers">
-            <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
-              <FlyerDistribution />
-            </Suspense>
+          <TabsContent value="flyers" className="space-y-4" data-testid="tab-content-flyers">
+            <Tabs defaultValue="distribution">
+              <TabsList className="mb-4">
+                <TabsTrigger value="distribution" className="gap-1.5">
+                  <Navigation className="w-3.5 h-3.5" />
+                  Flyer Distribution
+                </TabsTrigger>
+                <TabsTrigger value="builder" className="gap-1.5">
+                  <FileText className="w-3.5 h-3.5" />
+                  Print Builder
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="distribution">
+                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+                  <FlyerDistribution />
+                </Suspense>
+              </TabsContent>
+              <TabsContent value="builder">
+                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+                  <BrochureBuilder productList={productList} />
+                </Suspense>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="qr-codes" className="space-y-6" data-testid="tab-content-qr-codes">
