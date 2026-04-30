@@ -90,7 +90,9 @@ export function Header() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
-  const navLinks: { href: string; label: string }[] = [];
+  const navLinks: { href: string; label: string }[] = [
+    { href: '/about', label: 'About Us' },
+  ];
 
   const handleLogout = async () => {
     await logout();
@@ -110,37 +112,15 @@ export function Header() {
             </Link>
           </div>
 
-          <div className="lg:hidden absolute left-1/2 -translate-x-1/2 flex items-center">
-            <Badge className="bg-transparent text-primary border-0 text-[11px] px-0.5 py-0" data-testid="badge-serving-city-mobile">
-              <MapPin className="w-2.5 h-2.5 mr-0.5" />
-              Serving Windsor, Ontario
-            </Badge>
-          </div>
-
           <nav className="hidden lg:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
-            {navLinks.map(link => (
-              <Link key={link.href} href={link.href}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-sm font-semibold"
-                  data-testid={`nav-${link.label.toLowerCase().replace(' ', '-')}`}
-                >
-                  {link.label}
-                </Button>
-              </Link>
-            ))}
-            <div className="flex items-center">
-              <Badge className="bg-transparent text-primary border-0 text-[14px] px-1 py-0" data-testid="badge-serving-city">
-                <MapPin className="w-3.5 h-3.5 mr-0.5" />
-                Serving Windsor, Ontario
-              </Badge>
-            </div>
-            <span className="text-muted-foreground/30">|</span>
-            <Link href="/apply">
-              <Button size="sm" className="h-8 px-4 text-[15px] gap-1.5 text-white hover:opacity-90" style={{ backgroundColor: '#fda612', borderColor: '#fda612', borderWidth: '2px' }} data-testid="button-become-node">
-                <HomeIcon className="w-4 h-4" />
-                Become a Node Host
+            <Link href="/about">
+              <Button
+                size="sm"
+                className="h-8 px-4 text-[15px] gap-1.5 text-white hover:opacity-90"
+                style={{ backgroundColor: '#fda612', borderColor: '#fda612', borderWidth: '2px' }}
+                data-testid="nav-about-us"
+              >
+                About Us
               </Button>
             </Link>
             <span className="text-muted-foreground/30">|</span>

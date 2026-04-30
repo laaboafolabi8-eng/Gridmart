@@ -413,10 +413,7 @@ export default function Home() {
       const lat = Number(node.latitude);
       const lng = Number(node.longitude);
       const color = nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length];
-      const isStorefrontNode = (node as any).nodeType === 'storefront';
-      const [circleLat, circleLng] = isStorefrontNode
-        ? [lat, lng]
-        : generateOffsetCenter(lat, lng, node.id);
+      const [circleLat, circleLng] = generateOffsetCenter(lat, lng, node.id);
 
       const borderColor = nodeBorderColors[String(node.id)] || color;
       const fillOp = nodeOpacities[String(node.id)] ?? 0.2;
@@ -428,55 +425,7 @@ export default function Home() {
       const selFillOp = nodeSelectedFillOpacities[nodeId] ?? 0.4;
       const selStrokeOp = nodeSelectedStrokeOpacities[nodeId] ?? 1;
 
-      if (isStorefrontNode) {
-        const storefrontSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44"><path fill="#f59e0b" stroke="#b45309" stroke-width="1.5" d="M18 0C8.1 0 0 8.1 0 18c0 11.1 18 26 18 26s18-14.9 18-26C36 8.1 27.9 0 18 0z"/><rect x="8" y="10" width="20" height="15" rx="1.5" fill="white"/><rect x="8" y="7" width="20" height="5" rx="1" fill="white" opacity="0.75"/><rect x="14" y="17" width="8" height="8" rx="1" fill="#f59e0b"/></svg>`;
-        const sfMarker = new google.maps.Marker({
-          position: { lat, lng },
-          map,
-          title: node.name,
-          icon: {
-            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(storefrontSvg)}`,
-            scaledSize: new google.maps.Size(36, 44),
-            anchor: new google.maps.Point(18, 44),
-          },
-          zIndex: 100,
-        });
-        (sfMarker as any)._nodeId = nodeId;
-
-        const hoursText = (node as any).storeHours || 'Daily: 10:00 AM – 7:00 PM';
-        let sfHoverDiv: HTMLDivElement | null = null;
-        const SfHoverOverlay = class extends google.maps.OverlayView {
-          onAdd() {
-            sfHoverDiv = document.createElement('div');
-            sfHoverDiv.style.cssText = 'position:absolute;background:rgba(0,0,0,0.82);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%);margin-top:-52px;opacity:0;transition:opacity 0.15s;z-index:1000;';
-            sfHoverDiv.innerHTML = `<div style="font-weight:700">${node.name}</div><div style="opacity:0.85;margin-top:2px;font-size:11px">${hoursText}</div>`;
-            this.getPanes()?.floatPane.appendChild(sfHoverDiv);
-          }
-          draw() {
-            if (!sfHoverDiv) return;
-            const proj = this.getProjection();
-            const pos = proj?.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
-            if (pos) { sfHoverDiv.style.left = pos.x + 'px'; sfHoverDiv.style.top = pos.y + 'px'; }
-          }
-          show() { if (sfHoverDiv) sfHoverDiv.style.opacity = '1'; }
-          hide() { if (sfHoverDiv) sfHoverDiv.style.opacity = '0'; }
-          onRemove() { sfHoverDiv?.remove(); sfHoverDiv = null; }
-        };
-        const sfHoverOverlay = new SfHoverOverlay();
-        sfHoverOverlay.setMap(map);
-        sfMarker.addListener('mouseover', () => { sfHoverOverlay.show(); sfHoverOverlay.draw(); });
-        sfMarker.addListener('mouseout', () => { sfHoverOverlay.hide(); });
-        homeMapOverlaysRef.current.push(sfHoverOverlay);
-
-        sfMarker.addListener('click', () => {
-          homeMapCirclesRef.current.forEach(c => {
-            const base = (c as any)._baseStyle;
-            if (base) c.setOptions(base);
-          });
-          setMapSelectedNode({ id: nodeId, name: node.name, isStorefront: true, storeHours: (node as any).storeHours || 'Daily: 10:00 AM – 7:00 PM' });
-        });
-        homeMapMarkersRef.current.push(sfMarker);
-      } else {
+      {
         const circle = new google.maps.Circle({
           center: { lat: circleLat, lng: circleLng },
           radius: parseInt(siteSettings.nodeCircleSize || '500', 10),
@@ -621,6 +570,52 @@ export default function Home() {
       });
     });
 
+      // Fixed GridMart storefront marker (always shown)
+      const storefrontSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50"><path fill="#f59e0b" stroke="#b45309" stroke-width="1.5" d="M20 0C9 0 0 9 0 20c0 13 20 30 20 30S40 33 40 20C40 9 31 0 20 0z"/><rect x="9" y="11" width="22" height="16" rx="2" fill="white"/><rect x="9" y="8" width="22" height="6" rx="1.5" fill="white" opacity="0.75"/><rect x="15" y="18" width="10" height="9" rx="1" fill="#f59e0b"/></svg>`;
+      const storeMarker = new google.maps.Marker({
+        position: { lat: 42.2955, lng: -83.0006 },
+        map,
+        title: 'GridMart Store — 3170 Walker Rd',
+        icon: {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(storefrontSvg)}`,
+          scaledSize: new google.maps.Size(40, 50),
+          anchor: new google.maps.Point(20, 50),
+        },
+        zIndex: 200,
+      });
+      const storeHoursText = siteSettings.storefrontHours || 'Daily: 10:00 AM – 7:00 PM';
+      let storeHoverDiv: HTMLDivElement | null = null;
+      const StoreHoverOverlay = class extends google.maps.OverlayView {
+        onAdd() {
+          storeHoverDiv = document.createElement('div');
+          storeHoverDiv.style.cssText = 'position:absolute;background:rgba(0,0,0,0.82);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%);margin-top:-56px;opacity:0;transition:opacity 0.15s;z-index:1000;';
+          storeHoverDiv.innerHTML = `<div style="font-weight:700">GridMart Store</div><div style="opacity:0.85;margin-top:2px;font-size:11px">3170 Walker Rd · ${storeHoursText}</div>`;
+          this.getPanes()?.floatPane.appendChild(storeHoverDiv);
+        }
+        draw() {
+          if (!storeHoverDiv) return;
+          const proj = this.getProjection();
+          const pos = proj?.fromLatLngToDivPixel(new google.maps.LatLng(42.2955, -83.0006));
+          if (pos) { storeHoverDiv.style.left = pos.x + 'px'; storeHoverDiv.style.top = pos.y + 'px'; }
+        }
+        show() { if (storeHoverDiv) storeHoverDiv.style.opacity = '1'; }
+        hide() { if (storeHoverDiv) storeHoverDiv.style.opacity = '0'; }
+        onRemove() { storeHoverDiv?.remove(); storeHoverDiv = null; }
+      };
+      const storeHoverOverlay = new StoreHoverOverlay();
+      storeHoverOverlay.setMap(map);
+      storeMarker.addListener('mouseover', () => { storeHoverOverlay.show(); storeHoverOverlay.draw(); });
+      storeMarker.addListener('mouseout', () => { storeHoverOverlay.hide(); });
+      homeMapOverlaysRef.current.push(storeHoverOverlay);
+      storeMarker.addListener('click', () => {
+        homeMapCirclesRef.current.forEach(c => {
+          const base = (c as any)._baseStyle;
+          if (base) c.setOptions(base);
+        });
+        setMapSelectedNode({ id: '__storefront__', name: 'GridMart Store', isStorefront: true, storeHours: storeHoursText });
+      });
+      homeMapMarkersRef.current.push(storeMarker);
+
     if (validNodes.length > 1 && !cityMapLat && !siteSettings.mapLat && !siteSettings.mapLng) {
       const bounds = new google.maps.LatLngBounds();
       validNodes.forEach(n => bounds.extend({ lat: Number(n.latitude), lng: Number(n.longitude) }));
@@ -707,6 +702,9 @@ export default function Home() {
   // Check if selectedNodeId is valid (exists in fetched nodes)
   const validSelectedNodeId = selectedNodeId && nodes.some(n => n.id === selectedNodeId) ? selectedNodeId : null;
 
+  // In-Store location filter (mutually exclusive with node filter)
+  const [inStoreFilter, setInStoreFilter] = useState(false);
+
   // Helper to extract base code from product code
   const getBaseCode = (product: Product): string => {
     if (!product.productCode) return '';
@@ -764,17 +762,25 @@ export default function Home() {
     for (const p of pidChildren) allRelated.set(p.id, p);
     const groupProducts = Array.from(allRelated.values());
 
-    const totalInventory = groupProducts.reduce((sum, p) => {
-      return sum + (p.inventory?.reduce((invSum, inv) => invSum + inv.quantity, 0) || 0);
-    }, 0);
-    
-    const isComingSoon = groupProducts.some(p => p.comingSoon);
-    if (totalInventory <= 0 && !isComingSoon) {
-      return false;
+    const isInStore = groupProducts.some(p => (p as any).inStore);
+
+    // In-Store filter: only show products marked inStore (skip stock checks)
+    if (inStoreFilter) {
+      if (!isInStore) return false;
+    } else {
+      const totalInventory = groupProducts.reduce((sum, p) => {
+        return sum + (p.inventory?.reduce((invSum, inv) => invSum + inv.quantity, 0) || 0);
+      }, 0);
+      
+      const isComingSoon = groupProducts.some(p => p.comingSoon);
+      // In-store products always show, even with no node inventory
+      if (totalInventory <= 0 && !isComingSoon && !isInStore) {
+        return false;
+      }
     }
     
     // If a valid node is selected, check if any variant has stock at that node
-    if (validSelectedNodeId) {
+    if (!inStoreFilter && validSelectedNodeId) {
       const hasNodeStock = groupProducts.some(p => {
         const nodeInventory = p.inventory?.find(inv => inv.nodeId === validSelectedNodeId);
         return nodeInventory && nodeInventory.quantity > 0;
@@ -794,7 +800,7 @@ export default function Home() {
     return matchesSearch && matchesCategory && matchesSubcategory;
   });
 
-  const displayProducts = validSelectedNodeId ? filteredProducts.map(product => {
+  const displayProducts = (validSelectedNodeId && !inStoreFilter) ? filteredProducts.map(product => {
     const parentHasStock = product.inventory?.some(
       inv => inv.nodeId === validSelectedNodeId && inv.quantity > 0
     );
@@ -832,7 +838,7 @@ export default function Home() {
   // Reset index when products change
   useEffect(() => {
     setSpotlightIndex(0);
-  }, [selectedNodeId, search, selectedCategory]);
+  }, [selectedNodeId, search, selectedCategory, inStoreFilter]);
 
   const scrollPrev = useCallback(() => {
     setSpotlightIndex(prev => prev === 0 ? displayProducts.length - 1 : prev - 1);
@@ -860,13 +866,36 @@ export default function Home() {
       )}
       
       {/* ── STOREFRONT HERO ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/8 via-background to-primary/5">
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[80px]" />
-          <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px]" />
-        </div>
-        <div className="container mx-auto px-4 py-10 md:py-16 lg:py-20 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+      {(() => {
+        const fgEnabled = siteSettings.storefrontHeroImageEnabled !== 'false';
+        const bgEnabled = siteSettings.storefrontInteriorImageEnabled !== 'false';
+        const showFg = fgEnabled && !!siteSettings.storefrontHeroImage;
+        const showBg = bgEnabled && !!siteSettings.storefrontInteriorImage;
+        const fgPosition = siteSettings.storefrontHeroImagePosition || 'center';
+        const overlayRaw = parseInt(siteSettings.storefrontHeroImageOverlay || '55', 10);
+        const overlayPct = Number.isFinite(overlayRaw) ? Math.max(0, Math.min(100, overlayRaw)) : 55;
+        const bgAspect = siteSettings.storefrontInteriorImageAspect || '4/3';
+        const bgSize = siteSettings.storefrontInteriorImageSize || 'md';
+        const bgSizeClass = bgSize === 'sm' ? 'max-w-xs mx-auto' : bgSize === 'lg' ? 'max-w-none w-full' : 'max-w-md mx-auto';
+        return (
+      <section className="relative overflow-hidden flex items-center min-h-[500px] md:min-h-[560px]">
+        {/* Background layer */}
+        {showFg ? (
+          <>
+            <img src={siteSettings.storefrontHeroImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: fgPosition }} />
+            <div className="absolute inset-0 bg-black" style={{ opacity: overlayPct / 100 }} />
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-background to-primary/5" />
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[80px]" />
+              <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px]" />
+            </div>
+          </>
+        )}
+        <div className="container mx-auto px-4 py-10 md:py-16 lg:py-20 relative z-10 w-full">
+          <div className={`grid grid-cols-1 gap-8 lg:gap-16 items-center ${showBg ? 'lg:grid-cols-2' : ''}`}>
 
             {/* Left – store info */}
             <div className="space-y-5">
@@ -887,64 +916,62 @@ export default function Home() {
                 )}
               </div>
 
-              <h1 className={`font-display ${siteSettings.heroLine1FontSize || 'text-4xl md:text-5xl lg:text-6xl'} ${siteSettings.heroLine1Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine1Weight] || 'font-bold' : 'font-bold'} tracking-tight`} style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+              <h1 className={`font-display ${siteSettings.heroLine1FontSize || 'text-4xl md:text-5xl lg:text-6xl'} ${siteSettings.heroLine1Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine1Weight] || 'font-bold' : 'font-bold'} tracking-tight`} style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || (siteSettings.storefrontHeroImage ? '#ffffff' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined, textShadow: siteSettings.storefrontHeroImage ? '0 2px 8px rgba(0,0,0,0.5)' : undefined }}>
                 {siteSettings.heroLine1 || (siteSettingsLoaded ? 'Shop Local.' : '\u00A0')}{' '}
-                <span className={`${siteSettings.heroLine2Color ? '' : 'text-gradient'} ${siteSettings.heroLine2FontSize || ''} ${siteSettings.heroLine2Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine2Weight] || '' : ''}`} style={{ color: siteSettings.heroLine2Color || undefined }}>{siteSettings.heroLine2 || (siteSettingsLoaded ? 'In-Store & Online.' : '')}</span>
+                <span className={`${siteSettings.heroLine2Color ? '' : siteSettings.storefrontHeroImage ? '' : 'text-gradient'} ${siteSettings.heroLine2FontSize || ''} ${siteSettings.heroLine2Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine2Weight] || '' : ''}`} style={{ color: siteSettings.heroLine2Color || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.85)' : undefined) }}>{siteSettings.heroLine2 || (siteSettingsLoaded ? 'In-Store & Online.' : '')}</span>
               </h1>
 
-              <p className={`${siteSettings.heroSubtitleFontSize || 'text-lg md:text-xl'} ${siteSettings.heroSubtitleColor ? '' : 'text-muted-foreground'} ${siteSettings.heroSubtitleWeight ? ({ light: 'font-light', normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold' } as Record<string, string>)[siteSettings.heroSubtitleWeight] || '' : ''} max-w-lg`} style={{ transform: siteSettings.heroSubtitleOffset ? `translateY(${siteSettings.heroSubtitleOffset}px)` : undefined, color: siteSettings.heroSubtitleColor || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+              <p className={`${siteSettings.heroSubtitleFontSize || 'text-lg md:text-xl'} ${siteSettings.heroSubtitleColor ? '' : 'text-muted-foreground'} ${siteSettings.heroSubtitleWeight ? ({ light: 'font-light', normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold' } as Record<string, string>)[siteSettings.heroSubtitleWeight] || '' : ''} max-w-lg`} style={{ transform: siteSettings.heroSubtitleOffset ? `translateY(${siteSettings.heroSubtitleOffset}px)` : undefined, color: siteSettings.heroSubtitleColor || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.75)' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined }}>
                 {siteSettings.heroSubtitle || (siteSettingsLoaded ? 'Browse our curated selection in person, or order online for local pickup.' : '\u00A0')}
               </p>
 
               <div className="space-y-2 pt-1">
-                <div className="flex items-start gap-2 text-sm text-foreground/80">
-                  <MapPin className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>
+                  <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? 'text-white/70' : 'text-primary'}`} />
                   <span>{siteSettings.storefrontAddress || '3176 Walker Rd, Windsor'}</span>
                 </div>
                 {siteSettings.storefrontHours && (
-                  <div className="flex items-start gap-2 text-sm text-foreground/80">
-                    <Clock className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                  <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>
+                    <Clock className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? 'text-white/70' : 'text-primary'}`} />
                     <span>{siteSettings.storefrontHours}</span>
                   </div>
                 )}
               </div>
 
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button size="lg" onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>
+                <Button size="lg" className={siteSettings.storefrontHeroImage ? 'bg-white text-gray-900 hover:bg-white/90' : ''} onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>
                   <ShoppingBag className="w-4 h-4 mr-2" />
                   Browse Products
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => document.getElementById('pickup')?.scrollIntoView({ behavior: 'smooth' })}>
+                <Button size="lg" variant="outline" className={siteSettings.storefrontHeroImage ? 'border-white/60 text-white hover:bg-white/10' : ''} onClick={() => document.getElementById('pickup')?.scrollIntoView({ behavior: 'smooth' })}>
                   <MapPin className="w-4 h-4 mr-2" />
                   Pickup Locations
                 </Button>
               </div>
             </div>
 
-            {/* Right – storefront photos */}
-            <div className="space-y-3">
-              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3]">
-                {siteSettings.storefrontHeroImage ? (
-                  <img src={siteSettings.storefrontHeroImage} alt="Store exterior" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 gap-3 p-8 text-center">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <ShoppingBag className="w-8 h-8 text-primary/30" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
-                  </div>
-                )}
+            {/* Right – background photo (card alongside foreground hero) */}
+            {showBg && (
+              <div className={`rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 ${bgSizeClass}`} style={{ aspectRatio: bgAspect }}>
+                <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" />
               </div>
-              {siteSettings.storefrontInteriorImage && (
-                <div className="rounded-xl overflow-hidden shadow-md bg-muted aspect-[16/7]">
-                  <img src={siteSettings.storefrontInteriorImage} alt="Store interior" className="w-full h-full object-cover" />
+            )}
+
+            {/* Placeholder when no photos configured */}
+            {!showFg && !showBg && (
+              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3] flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ShoppingBag className="w-8 h-8 text-primary/30" />
                 </div>
-              )}
-            </div>
+                <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
+              </div>
+            )}
 
           </div>
         </div>
       </section>
+        );
+      })()}
 
       <main className="flex-1 py-12" id="products">
         <div className="container mx-auto px-4">
@@ -963,9 +990,15 @@ export default function Home() {
             </div>
             
             <Select
-              value={validSelectedNodeId || 'all'}
+              value={inStoreFilter ? 'in-store' : (validSelectedNodeId || 'all')}
               onValueChange={(val) => {
-                setSelectedNode(val === 'all' ? null : val);
+                if (val === 'in-store') {
+                  setInStoreFilter(true);
+                  setSelectedNode(null);
+                } else {
+                  setInStoreFilter(false);
+                  setSelectedNode(val === 'all' ? null : val);
+                }
               }}
             >
               <SelectTrigger className="w-[180px] sm:w-[220px] font-display" data-testid="select-location-filter">
@@ -974,6 +1007,7 @@ export default function Home() {
               </SelectTrigger>
               <SelectContent className="font-display">
                 <SelectItem value="all">All Locations</SelectItem>
+                <SelectItem value="in-store" data-testid="option-location-in-store">In-Store</SelectItem>
                 {activeNodes.map(node => (
                   <SelectItem key={node.id} value={node.id}>{node.name}</SelectItem>
                 ))}
@@ -1270,9 +1304,8 @@ export default function Home() {
               <div className="flex flex-wrap gap-2 mt-3 justify-center" style={{ opacity: siteSettingsLoaded ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
                 {activeNodes.filter(n => n.latitude && n.longitude).map((node, idx) => {
                   const isSelected = mapSelectedNode?.id === String(node.id);
-                  const nodeIsStorefront = (node as any).nodeType === 'storefront';
-                  const baseColor = nodeIsStorefront ? '#f59e0b' : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]);
-                  const selColor = nodeIsStorefront ? '#b45309' : (nodeSelectedStrokeColors[String(node.id)] || '#f59e0b');
+                  const baseColor = nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length];
+                  const selColor = nodeSelectedStrokeColors[String(node.id)] || '#f59e0b';
                   return (
                     <Badge
                       key={node.id}
@@ -1281,17 +1314,15 @@ export default function Home() {
                       style={{
                         borderColor: isSelected ? selColor : baseColor,
                         color: isSelected ? selColor : baseColor,
-                        backgroundColor: isSelected ? `${selColor}20` : nodeIsStorefront ? '#fef3c720' : 'rgba(255,255,255,0.8)',
+                        backgroundColor: isSelected ? `${selColor}20` : 'rgba(255,255,255,0.8)',
                       }}
                       onClick={() => {
                         homeMapCirclesRef.current.forEach(c => {
                           const base = (c as any)._baseStyle;
                           if (base) c.setOptions(base);
                         });
-                        if (!nodeIsStorefront) {
-                          const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
-                          if (target) target.setOptions((target as any)._selectedStyle);
-                        }
+                        const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
+                        if (target) target.setOptions((target as any)._selectedStyle);
                         if (node.latitude && node.longitude && homeMapInstanceRef.current) {
                           homeMapInstanceRef.current.panTo({ lat: Number(node.latitude), lng: Number(node.longitude) });
                           homeMapInstanceRef.current.setZoom(Math.max(homeMapInstanceRef.current.getZoom() || 12, 13));
@@ -1300,14 +1331,11 @@ export default function Home() {
                           id: String(node.id),
                           name: node.name,
                           availabilityNoticeHours: (node as any).availabilityNoticeHours || 48,
-                          isStorefront: nodeIsStorefront,
-                          storeHours: (node as any).storeHours || undefined,
                         });
-                        if (!nodeIsStorefront) fetchMapSlots(String(node.id));
+                        fetchMapSlots(String(node.id));
                       }}
                       data-testid={`badge-zone-${node.id}`}
                     >
-                      {nodeIsStorefront && <Store className="w-3 h-3" />}
                       {node.name}
                     </Badge>
                   );

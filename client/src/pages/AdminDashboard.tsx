@@ -15,10 +15,11 @@ import {
   Copy, Tag, Percent, Gift, Image as ImageIcon, X, Upload, ArrowUpDown, ArrowUp, ArrowDown, Filter, FolderOpen, FolderPlus,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ArrowRight, Printer, Bold, Italic, Underline, List, ListOrdered, Sparkles, GripVertical, Check,
   AlertTriangle, TrendingUp, BarChart3, DollarSign, ShoppingCart, Loader2, RefreshCw, Info, Wand2, Link2, Eraser, Eye, Navigation, Layers,
-  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode
+  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode, Store
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
 const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
+import { ImageDropZone } from '@/components/admin/ImageDropZone';
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
 const LandingPageEditor = lazy(() => import('@/components/admin/LandingPageEditor'));
 import logoIcon from '@/assets/gridmart-logo-icon.png';
@@ -5445,8 +5446,6 @@ export default function AdminDashboard() {
     longitude: null as number | null,
     pickupInstructions: '',
     status: 'active' as 'active' | 'inactive',
-    nodeType: 'residential' as 'residential' | 'storefront',
-    storeHours: '',
   });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAddNodeKitDialogOpen, setIsAddNodeKitDialogOpen] = useState(false);
@@ -6386,7 +6385,7 @@ Check other listings for more products`);
         if (settings.taxEnabled !== undefined) setTaxEnabled(settings.taxEnabled !== 'false');
         if (settings.taxRate) setTaxRate(settings.taxRate);
         if (settings.taxLabel) setTaxLabel(settings.taxLabel);
-        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
+        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontHeroImageEnabled','storefrontInteriorImageEnabled','storefrontHeroImagePosition','storefrontHeroImageOverlay','storefrontInteriorImageAspect','storefrontInteriorImageSize','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
         const loadedCopy: Record<string, string> = {};
         copyKeys.forEach(k => { if (settings[k]) loadedCopy[k] = settings[k]; });
         if (Object.keys(loadedCopy).length > 0) setHomepageCopy(prev => ({ ...prev, ...loadedCopy }));
@@ -9965,6 +9964,37 @@ Check other listings for more products`);
                     </PopoverContent>
                   </Popover>
                   
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedProducts.length) return;
+                      await Promise.all(selectedProducts.map(id =>
+                        fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: true }) })
+                      ));
+                      queryClient.invalidateQueries({ queryKey: ['products'] });
+                      toast.success(`Marked ${selectedProducts.length} product(s) as In-Store`);
+                    }}
+                    data-testid="button-add-instore"
+                  >
+                    <Store className="w-4 h-4 mr-1" />
+                    Add In-Store
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedProducts.length) return;
+                      await Promise.all(selectedProducts.map(id =>
+                        fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: false }) })
+                      ));
+                      queryClient.invalidateQueries({ queryKey: ['products'] });
+                      toast.success(`Removed ${selectedProducts.length} product(s) from In-Store`);
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Remove In-Store
+                  </Button>
                   <div className="flex items-center gap-1">
                     <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
                       <SelectTrigger className="h-8 w-24 text-xs">
@@ -11705,7 +11735,39 @@ Check other listings for more products`);
                               >
                                 {isSheetSyncing ? 'Syncing...' : `Sync ${sheetSyncMode === 'new' ? '(New Only)' : sheetSyncMode === 'manual' ? '(Selected Rows)' : '(All Rows)'}`}
                               </Button>
-                              
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!selectedProducts.length) return;
+                                  await Promise.all(selectedProducts.map(id =>
+                                    fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: true }) })
+                                  ));
+                                  queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  toast.success(`Marked ${selectedProducts.length} product(s) as In-Store`);
+                                }}
+                                data-testid="button-add-instore-2"
+                              >
+                                <Store className="w-4 h-4 mr-1" />
+                                Add In-Store
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!selectedProducts.length) return;
+                                  await Promise.all(selectedProducts.map(id =>
+                                    fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: false }) })
+                                  ));
+                                  queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  toast.success(`Removed ${selectedProducts.length} product(s) from In-Store`);
+                                }}
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Remove In-Store
+                              </Button>
+
                               <div className="flex items-center gap-1">
                                 <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
                                   <SelectTrigger className="h-8 w-24 text-xs">
@@ -13011,6 +13073,32 @@ Check other listings for more products`);
                             <span className="text-[9px] text-amber-600 font-medium whitespace-nowrap">Soon</span>
                           </label>
                         )}
+                          <label className="flex items-center gap-1 cursor-pointer" title="Available In-Store">
+                            <Checkbox
+                              checked={!!product.inStore}
+                              onCheckedChange={async (checked) => {
+                                try {
+                                  const res = await fetch(`/api/products/${product.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({ inStore: !!checked }),
+                                  });
+                                  if (!res.ok) {
+                                    const err = await res.text();
+                                    throw new Error(err || `HTTP ${res.status}`);
+                                  }
+                                  await queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  await queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+                                  toast.success(checked ? 'Marked In-Store' : 'Removed from In-Store', { duration: 1500 });
+                                } catch (e: any) {
+                                  toast.error(`Failed to update: ${e?.message || 'unknown error'}`);
+                                }
+                              }}
+                              className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                            />
+                            <span className="text-[9px] text-amber-600 font-medium whitespace-nowrap">In Store</span>
+                          </label>
                       </div>
                       <div className="flex gap-0.5 md:gap-1 shrink-0 w-[40px] md:w-[104px] justify-end">
                         <Button 
@@ -15798,31 +15886,6 @@ Check other listings for more products`);
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label>Node Type</Label>
-                        <Select
-                          value={newNode.nodeType}
-                          onValueChange={(v) => setNewNode({ ...newNode, nodeType: v as 'residential' | 'storefront' })}
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="residential">Residential</SelectItem>
-                            <SelectItem value="storefront">Storefront</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {newNode.nodeType === 'storefront' && (
-                        <div>
-                          <Label>Store Hours</Label>
-                          <Input
-                            value={newNode.storeHours}
-                            onChange={(e) => setNewNode({ ...newNode, storeHours: e.target.value })}
-                            placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
                         <Label>Status</Label>
                         <Select
                           value={newNode.status}
@@ -16387,9 +16450,6 @@ Check other listings for more products`);
                           <div className="flex items-center gap-1.5 min-w-0 shrink-0">
                             <span className="text-muted-foreground text-xs">#{index + 1}</span>
                             <span className="font-semibold truncate max-w-[120px]">{node.name}</span>
-                            {(node as any).nodeType === 'storefront' && (
-                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300 text-[10px] px-1 py-0">Storefront</Badge>
-                            )}
                             {node.isAdminNode && (
                               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[10px] px-1 py-0">Admin</Badge>
                             )}
@@ -16602,33 +16662,6 @@ Check other listings for more products`);
                                     These instructions will be shown to customers after checkout when they receive the pickup address.
                                   </p>
                                 </div>
-
-                                <div className="flex items-center justify-between">
-                                  <Label>Node Type</Label>
-                                  <Select
-                                    value={(managingNode as any).nodeType || 'residential'}
-                                    onValueChange={(v) => setManagingNode({ ...managingNode, nodeType: v } as any)}
-                                  >
-                                    <SelectTrigger className="w-40">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="residential">Residential</SelectItem>
-                                      <SelectItem value="storefront">Storefront</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                {(managingNode as any).nodeType === 'storefront' && (
-                                  <div>
-                                    <Label>Store Hours</Label>
-                                    <Input
-                                      value={(managingNode as any).storeHours || ''}
-                                      onChange={(e) => setManagingNode({ ...managingNode, storeHours: e.target.value } as any)}
-                                      placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
-                                      data-testid="input-manage-node-store-hours"
-                                    />
-                                  </div>
-                                )}
 
                                 <div>
                                   <Label className="text-sm text-muted-foreground">Linked Account</Label>
@@ -21793,22 +21826,114 @@ Check other listings for more products`);
 
                 <div className="border-t pt-4 space-y-3">
                   <h4 className="text-sm font-semibold mb-1">Storefront Photos & Info</h4>
-                  <p className="text-xs text-muted-foreground mb-3">Shown in the hero section on the homepage. Paste image URLs (or upload to your storage and paste the URL).</p>
-                  <div>
-                    <Label className="text-sm font-medium">Exterior / Main Photo URL</Label>
-                    <Input
-                      placeholder="https://..."
+                  <p className="text-xs text-muted-foreground mb-3">Shown in the hero section on the homepage.</p>
+                  <div className="border rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Foreground Photo</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Show</span>
+                        <Switch
+                          checked={(homepageCopy as any).storefrontHeroImageEnabled !== 'false'}
+                          onCheckedChange={(checked) => setHomepageCopy(prev => ({ ...prev, storefrontHeroImageEnabled: checked ? 'true' : 'false' } as any))}
+                          data-testid="switch-foreground-enabled"
+                        />
+                      </div>
+                    </div>
+                    <ImageDropZone
+                      label=""
                       value={(homepageCopy as any).storefrontHeroImage || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: e.target.value } as any))}
+                      onChange={url => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: url } as any))}
+                      onUpload={handleImageUpload}
                     />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Image Position</Label>
+                        <Select
+                          value={(homepageCopy as any).storefrontHeroImagePosition || 'center'}
+                          onValueChange={(v) => setHomepageCopy(prev => ({ ...prev, storefrontHeroImagePosition: v } as any))}
+                        >
+                          <SelectTrigger className="h-8 text-xs" data-testid="select-foreground-position">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="center top">Top</SelectItem>
+                            <SelectItem value="center">Center</SelectItem>
+                            <SelectItem value="center bottom">Bottom</SelectItem>
+                            <SelectItem value="left center">Left</SelectItem>
+                            <SelectItem value="right center">Right</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Overlay Darkness (%)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          className="h-8 text-xs"
+                          placeholder="55"
+                          value={(homepageCopy as any).storefrontHeroImageOverlay ?? ''}
+                          onChange={(e) => setHomepageCopy(prev => ({ ...prev, storefrontHeroImageOverlay: e.target.value } as any))}
+                          data-testid="input-foreground-overlay"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Interior Photo URL</Label>
-                    <Input
-                      placeholder="https://... (optional — shown as a smaller strip below the main photo)"
+
+                  <div className="border rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Background Photo</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Show</span>
+                        <Switch
+                          checked={(homepageCopy as any).storefrontInteriorImageEnabled !== 'false'}
+                          onCheckedChange={(checked) => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImageEnabled: checked ? 'true' : 'false' } as any))}
+                          data-testid="switch-background-enabled"
+                        />
+                      </div>
+                    </div>
+                    <ImageDropZone
+                      label=""
+                      hint="Optional — shown as a card alongside the foreground."
                       value={(homepageCopy as any).storefrontInteriorImage || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: e.target.value } as any))}
+                      onChange={url => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: url } as any))}
+                      onUpload={handleImageUpload}
                     />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Aspect Ratio</Label>
+                        <Select
+                          value={(homepageCopy as any).storefrontInteriorImageAspect || '4/3'}
+                          onValueChange={(v) => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImageAspect: v } as any))}
+                        >
+                          <SelectTrigger className="h-8 text-xs" data-testid="select-background-aspect">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="4/3">Landscape (4:3)</SelectItem>
+                            <SelectItem value="16/9">Wide (16:9)</SelectItem>
+                            <SelectItem value="1/1">Square (1:1)</SelectItem>
+                            <SelectItem value="3/4">Portrait (3:4)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Size</Label>
+                        <Select
+                          value={(homepageCopy as any).storefrontInteriorImageSize || 'md'}
+                          onValueChange={(v) => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImageSize: v } as any))}
+                        >
+                          <SelectTrigger className="h-8 text-xs" data-testid="select-background-size">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sm">Small</SelectItem>
+                            <SelectItem value="md">Medium</SelectItem>
+                            <SelectItem value="lg">Large</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Store Address</Label>
