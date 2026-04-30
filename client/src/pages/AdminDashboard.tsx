@@ -5331,11 +5331,6 @@ export default function AdminDashboard() {
     } catch {}
   };
   useEffect(() => { fetchProductGroups(); }, []);
-  useEffect(() => {
-    if (editingProduct) {
-      setEditProductGroupIds(productGroupMemberships[editingProduct.id] || []);
-    }
-  }, [editingProduct?.id]);
 
   // Fetch categories from API
   const { data: categoryList = [], refetch: refetchCategories } = useQuery<Category[]>({
