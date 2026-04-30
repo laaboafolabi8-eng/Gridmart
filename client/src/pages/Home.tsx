@@ -860,13 +860,24 @@ export default function Home() {
       )}
       
       {/* ── STOREFRONT HERO ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/8 via-background to-primary/5">
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[80px]" />
-          <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px]" />
-        </div>
-        <div className="container mx-auto px-4 py-10 md:py-16 lg:py-20 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+      <section className="relative overflow-hidden flex items-center min-h-[500px] md:min-h-[560px]">
+        {/* Background layer */}
+        {siteSettings.storefrontHeroImage ? (
+          <>
+            <img src={siteSettings.storefrontHeroImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/55" />
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-background to-primary/5" />
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[80px]" />
+              <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px]" />
+            </div>
+          </>
+        )}
+        <div className="container mx-auto px-4 py-10 md:py-16 lg:py-20 relative z-10 w-full">
+          <div className={`grid grid-cols-1 gap-8 lg:gap-16 items-center ${siteSettings.storefrontInteriorImage ? 'lg:grid-cols-2' : ''}`}>
 
             {/* Left – store info */}
             <div className="space-y-5">
@@ -887,60 +898,56 @@ export default function Home() {
                 )}
               </div>
 
-              <h1 className={`font-display ${siteSettings.heroLine1FontSize || 'text-4xl md:text-5xl lg:text-6xl'} ${siteSettings.heroLine1Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine1Weight] || 'font-bold' : 'font-bold'} tracking-tight`} style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+              <h1 className={`font-display ${siteSettings.heroLine1FontSize || 'text-4xl md:text-5xl lg:text-6xl'} ${siteSettings.heroLine1Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine1Weight] || 'font-bold' : 'font-bold'} tracking-tight`} style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || (siteSettings.storefrontHeroImage ? '#ffffff' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined, textShadow: siteSettings.storefrontHeroImage ? '0 2px 8px rgba(0,0,0,0.5)' : undefined }}>
                 {siteSettings.heroLine1 || (siteSettingsLoaded ? 'Shop Local.' : '\u00A0')}{' '}
-                <span className={`${siteSettings.heroLine2Color ? '' : 'text-gradient'} ${siteSettings.heroLine2FontSize || ''} ${siteSettings.heroLine2Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine2Weight] || '' : ''}`} style={{ color: siteSettings.heroLine2Color || undefined }}>{siteSettings.heroLine2 || (siteSettingsLoaded ? 'In-Store & Online.' : '')}</span>
+                <span className={`${siteSettings.heroLine2Color ? '' : siteSettings.storefrontHeroImage ? '' : 'text-gradient'} ${siteSettings.heroLine2FontSize || ''} ${siteSettings.heroLine2Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine2Weight] || '' : ''}`} style={{ color: siteSettings.heroLine2Color || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.85)' : undefined) }}>{siteSettings.heroLine2 || (siteSettingsLoaded ? 'In-Store & Online.' : '')}</span>
               </h1>
 
-              <p className={`${siteSettings.heroSubtitleFontSize || 'text-lg md:text-xl'} ${siteSettings.heroSubtitleColor ? '' : 'text-muted-foreground'} ${siteSettings.heroSubtitleWeight ? ({ light: 'font-light', normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold' } as Record<string, string>)[siteSettings.heroSubtitleWeight] || '' : ''} max-w-lg`} style={{ transform: siteSettings.heroSubtitleOffset ? `translateY(${siteSettings.heroSubtitleOffset}px)` : undefined, color: siteSettings.heroSubtitleColor || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+              <p className={`${siteSettings.heroSubtitleFontSize || 'text-lg md:text-xl'} ${siteSettings.heroSubtitleColor ? '' : 'text-muted-foreground'} ${siteSettings.heroSubtitleWeight ? ({ light: 'font-light', normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold' } as Record<string, string>)[siteSettings.heroSubtitleWeight] || '' : ''} max-w-lg`} style={{ transform: siteSettings.heroSubtitleOffset ? `translateY(${siteSettings.heroSubtitleOffset}px)` : undefined, color: siteSettings.heroSubtitleColor || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.75)' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined }}>
                 {siteSettings.heroSubtitle || (siteSettingsLoaded ? 'Browse our curated selection in person, or order online for local pickup.' : '\u00A0')}
               </p>
 
               <div className="space-y-2 pt-1">
-                <div className="flex items-start gap-2 text-sm text-foreground/80">
-                  <MapPin className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>
+                  <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? 'text-white/70' : 'text-primary'}`} />
                   <span>{siteSettings.storefrontAddress || '3176 Walker Rd, Windsor'}</span>
                 </div>
                 {siteSettings.storefrontHours && (
-                  <div className="flex items-start gap-2 text-sm text-foreground/80">
-                    <Clock className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                  <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>
+                    <Clock className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? 'text-white/70' : 'text-primary'}`} />
                     <span>{siteSettings.storefrontHours}</span>
                   </div>
                 )}
               </div>
 
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button size="lg" onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>
+                <Button size="lg" className={siteSettings.storefrontHeroImage ? 'bg-white text-gray-900 hover:bg-white/90' : ''} onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>
                   <ShoppingBag className="w-4 h-4 mr-2" />
                   Browse Products
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => document.getElementById('pickup')?.scrollIntoView({ behavior: 'smooth' })}>
+                <Button size="lg" variant="outline" className={siteSettings.storefrontHeroImage ? 'border-white/60 text-white hover:bg-white/10' : ''} onClick={() => document.getElementById('pickup')?.scrollIntoView({ behavior: 'smooth' })}>
                   <MapPin className="w-4 h-4 mr-2" />
                   Pickup Locations
                 </Button>
               </div>
             </div>
 
-            {/* Right – storefront photos */}
-            <div className="space-y-3">
-              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3]">
-                {siteSettings.storefrontHeroImage ? (
-                  <img src={siteSettings.storefrontHeroImage} alt="Store exterior" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 gap-3 p-8 text-center">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <ShoppingBag className="w-8 h-8 text-primary/30" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
-                  </div>
-                )}
+            {/* Right – interior photo (shown when set; exterior is the full-bleed background) */}
+            {siteSettings.storefrontInteriorImage && (
+              <div className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 aspect-[4/3]">
+                <img src={siteSettings.storefrontInteriorImage} alt="Store interior" className="w-full h-full object-cover" />
               </div>
-              {siteSettings.storefrontInteriorImage && (
-                <div className="rounded-xl overflow-hidden shadow-md bg-muted aspect-[16/7]">
-                  <img src={siteSettings.storefrontInteriorImage} alt="Store interior" className="w-full h-full object-cover" />
+            )}
+
+            {/* Placeholder when no photos configured */}
+            {!siteSettings.storefrontHeroImage && !siteSettings.storefrontInteriorImage && (
+              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3] flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ShoppingBag className="w-8 h-8 text-primary/30" />
                 </div>
-              )}
-            </div>
+                <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
+              </div>
+            )}
 
           </div>
         </div>
