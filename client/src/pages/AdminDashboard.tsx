@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
 const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
+import { ImageDropZone } from '@/components/admin/ImageDropZone';
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
 const LandingPageEditor = lazy(() => import('@/components/admin/LandingPageEditor'));
 import logoIcon from '@/assets/gridmart-logo-icon.png';
@@ -21793,23 +21794,20 @@ Check other listings for more products`);
 
                 <div className="border-t pt-4 space-y-3">
                   <h4 className="text-sm font-semibold mb-1">Storefront Photos & Info</h4>
-                  <p className="text-xs text-muted-foreground mb-3">Shown in the hero section on the homepage. Paste image URLs (or upload to your storage and paste the URL).</p>
-                  <div>
-                    <Label className="text-sm font-medium">Exterior / Main Photo URL</Label>
-                    <Input
-                      placeholder="https://..."
-                      value={(homepageCopy as any).storefrontHeroImage || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: e.target.value } as any))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Interior Photo URL</Label>
-                    <Input
-                      placeholder="https://... (optional — shown as a smaller strip below the main photo)"
-                      value={(homepageCopy as any).storefrontInteriorImage || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: e.target.value } as any))}
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">Shown in the hero section on the homepage.</p>
+                  <ImageDropZone
+                    label="Exterior / Main Photo"
+                    value={(homepageCopy as any).storefrontHeroImage || ''}
+                    onChange={url => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: url } as any))}
+                    onUpload={handleImageUpload}
+                  />
+                  <ImageDropZone
+                    label="Interior Photo"
+                    hint="Optional — shown as a strip below the main photo"
+                    value={(homepageCopy as any).storefrontInteriorImage || ''}
+                    onChange={url => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: url } as any))}
+                    onUpload={handleImageUpload}
+                  />
                   <div>
                     <Label className="text-sm font-medium">Store Address</Label>
                     <Input
