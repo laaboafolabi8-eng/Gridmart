@@ -413,10 +413,7 @@ export default function Home() {
       const lat = Number(node.latitude);
       const lng = Number(node.longitude);
       const color = nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length];
-      const isStorefrontNode = (node as any).nodeType === 'storefront';
-      const [circleLat, circleLng] = isStorefrontNode
-        ? [lat, lng]
-        : generateOffsetCenter(lat, lng, node.id);
+      const [circleLat, circleLng] = generateOffsetCenter(lat, lng, node.id);
 
       const borderColor = nodeBorderColors[String(node.id)] || color;
       const fillOp = nodeOpacities[String(node.id)] ?? 0.2;
@@ -428,55 +425,7 @@ export default function Home() {
       const selFillOp = nodeSelectedFillOpacities[nodeId] ?? 0.4;
       const selStrokeOp = nodeSelectedStrokeOpacities[nodeId] ?? 1;
 
-      if (isStorefrontNode) {
-        const storefrontSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44"><path fill="#f59e0b" stroke="#b45309" stroke-width="1.5" d="M18 0C8.1 0 0 8.1 0 18c0 11.1 18 26 18 26s18-14.9 18-26C36 8.1 27.9 0 18 0z"/><rect x="8" y="10" width="20" height="15" rx="1.5" fill="white"/><rect x="8" y="7" width="20" height="5" rx="1" fill="white" opacity="0.75"/><rect x="14" y="17" width="8" height="8" rx="1" fill="#f59e0b"/></svg>`;
-        const sfMarker = new google.maps.Marker({
-          position: { lat, lng },
-          map,
-          title: node.name,
-          icon: {
-            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(storefrontSvg)}`,
-            scaledSize: new google.maps.Size(36, 44),
-            anchor: new google.maps.Point(18, 44),
-          },
-          zIndex: 100,
-        });
-        (sfMarker as any)._nodeId = nodeId;
-
-        const hoursText = (node as any).storeHours || 'Daily: 10:00 AM – 7:00 PM';
-        let sfHoverDiv: HTMLDivElement | null = null;
-        const SfHoverOverlay = class extends google.maps.OverlayView {
-          onAdd() {
-            sfHoverDiv = document.createElement('div');
-            sfHoverDiv.style.cssText = 'position:absolute;background:rgba(0,0,0,0.82);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%);margin-top:-52px;opacity:0;transition:opacity 0.15s;z-index:1000;';
-            sfHoverDiv.innerHTML = `<div style="font-weight:700">${node.name}</div><div style="opacity:0.85;margin-top:2px;font-size:11px">${hoursText}</div>`;
-            this.getPanes()?.floatPane.appendChild(sfHoverDiv);
-          }
-          draw() {
-            if (!sfHoverDiv) return;
-            const proj = this.getProjection();
-            const pos = proj?.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
-            if (pos) { sfHoverDiv.style.left = pos.x + 'px'; sfHoverDiv.style.top = pos.y + 'px'; }
-          }
-          show() { if (sfHoverDiv) sfHoverDiv.style.opacity = '1'; }
-          hide() { if (sfHoverDiv) sfHoverDiv.style.opacity = '0'; }
-          onRemove() { sfHoverDiv?.remove(); sfHoverDiv = null; }
-        };
-        const sfHoverOverlay = new SfHoverOverlay();
-        sfHoverOverlay.setMap(map);
-        sfMarker.addListener('mouseover', () => { sfHoverOverlay.show(); sfHoverOverlay.draw(); });
-        sfMarker.addListener('mouseout', () => { sfHoverOverlay.hide(); });
-        homeMapOverlaysRef.current.push(sfHoverOverlay);
-
-        sfMarker.addListener('click', () => {
-          homeMapCirclesRef.current.forEach(c => {
-            const base = (c as any)._baseStyle;
-            if (base) c.setOptions(base);
-          });
-          setMapSelectedNode({ id: nodeId, name: node.name, isStorefront: true, storeHours: (node as any).storeHours || 'Daily: 10:00 AM – 7:00 PM' });
-        });
-        homeMapMarkersRef.current.push(sfMarker);
-      } else {
+      {
         const circle = new google.maps.Circle({
           center: { lat: circleLat, lng: circleLng },
           radius: parseInt(siteSettings.nodeCircleSize || '500', 10),
@@ -620,6 +569,52 @@ export default function Home() {
         homeMapOverlaysRef.current.push(overlayView);
       });
     });
+
+      // Fixed GridMart storefront marker (always shown)
+      const storefrontSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50"><path fill="#f59e0b" stroke="#b45309" stroke-width="1.5" d="M20 0C9 0 0 9 0 20c0 13 20 30 20 30S40 33 40 20C40 9 31 0 20 0z"/><rect x="9" y="11" width="22" height="16" rx="2" fill="white"/><rect x="9" y="8" width="22" height="6" rx="1.5" fill="white" opacity="0.75"/><rect x="15" y="18" width="10" height="9" rx="1" fill="#f59e0b"/></svg>`;
+      const storeMarker = new google.maps.Marker({
+        position: { lat: 42.2955, lng: -83.0006 },
+        map,
+        title: 'GridMart Store — 3170 Walker Rd',
+        icon: {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(storefrontSvg)}`,
+          scaledSize: new google.maps.Size(40, 50),
+          anchor: new google.maps.Point(20, 50),
+        },
+        zIndex: 200,
+      });
+      const storeHoursText = siteSettings.storefrontHours || 'Daily: 10:00 AM – 7:00 PM';
+      let storeHoverDiv: HTMLDivElement | null = null;
+      const StoreHoverOverlay = class extends google.maps.OverlayView {
+        onAdd() {
+          storeHoverDiv = document.createElement('div');
+          storeHoverDiv.style.cssText = 'position:absolute;background:rgba(0,0,0,0.82);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%);margin-top:-56px;opacity:0;transition:opacity 0.15s;z-index:1000;';
+          storeHoverDiv.innerHTML = `<div style="font-weight:700">GridMart Store</div><div style="opacity:0.85;margin-top:2px;font-size:11px">3170 Walker Rd · ${storeHoursText}</div>`;
+          this.getPanes()?.floatPane.appendChild(storeHoverDiv);
+        }
+        draw() {
+          if (!storeHoverDiv) return;
+          const proj = this.getProjection();
+          const pos = proj?.fromLatLngToDivPixel(new google.maps.LatLng(42.2955, -83.0006));
+          if (pos) { storeHoverDiv.style.left = pos.x + 'px'; storeHoverDiv.style.top = pos.y + 'px'; }
+        }
+        show() { if (storeHoverDiv) storeHoverDiv.style.opacity = '1'; }
+        hide() { if (storeHoverDiv) storeHoverDiv.style.opacity = '0'; }
+        onRemove() { storeHoverDiv?.remove(); storeHoverDiv = null; }
+      };
+      const storeHoverOverlay = new StoreHoverOverlay();
+      storeHoverOverlay.setMap(map);
+      storeMarker.addListener('mouseover', () => { storeHoverOverlay.show(); storeHoverOverlay.draw(); });
+      storeMarker.addListener('mouseout', () => { storeHoverOverlay.hide(); });
+      homeMapOverlaysRef.current.push(storeHoverOverlay);
+      storeMarker.addListener('click', () => {
+        homeMapCirclesRef.current.forEach(c => {
+          const base = (c as any)._baseStyle;
+          if (base) c.setOptions(base);
+        });
+        setMapSelectedNode({ id: '__storefront__', name: 'GridMart Store', isStorefront: true, storeHours: storeHoursText });
+      });
+      homeMapMarkersRef.current.push(storeMarker);
 
     if (validNodes.length > 1 && !cityMapLat && !siteSettings.mapLat && !siteSettings.mapLng) {
       const bounds = new google.maps.LatLngBounds();
@@ -1277,9 +1272,8 @@ export default function Home() {
               <div className="flex flex-wrap gap-2 mt-3 justify-center" style={{ opacity: siteSettingsLoaded ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
                 {activeNodes.filter(n => n.latitude && n.longitude).map((node, idx) => {
                   const isSelected = mapSelectedNode?.id === String(node.id);
-                  const nodeIsStorefront = (node as any).nodeType === 'storefront';
-                  const baseColor = nodeIsStorefront ? '#f59e0b' : (nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length]);
-                  const selColor = nodeIsStorefront ? '#b45309' : (nodeSelectedStrokeColors[String(node.id)] || '#f59e0b');
+                  const baseColor = nodeColors[String(node.id)] || ZONE_COLORS[idx % ZONE_COLORS.length];
+                  const selColor = nodeSelectedStrokeColors[String(node.id)] || '#f59e0b';
                   return (
                     <Badge
                       key={node.id}
@@ -1288,17 +1282,15 @@ export default function Home() {
                       style={{
                         borderColor: isSelected ? selColor : baseColor,
                         color: isSelected ? selColor : baseColor,
-                        backgroundColor: isSelected ? `${selColor}20` : nodeIsStorefront ? '#fef3c720' : 'rgba(255,255,255,0.8)',
+                        backgroundColor: isSelected ? `${selColor}20` : 'rgba(255,255,255,0.8)',
                       }}
                       onClick={() => {
                         homeMapCirclesRef.current.forEach(c => {
                           const base = (c as any)._baseStyle;
                           if (base) c.setOptions(base);
                         });
-                        if (!nodeIsStorefront) {
-                          const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
-                          if (target) target.setOptions((target as any)._selectedStyle);
-                        }
+                        const target = homeMapCirclesRef.current.find(c => (c as any)._nodeId === String(node.id));
+                        if (target) target.setOptions((target as any)._selectedStyle);
                         if (node.latitude && node.longitude && homeMapInstanceRef.current) {
                           homeMapInstanceRef.current.panTo({ lat: Number(node.latitude), lng: Number(node.longitude) });
                           homeMapInstanceRef.current.setZoom(Math.max(homeMapInstanceRef.current.getZoom() || 12, 13));
@@ -1307,14 +1299,11 @@ export default function Home() {
                           id: String(node.id),
                           name: node.name,
                           availabilityNoticeHours: (node as any).availabilityNoticeHours || 48,
-                          isStorefront: nodeIsStorefront,
-                          storeHours: (node as any).storeHours || undefined,
                         });
-                        if (!nodeIsStorefront) fetchMapSlots(String(node.id));
+                        fetchMapSlots(String(node.id));
                       }}
                       data-testid={`badge-zone-${node.id}`}
                     >
-                      {nodeIsStorefront && <Store className="w-3 h-3" />}
                       {node.name}
                     </Badge>
                   );

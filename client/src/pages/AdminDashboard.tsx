@@ -15,7 +15,7 @@ import {
   Copy, Tag, Percent, Gift, Image as ImageIcon, X, Upload, ArrowUpDown, ArrowUp, ArrowDown, Filter, FolderOpen, FolderPlus,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ArrowRight, Printer, Bold, Italic, Underline, List, ListOrdered, Sparkles, GripVertical, Check,
   AlertTriangle, TrendingUp, BarChart3, DollarSign, ShoppingCart, Loader2, RefreshCw, Info, Wand2, Link2, Eraser, Eye, Navigation, Layers,
-  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode
+  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode, Store
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
 const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
@@ -5451,8 +5451,6 @@ export default function AdminDashboard() {
     longitude: null as number | null,
     pickupInstructions: '',
     status: 'active' as 'active' | 'inactive',
-    nodeType: 'residential' as 'residential' | 'storefront',
-    storeHours: '',
   });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAddNodeKitDialogOpen, setIsAddNodeKitDialogOpen] = useState(false);
@@ -9966,6 +9964,37 @@ Check other listings for more products`);
                     </PopoverContent>
                   </Popover>
                   
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedProducts.length) return;
+                      await Promise.all(selectedProducts.map(id =>
+                        fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: true }) })
+                      ));
+                      queryClient.invalidateQueries({ queryKey: ['products'] });
+                      toast.success(`Marked ${selectedProducts.length} product(s) as In-Store`);
+                    }}
+                    data-testid="button-add-instore"
+                  >
+                    <Store className="w-4 h-4 mr-1" />
+                    Add In-Store
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedProducts.length) return;
+                      await Promise.all(selectedProducts.map(id =>
+                        fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: false }) })
+                      ));
+                      queryClient.invalidateQueries({ queryKey: ['products'] });
+                      toast.success(`Removed ${selectedProducts.length} product(s) from In-Store`);
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Remove In-Store
+                  </Button>
                   <div className="flex items-center gap-1">
                     <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
                       <SelectTrigger className="h-8 w-24 text-xs">
@@ -11706,7 +11735,39 @@ Check other listings for more products`);
                               >
                                 {isSheetSyncing ? 'Syncing...' : `Sync ${sheetSyncMode === 'new' ? '(New Only)' : sheetSyncMode === 'manual' ? '(Selected Rows)' : '(All Rows)'}`}
                               </Button>
-                              
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!selectedProducts.length) return;
+                                  await Promise.all(selectedProducts.map(id =>
+                                    fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: true }) })
+                                  ));
+                                  queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  toast.success(`Marked ${selectedProducts.length} product(s) as In-Store`);
+                                }}
+                                data-testid="button-add-instore-2"
+                              >
+                                <Store className="w-4 h-4 mr-1" />
+                                Add In-Store
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!selectedProducts.length) return;
+                                  await Promise.all(selectedProducts.map(id =>
+                                    fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ inStore: false }) })
+                                  ));
+                                  queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  toast.success(`Removed ${selectedProducts.length} product(s) from In-Store`);
+                                }}
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Remove In-Store
+                              </Button>
+
                               <div className="flex items-center gap-1">
                                 <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
                                   <SelectTrigger className="h-8 w-24 text-xs">
@@ -13012,6 +13073,27 @@ Check other listings for more products`);
                             <span className="text-[9px] text-amber-600 font-medium whitespace-nowrap">Soon</span>
                           </label>
                         )}
+                          <label className="flex items-center gap-1 cursor-pointer" title="Available In-Store">
+                            <Checkbox
+                              checked={!!product.inStore}
+                              onCheckedChange={async (checked) => {
+                                try {
+                                  await fetch(`/api/products/${product.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({ inStore: !!checked }),
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  toast.success(checked ? 'Marked In-Store' : 'Removed from In-Store', { duration: 1500 });
+                                } catch {
+                                  toast.error('Failed to update');
+                                }
+                              }}
+                              className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                            />
+                            <span className="text-[9px] text-amber-600 font-medium whitespace-nowrap">In Store</span>
+                          </label>
                       </div>
                       <div className="flex gap-0.5 md:gap-1 shrink-0 w-[40px] md:w-[104px] justify-end">
                         <Button 
@@ -15799,31 +15881,6 @@ Check other listings for more products`);
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label>Node Type</Label>
-                        <Select
-                          value={newNode.nodeType}
-                          onValueChange={(v) => setNewNode({ ...newNode, nodeType: v as 'residential' | 'storefront' })}
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="residential">Residential</SelectItem>
-                            <SelectItem value="storefront">Storefront</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {newNode.nodeType === 'storefront' && (
-                        <div>
-                          <Label>Store Hours</Label>
-                          <Input
-                            value={newNode.storeHours}
-                            onChange={(e) => setNewNode({ ...newNode, storeHours: e.target.value })}
-                            placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
                         <Label>Status</Label>
                         <Select
                           value={newNode.status}
@@ -16388,9 +16445,6 @@ Check other listings for more products`);
                           <div className="flex items-center gap-1.5 min-w-0 shrink-0">
                             <span className="text-muted-foreground text-xs">#{index + 1}</span>
                             <span className="font-semibold truncate max-w-[120px]">{node.name}</span>
-                            {(node as any).nodeType === 'storefront' && (
-                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300 text-[10px] px-1 py-0">Storefront</Badge>
-                            )}
                             {node.isAdminNode && (
                               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[10px] px-1 py-0">Admin</Badge>
                             )}
@@ -16603,33 +16657,6 @@ Check other listings for more products`);
                                     These instructions will be shown to customers after checkout when they receive the pickup address.
                                   </p>
                                 </div>
-
-                                <div className="flex items-center justify-between">
-                                  <Label>Node Type</Label>
-                                  <Select
-                                    value={(managingNode as any).nodeType || 'residential'}
-                                    onValueChange={(v) => setManagingNode({ ...managingNode, nodeType: v } as any)}
-                                  >
-                                    <SelectTrigger className="w-40">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="residential">Residential</SelectItem>
-                                      <SelectItem value="storefront">Storefront</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                {(managingNode as any).nodeType === 'storefront' && (
-                                  <div>
-                                    <Label>Store Hours</Label>
-                                    <Input
-                                      value={(managingNode as any).storeHours || ''}
-                                      onChange={(e) => setManagingNode({ ...managingNode, storeHours: e.target.value } as any)}
-                                      placeholder="e.g. Daily: 10:00 AM – 7:00 PM"
-                                      data-testid="input-manage-node-store-hours"
-                                    />
-                                  </div>
-                                )}
 
                                 <div>
                                   <Label className="text-sm text-muted-foreground">Linked Account</Label>

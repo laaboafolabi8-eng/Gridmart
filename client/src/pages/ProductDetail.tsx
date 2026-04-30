@@ -1,5 +1,5 @@
 import { useParams, Link, useLocation } from 'wouter';
-import { ArrowLeft, Plus, Minus, MapPin, Package, Loader2, Map, Link2, ShoppingCart, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, MapPin, Package, Loader2, Map, Link2, ShoppingCart, ChevronLeft, ChevronRight, Clock, Store } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { loadGoogleMaps, GRIDMART_MAP_STYLES } from '@/lib/googleMaps';
@@ -873,6 +873,16 @@ export default function ProductDetail() {
               )}
             </div>
           </div>
+
+          {(product as any).inStore && (
+            <div className="mt-6 flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900">
+              <Store className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">Available In-Store</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">3170 Walker Rd, Windsor, ON N8W 3R5 · Visit us to see this product in person.</p>
+              </div>
+            </div>
+          )}
 
           {relatedProducts.length > 0 && (
             <section data-testid="related-products-section">

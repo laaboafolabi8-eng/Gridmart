@@ -63,6 +63,7 @@ export const products = pgTable("products", {
   customerPaysHandoff: boolean("customer_pays_handoff").default(false), // If true, customer pays the handoff fee for this product
   sortOrder: integer("sort_order").default(0), // Order within category for display
   comingSoon: boolean("coming_soon").default(false), // Show as "Coming Soon" on storefront (only for out-of-stock products)
+  inStore: boolean("in_store").default(false), // Product is viewable in-store; shown on product pages but cannot be ordered online
   imageOverlays: jsonb("image_overlays"), // Overlay data per image: [{imageIndex, overlays: [{id, imageUrl, x, y, width, height}]}]
   createdAt: timestamp("created_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"), // Soft delete timestamp - null means active, set means deleted
