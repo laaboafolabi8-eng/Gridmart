@@ -12918,41 +12918,73 @@ Check other listings for more products`);
                         <div className="hidden md:block w-28 shrink-0 text-center" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Badge 
-                                variant="outline" 
+                              <Badge
+                                variant="outline"
                                 className="text-xs whitespace-normal text-center leading-tight max-w-full cursor-pointer hover:bg-muted transition-colors"
                                 data-testid={`badge-category-${product.id}`}
                               >
-                                {product.category}
+                                {(product as any).subcategory || product.category}
                                 <ChevronDown className="w-3 h-3 ml-1 inline-block" />
                               </Badge>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="center" className="max-h-64 overflow-y-auto">
-                              {categoryList.filter(c => !c.parentId).map((cat) => (
-                                <DropdownMenuItem
-                                  key={cat.id}
-                                  className={product.category === cat.name ? 'bg-primary/10' : ''}
-                                  data-testid={`menu-item-category-${cat.id}`}
-                                  onClick={async () => {
-                                    if (product.category === cat.name) return;
-                                    try {
-                        const res = await fetch(`/api/products/${product.id}`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ category: cat.name, subcategory: null })
-                                      });
-                                      if (!res.ok) throw new Error('Failed to update category');
-                                      queryClient.invalidateQueries({ queryKey: ['products'] });
-                                      toast.success(`Category changed to ${cat.name}`);
-                                    } catch (err) {
-                                      toast.error('Failed to update category');
-                                    }
-                                  }}
-                                >
-                                  {product.category === cat.name && <Check className="w-3 h-3 mr-2" />}
-                                  {cat.name}
-                                </DropdownMenuItem>
-                              ))}
+                              {categoryList.filter(c => !c.parentId).map((cat) => {
+                                const subs = categoryList.filter(c => c.parentId === cat.id);
+                                const isActive = product.category === cat.name && !(product as any).subcategory;
+                                return (
+                                  <React.Fragment key={cat.id}>
+                                    <DropdownMenuItem
+                                      className={isActive ? 'bg-primary/10' : ''}
+                                      data-testid={`menu-item-category-${cat.id}`}
+                                      onClick={async () => {
+                                        if (isActive) return;
+                                        try {
+                                          const res = await fetch(`/api/products/${product.id}`, {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ category: cat.name, subcategory: null })
+                                          });
+                                          if (!res.ok) throw new Error('Failed to update category');
+                                          queryClient.invalidateQueries({ queryKey: ['products'] });
+                                          toast.success(`Category changed to ${cat.name}`);
+                                        } catch (err) {
+                                          toast.error('Failed to update category');
+                                        }
+                                      }}
+                                    >
+                                      {isActive && <Check className="w-3 h-3 mr-2" />}
+                                      {cat.name}
+                                    </DropdownMenuItem>
+                                    {subs.map(sub => {
+                                      const subActive = product.category === cat.name && (product as any).subcategory === sub.name;
+                                      return (
+                                        <DropdownMenuItem
+                                          key={sub.id}
+                                          className={`pl-7 text-muted-foreground${subActive ? ' bg-primary/10' : ''}`}
+                                          onClick={async () => {
+                                            if (subActive) return;
+                                            try {
+                                              const res = await fetch(`/api/products/${product.id}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ category: cat.name, subcategory: sub.name })
+                                              });
+                                              if (!res.ok) throw new Error('Failed to update category');
+                                              queryClient.invalidateQueries({ queryKey: ['products'] });
+                                              toast.success(`Category changed to ${sub.name}`);
+                                            } catch (err) {
+                                              toast.error('Failed to update category');
+                                            }
+                                          }}
+                                        >
+                                          {subActive && <Check className="w-3 h-3 mr-2" />}
+                                          ↳ {sub.name}
+                                        </DropdownMenuItem>
+                                      );
+                                    })}
+                                  </React.Fragment>
+                                );
+                              })}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

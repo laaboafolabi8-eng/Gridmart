@@ -1508,24 +1508,28 @@ export async function registerRoutes(
         
         const liveProducts = productsWithInventory.filter(product => {
           const children = childrenByParent.get(product.id) || [];
+
+          // In-store products always show on the front-end regardless of node inventory
+          if ((product as any).inStore || children.some((c: any) => c.inStore)) return true;
+
           const isComingSoon = product.comingSoon || children.some(child => child.comingSoon);
-          
+
           if (isComingSoon) {
             if (!cityId) return true;
-            const isInActiveCrate = productsInActiveCrates.has(product.id) || 
+            const isInActiveCrate = productsInActiveCrates.has(product.id) ||
               children.some(child => productsInActiveCrates.has(child.id));
             return isInActiveCrate;
           }
-          
+
           const ownStock = product.inventory.some(inv => inv.quantity > 0);
-          const childrenStock = children.some(child => 
+          const childrenStock = children.some(child =>
             child.inventory.some(inv => inv.quantity > 0)
           );
           const hasStock = ownStock || childrenStock;
-          
-          const isInActiveCrate = productsInActiveCrates.has(product.id) || 
+
+          const isInActiveCrate = productsInActiveCrates.has(product.id) ||
             children.some(child => productsInActiveCrates.has(child.id));
-            
+
           return hasStock && isInActiveCrate;
         });
         return res.json(liveProducts);
