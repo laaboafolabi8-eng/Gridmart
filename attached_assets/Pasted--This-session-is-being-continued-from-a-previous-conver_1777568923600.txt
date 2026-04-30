@@ -1,0 +1,2001 @@
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+   This session covered multiple sequential tasks:
+   - Add a customizable Return Policy page
+   - Move "Push Codes" to a Codes/Price dropdown in group actions (not PriceTagEditor)
+   - Add physical storefront as a distinct map node with amber SVG pin, store hours, editable in admin node tab
+   - Update hero text placeholders in admin to match new defaults ("Shop Local." etc.)
+   - Show store address ("3176 Walker Rd, Windsor") on homepage hero as a default fallback
+   - Allow products to be assigned to more than one group at a time (multi-group in edit dialog)
+
+2. Key Technical Concepts:
+   - React 19 + TypeScript, Tailwind CSS, shadcn/ui, wouter routing
+   - Gridmart: Express/Node backend, PostgreSQL + Drizzle ORM (`db:push` for schema changes), Replit hosting
+   - Google Maps API: `google.maps.Circle` for residential nodes, `google.maps.Marker` with SVG data URI for storefront
+   - `siteSettings` (`Record<string, string>` from `/api/site-settings`) for all configurable content
+   - `productGroups` + `productGroupMembers` join table: already many-to-many schema
+   - `/api/product-groups/:id/assign` POST endpoint: `{ productIds, action: 'add'|'remove' }`
+   - PBV hook warnings throughout session are all pre-existing silent exceptions — not introduced by session changes
+
+3. Files and Code Sections:
+
+   - **`client/src/pages/ReturnPolicy.tsx`** (NEW)
+     - New page at `/return-policy` with layout (centered/wide/full), optional banner image + overlay text, page bg color, heading accent color, HTML content from siteSettings
+     - Defaults to placeholder content if no siteSettings saved
+
+   - **`client/src/App.tsx`**
+     - Added `const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));`
+     - Added `<Route path="/return-policy" component={ReturnPolicy} />`
+
+   - **`client/src/components/layout/Footer.tsx`**
+     - Added link: `<li><a href="/return-policy">Return Policy</a></li>` under Support section
+
+   - **`shared/schema.ts`**
+     - Added to `nodes` table (after `isAdminNode`):
+       ```typescript
+       nodeType: text("node_type").default('residential'), // 'residential' | 'storefront'
+       storeHours: text("store_hours"),
+       ```
+     - **Requires `npm run db:push` on Replit to apply**
+
+   - **`server/routes.ts`**
+     - POST `/api/nodes` destructuring updated to include `nodeType` and `storeHours`
+     - Pass-through added: `...(nodeType ? { nodeType } : {}), ...(storeHours ? { storeHours } : {})`
+
+   - **`client/src/pages/Home.tsx`**
+     - Added `Store` to lucide imports
+     - Added `homeMapMarkersRef = useRef<google.maps.Marker[]>([])`
+     - Updated `mapSelectedNode` type: added `isStorefront?: boolean; storeHours?: string`
+     - Map effect: cleanup now also clears markers; `isStorefrontNode` check branches forEach:
+       - Storefront: exact coords (no offset), amber SVG pin marker, hover shows name+hours, click shows store hours panel
+       - Residential: existing circle logic unchanged
+     - Badge list: storefront gets amber colors + `<Store className="w-3 h-3" />` icon; skips `fetchMapSlots`
+     - Selected node panel: `mapSelectedNode.isStorefront ? <amber hours panel> : <pickup slots panel>`
+     - Store address: always shown in hero with fallback `'3176 Walker Rd, Windsor'` (no longer hidden if siteSettings not set)
+     - Hero placeholders updated to: "Shop Local." / "In-Store & Online." / "Browse our curated selection..."
+
+   - **`client/src/pages/AdminDashboard.tsx`** (many changes)
+     - Return Policy: 7 new keys in `copyKeys`; "Return Policy Page" section with layout select, banner URL, bg/accent color pickers, content textarea
+     - Push to Sheet: added `pushSheetOption` state; replaced both "Push Codes" buttons with Select (Codes/Price) + "Push to Sheet" button
+     - Storefront node: added `nodeType`/`storeHours` to `newNode` state; Node Type selector + conditional Store Hours field in create and edit dialogs; "Storefront" badge (orange) in node list; reset state updated
+     - Multi-group: added `editProductGroupIds` state + useEffect that syncs from `productGroupMemberships[editingProduct.id]` when edit dialog opens; added groups pill-toggle section before DialogFooter in edit product dialog (instant-save on toggle)
+
+4. Errors and Fixes:
+   - **Wrong `old_string` for DialogFooter edit**: First attempt used `<Button \n variant="outline"\n disabled={isCreatingVariant}` but actual code had `onClick={async...}` as the next prop. Fixed by reading lines 14038-14048 to get exact text and using unique anchor string `onClick={async () => {\n try {\n const res = await fetch('/api/products', {\n method: 'POST',`
+   - **PBV hook warnings**: Appear on every AdminDashboard.tsx and routes.ts edit — all pre-existing silent exceptions, none introduced by this session
+
+5. Problem Solving:
+   - **Storefront on map**: No existing "store" concept in nodes. Added `nodeType` column; residential nodes keep circle behavior; storefront nodes get exact-coordinate amber SVG pin marker with hover tooltip (name + hours) and store hours panel on click
+   - **Multi-group per product**: Schema already supported many-to-many but edit dialog had no group UI. Added instant-save pill toggles so no separate save step needed — clicking a group pill immediately calls the assign API
+
+6. All User Messages:
+   - "push when complete"
+   - "where are they being pushed to?"
+   - "i dont see any change to push codes-conversion to dropdown"
+   - "not supposed to be in price tag editor but in group actions where it already says 'push codes'"
+   - "put store on map with it's on custom marker, it can show up as a pickup location but with distinct features and stores hours being 10-7 daily, have it be editable in node tab but also distinct there too"
+   - "push when complete"
+   - "what changes were made?"
+   - "Shop Local. In-Store & Online. / Browse our curated selection in person, or order online for local pickup. / This line should be shown in design and layout tab as editable"
+   - "Have store address on homepage hero, address is 3176 Walker Rd Windsor"
+   - "on a product page, what shows up next to a product that is available in store? under the map?"
+   - "can you launch the website preview here somehow?"
+   - "can you do the local option?"
+   - "allow products to be assigned to more than one group at a time"
+
+7. Pending Tasks:
+   - Run `npm run db:push` on Replit to apply the `nodeType` + `storeHours` columns to the live database
+   - Commit and push the multi-group edit dialog changes (not yet committed)
+
+8. Current Work:
+   Adding multi-group assignment to the product edit dialog in `client/src/pages/AdminDashboard.tsx`. Three edits were made:
+   
+   1. Added state at line ~5513:
+   ```typescript
+   const [editProductGroupIds, setEditProductGroupIds] = useState<string[]>([]);
+   ```
+
+   2. Added useEffect at line ~5334:
+   ```typescript
+   useEffect(() => {
+     if (editingProduct) {
+       setEditProductGroupIds(productGroupMemberships[editingProduct.id] || []);
+     }
+   }, [editingProduct?.id]);
+   ```
+
+   3. Added groups pill UI before DialogFooter (before line ~14041):
+   ```tsx
+   {productGroups.length > 0 && (
+     <div className="border rounded-lg p-3 space-y-2">
+       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Groups</p>
+       <div className="flex flex-wrap gap-2">
+         {productGroups.map(g => {
+           const isIn = editProductGroupIds.includes(g.id);
+           return (
+             <button key={g.id} type="button"
+               className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all ${isIn ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+               style={{ borderColor: g.color + '80', background: isIn ? g.color + '22' : 'transparent', color: g.color }}
+               onClick={async () => {
+                 if (!editingProduct) return;
+                 const adding = !isIn;
+                 const newIds = adding ? [...editProductGroupIds, g.id] : editProductGroupIds.filter(id => id !== g.id);
+                 setEditProductGroupIds(newIds);
+                 setProductGroupMemberships(prev => ({ ...prev, [editingProduct.id]: newIds }));
+                 await fetch(`/api/product-groups/${g.id}/assign`, {
+                   method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                   body: JSON.stringify({ productIds: [editingProduct.id], action: adding ? 'add' : 'remove' }),
+                 });
+               }}
+             >
+               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.color }} />
+               {g.name}
+               {isIn && <Check className="w-3 h-3" />}
+             </button>
+           );
+         })}
+       </div>
+     </div>
+   )}
+   ```
+   
+   All three edits applied successfully. NOT YET committed or pushed.
+
+9. Optional Next Step:
+   Commit and push the multi-group edit dialog changes. The user asked to "allow products to be assigned to more than one group at a time" and the implementation is complete but unpushed. The commit should include all three AdminDashboard.tsx edits for the `editProductGroupIds` state, useEffect, and the groups pill UI in the edit product dialog.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: C:\Users\Laabo\.claude\projects\c--Users-Laabo-Downloads-universalpbvprebuildverificationforclaudecode\daf0baab-3050-4999-baf1-6b3fde3ade32.jsonl
+Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.
+Bash Check git status
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git status
+
+OUT
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   client/src/pages/AdminDashboard.tsx
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Bash Show diff stats
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git diff --stat
+
+OUT
+ client/src/pages/AdminDashboard.tsx | 45 ++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 44 insertions(+), 1 deletion(-)
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Bash Commit multi-group changes
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git add client/src/pages/AdminDashboard.tsx && git commit -m "$(cat <<'EOF'
+feat: allow products to be assigned to multiple groups simultaneously
+
+Add multi-group pill toggle UI to product edit dialog. Clicking a group
+pill instantly saves the assignment via the existing assign API endpoint,
+with full state sync to productGroupMemberships.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+
+OUT
+[main 17d3adc] feat: allow products to be assigned to multiple groups simultaneously
+ 1 file changed, 44 insertions(+), 1 deletion(-)
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Bash Push to remote
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git push
+
+OUT
+To https://github.com/laaboafolabi8-eng/Gridmart
+   c07caf5..17d3adc  main -> main
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Pushed. Remember to run npm run db:push on Replit to apply the nodeType + storeHours columns if you haven't already.
+
+what's teh best way for hero to have two big pictures, one for storefront exterior and one for interior?
+Let me check the current hero implementation first.
+
+Bash Find hero section in Home.tsx
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && grep -n "hero\|Hero\|banner\|Banner\|heroImage\|hero_image" client/src/pages/Home.tsx | head -40
+
+OUT
+856:      {/* Selected Node Banner */}
+858:        <div className="bg-primary py-3" data-testid="banner-selected-node">
+882:                    <Button size="sm" className="gap-1 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] px-3 h-7" data-testid="nav-mobile-sign-in-hero">
+890:              <h1 className={`font-display ${siteSettings.heroLine1FontSize || 'text-4xl md:text-5xl lg:text-6xl'} ${siteSettings.heroLine1Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine1Weight] || 'font-bold' : 'font-bold'} tracking-tight`} style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+891:                {siteSettings.heroLine1 || (siteSettingsLoaded ? 'Shop Local.' : '\u00A0')}{' '}
+892:                <span className={`${siteSettings.heroLine2Color ? '' : 'text-gradient'} ${siteSettings.heroLine2FontSize || ''} ${siteSettings.heroLine2Weight ? ({ normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold', bold: 'font-bold' } as Record<string, string>)[siteSettings.heroLine2Weight] || '' : ''}`} style={{ color: siteSettings.heroLine2Color || undefined }}>{siteSettings.heroLine2 || (siteSettingsLoaded ? 'In-Store & Online.' : '')}</span>
+895:              <p className={`${siteSettings.heroSubtitleFontSize || 'text-lg md:text-xl'} ${siteSettings.heroSubtitleColor ? '' : 'text-muted-foreground'} ${siteSettings.heroSubtitleWeight ? ({ light: 'font-light', normal: 'font-normal', medium: 'font-medium', semibold: 'font-semibold' } as Record<string, string>)[siteSettings.heroSubtitleWeight] || '' : ''} max-w-lg`} style={{ transform: siteSettings.heroSubtitleOffset ? `translateY(${siteSettings.heroSubtitleOffset}px)` : undefined, color: siteSettings.heroSubtitleColor || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}>
+896:                {siteSettings.heroSubtitle || (siteSettingsLoaded ? 'Browse our curated selection in person, or order online for local pickup.' : '\u00A0')}
+927:                {siteSettings.storefrontHeroImage ? (
+928:                  <img src={siteSettings.storefrontHeroImage} alt="Store exterior" className="w-full h-full object-cover" />
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx (lines 871-970)
+The hero right column already supports two images — exterior (4/3 main card) and interior (16/7 slim banner below, only if set). The current layout gives the interior much less visual weight.
+
+Best option: side-by-side split within the right column — exterior and interior as two portrait/square cards at equal height, separated by a small gap. On mobile they stack. This gives both images equal prominence and reads as an "outside / inside" diptych.
+
+Main tradeoff: it makes the right column narrower per image than the current single large card, so images need to be good quality to hold up at that size. If photos are low-res, the current stacked layout (exterior big, interior as a wide accent strip below) is safer.
+
+Want me to implement the side-by-side split, or keep the stacked layout but make the interior image equally large?
+
+remove return policy page, refund policy page already existed
+I'll remove the Return Policy page, its route, footer link, and any admin settings for it.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\App.tsx
+Bash Find return policy references in AdminDashboard
+IN
+grep -n "return-policy\|ReturnPolicy\|returnPolicy\|Return Policy" "C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx" | head -40
+
+OUT
+6388:        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle','returnPolicyTitle','returnPolicyContent','returnPolicyLayout','returnPolicyBgColor','returnPolicyAccentColor','returnPolicyBannerImage','returnPolicyBannerTitle'];
+21870:                  <h4 className="text-sm font-semibold mb-1">Return Policy Page</h4>
+21871:                  <p className="text-xs text-muted-foreground mb-3">Customize the /return-policy page. Content supports plain text or HTML.</p>
+21876:                        placeholder="Return Policy"
+21877:                        value={(homepageCopy as any).returnPolicyTitle || ''}
+21878:                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyTitle: e.target.value } as any))}
+21885:                        value={(homepageCopy as any).returnPolicyLayout || 'centered'}
+21886:                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyLayout: e.target.value } as any))}
+21897:                          <Input type="color" className="w-10 h-9 p-0.5" value={(homepageCopy as any).returnPolicyBgColor || '#ffffff'} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBgColor: e.target.value } as any))} />
+21898:                          <Input placeholder="#ffffff or leave blank" value={(homepageCopy as any).returnPolicyBgColor || ''} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBgColor: e.target.value } as any))} className="flex-1" />
+21904:                          <Input type="color" className="w-10 h-9 p-0.5" value={(homepageCopy as any).returnPolicyAccentColor || '#000000'} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyAccentColor: e.target.value } as any))} />
+21905:                          <Input placeholder="#000000 or leave blank" value={(homepageCopy as any).returnPolicyAccentColor || ''} onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyAccentColor: e.target.value } as any))} className="flex-1" />
+21913:                        value={(homepageCopy as any).returnPolicyBannerImage || ''}
+21914:                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBannerImage: e.target.value } as any))}
+21921:                        value={(homepageCopy as any).returnPolicyBannerTitle || ''}
+21922:                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyBannerTitle: e.target.value } as any))}
+21929:                        value={(homepageCopy as any).returnPolicyContent || ''}
+21930:                        onChange={e => setHomepageCopy(prev => ({ ...prev, returnPolicyContent: e.target.value } as any))}
+I'll clean up all four places: the page file, App.tsx route + import, Footer link, and AdminDashboard settings section.
+
+Bash Delete ReturnPolicy.tsx page file
+IN
+rm "C:\Users\Laabo\Downloads\Gridmart\client\src\pages\ReturnPolicy.tsx"
+
+OUT
+(Bash completed with no output)
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\App.tsx
+Removed 1 line
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\App.tsx
+Removed 1 line
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\components\layout\Footer.tsx
+Edit failed
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\components\layout\Footer.tsx
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\components\layout\Footer.tsx
+Removed 1 line
+Now remove the return policy keys from copyKeys and the admin section. Let me read the relevant parts of AdminDashboard first.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 6386-6390)
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx
+Modified
+These are all pre-existing silent exceptions, not introduced by my change. Now let me remove the Return Policy admin section.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 21861-21940)
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx
+Removed 68 lines
+All pre-existing warnings, nothing introduced by this cleanup. Let me commit and push.
+
+Bash Stage changed files
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git add client/src/App.tsx client/src/components/layout/Footer.tsx client/src/pages/AdminDashboard.tsx && git status
+
+OUT
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	modified:   client/src/App.tsx
+	modified:   client/src/components/layout/Footer.tsx
+	modified:   client/src/pages/AdminDashboard.tsx
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    client/src/pages/ReturnPolicy.tsx
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Bash Commit and push removal of Return Policy page
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git add client/src/pages/ReturnPolicy.tsx && git commit -m "$(cat <<'EOF'
+chore: remove Return Policy page (superseded by Refund Policy)
+
+Delete ReturnPolicy.tsx, remove its route from App.tsx, remove footer
+link, and remove return policy keys from admin site settings.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)" && git push
+
+OUT
+[main ef2f1d7] chore: remove Return Policy page (superseded by Refund Policy)
+ 4 files changed, 1 insertion(+), 163 deletions(-)
+ delete mode 100644 client/src/pages/ReturnPolicy.tsx
+To https://github.com/laaboafolabi8-eng/Gridmart
+   17d3adc..ef2f1d7  main -> main
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Pushed. Return Policy page, route, footer link, and admin settings section are all removed.
+
+can you add a feature to the website that will create a brochure out of selected products? put it under flyers tab and rename flyers tab to "advertising"
+
+Give it multiple templates and customizable layouts
+Let me explore the existing Flyers tab first.
+
+Bash Find flyers tab references
+IN
+grep -n "flyer\|Flyer\|flyers\|Flyers" "C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx" | head -50
+
+OUT
+20:const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
+4950:  const defaultTabOrder = ['products', 'categories', 'crates', 'nodes', 'cities', 'deals', 'analytics', 'sales', 'payments', 'applications', 'agreements', 'feedback', 'sms', 'accounts', 'design', 'social', 'notifications', 'landing-pages', 'flyers', 'qr-codes'];
+8871:                  flyers: {
+8872:                    label: 'Flyers',
+24980:          <TabsContent value="flyers" className="space-y-6" data-testid="tab-content-flyers">
+24982:              <FlyerDistribution />
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 24976-24995)
+Bash List admin components
+IN
+ls "C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\"
+
+OUT
+Exit code 2
+/usr/bin/bash: eval: line 1: unexpected EOF while looking for matching `"'
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 24976-24995)
+Globpattern: "client/src/components/admin/*.tsx"
+No files found
+Globpattern: "client/src/components/**/*.tsx"
+No files found
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 8866-8880)
+Bash List component files
+IN
+find "C:/Users/Laabo/Downloads/Gridmart/client/src/components" -name "*.tsx" 2>/dev/null | head -30
+
+OUT
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/admin/FlyerDistribution.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/admin/LandingPageEditor.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/admin/QrCodeGenerator.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/availability/SingleDayTimeGrid.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/availability/TimeBlockGrid.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/chat/ChatDialog.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/checkout/TimeSlotPicker.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/crate/CrateMap.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/HostPaymentsTab.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/images/ImageEditorDialog.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/labels/LabelEditor.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/labels/LabelGenerator.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/labels/PriceTagEditor.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/layout/Footer.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/layout/Header.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/map/MapPicker.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/map/MapScreenshot.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/map/ZoneMapDialog.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/media/YouTubeThumbnail.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/nodes/NodeCard.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/ObjectUploader.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/orders/OrderCard.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/PaymentLinksSection.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/products/ProductCard.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/ui/accordion.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/ui/address-autocomplete.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/ui/alert-dialog.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/ui/alert.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/ui/aspect-ratio.tsx
+C:/Users/Laabo/Downloads/Gridmart/client/src/components/ui/avatar.tsx
+Bash Find FlyerDistribution import path
+IN
+grep -n "FlyerDistribution\|import.*Flyer" "C:/Users/Laabo/Downloads/Gridmart/client/src/pages/AdminDashboard.tsx" | head -10
+
+OUT
+20:const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
+24982:              <FlyerDistribution />
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\FlyerDistribution.tsx
+Now let me check how productList is structured and what's passed to other tabs for context.
+
+Bash Find productList type and usage
+IN
+grep -n "productList\|LandingPagesTab" "C:/Users/Laabo/Downloads/Gridmart/client/src/pages/AdminDashboard.tsx" | head -20
+
+OUT
+4584:function LandingPagesTab({ productList, promoCodeList }: { productList: Product[]; promoCodeList: any[] }) {
+4709:              const product = productList.find(p => String(p.id) === String(page.productId));
+4783:            productList={productList}
+4801:  const { data: productList = [], isLoading: productsLoading } = useQuery<Product[]>({
+6155:      const product = productList.find(p => p.id === productId);
+6159:  }, [editedPrices, productList]);
+6166:        const product = productList.find(p => p.id === productId);
+6209:    const product = productList.find(p => p.id === productId);
+6246:    const product = productList.find(p => p.id === productId);
+6284:    const product = productList.find(p => p.id === productId);
+6328:      const product = productList.find(p => p.id === productId);
+6884:      const selectedProds = productList.filter(p => selectedProducts.includes(p.id));
+7274:      const product = productList.find(p => p.id === id);
+7355:      const batchChildIds = new Set(productList.filter(p => p.parentProductId && p.relationshipType === 'batch').map(p => p.id));
+7416:      const product = productList.find(p => {
+7543:      const batchChildIds = new Set(productList.filter(p => p.parentProductId && p.relationshipType === 'batch').map(p => p.id));
+7959:        const productsToUpdate = productList.filter(p => p.category === oldCategory.name);
+7982:    const productsInCategory = productList.filter(p => p.category === category.name);
+8099:    const product = productList.find(p => p.id === productId);
+8135:      const childIds = productList
+Bash Find Product type definition
+IN
+grep -n "interface Product\|type Product\|productList:" "C:/Users/Laabo/Downloads/Gridmart/client/src/pages/AdminDashboard.tsx" | head -20
+
+OUT
+97:  type Product, 
+113:  type ProductCondition,
+4584:function LandingPagesTab({ productList, promoCodeList }: { productList: Product[]; promoCodeList: any[] }) {
+Bash Find Product schema fields
+IN
+grep -n "^export\|^  id:\|^  name:\|^  price:\|^  image\|^  description\|^  category:" "C:/Users/Laabo/Downloads/Gridmart/shared/schema.ts" | head -40
+
+OUT
+6:export const session = pgTable("session", {
+13:export const users = pgTable("users", {
+14:  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+17:  name: text("name").notNull(),
+27:export const insertUserSchema = createInsertSchema(users).omit({
+28:  id: true,
+33:export type InsertUser = z.infer<typeof insertUserSchema>;
+34:export type User = typeof users.$inferSelect;
+37:export const products = pgTable("products", {
+38:  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+39:  name: text("name").notNull(),
+40:  description: text("description").notNull(),
+41:  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+43:  image: text("image").notNull(),
+44:  images: text("images").array(), // All product images (used for display, image field is first/main)
+46:  category: text("category").notNull(),
+66:  imageOverlays: jsonb("image_overlays"), // Overlay data per image: [{imageIndex, overlays: [{id, imageUrl, x, y, width, height}]}]
+71:export const insertProductSchema = createInsertSchema(products).omit({
+72:  id: true,
+77:export type InsertProduct = z.infer<typeof insertProductSchema>;
+78:export type Product = typeof products.$inferSelect;
+81:export const categories = pgTable("categories", {
+82:  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+83:  name: text("name").notNull().unique(),
+84:  description: text("description"),
+90:export const insertCategorySchema = createInsertSchema(categories).omit({
+91:  id: true,
+95:export type InsertCategory = z.infer<typeof insertCategorySchema>;
+96:export type Category = typeof categories.$inferSelect;
+99:export const productTemplates = pgTable("product_templates", {
+100:  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+102:  name: text("name").notNull(),
+103:  description: text("description").notNull(),
+104:  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Display price (can be averaged from batches)
+105:  images: text("images").array(), // Aggregated images from all batches
+106:  category: text("category").notNull(),
+116:export const insertProductTemplateSchema = createInsertSchema(productTemplates).omit({
+117:  id: true,
+124:export type InsertProductTemplate = z.infer<typeof insertProductTemplateSchema>;
+125:export type ProductTemplate = typeof productTemplates.$inferSelect;
+Bash Find Product type definition in schema
+IN
+grep -n "type Product = \|Product {" "C:/Users/Laabo/Downloads/Gridmart/shared/schema.ts" | head -10
+
+OUT
+78:export type Product = typeof products.$inferSelect;
+Let me check what lucide icons and components are already imported in AdminDashboard.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 2-101)
+also allow selection between posters, flyers and brochures
+I have a clear picture of the codebase. Now I'll build the BrochureBuilder component and wire it into the renamed "Advertising" tab.
+
+Write C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\BrochureBuilder.tsx
+436 lines
+import React, { useState, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Printer, Search, Check, BookOpen } from 'lucide-react';
+import type { Product } from '@shared/schema';
+
+type TemplateId = 'grid' | 'feature' | 'catalog' | 'promo' | 'minimal';
+
+interface Settings {
+  title: string;
+  tagline: string;
+  accentColor: string;
+  columns: number;
+  showPrices: boolean;
+  showDescriptions: boolean;
+  showCategory: boolean;
+  footerText: string;
+  pageSize: 'letter' | 'a4';
+}
+
+const TEMPLATES: { id: TemplateId; name: string; desc: string }[] = [
+  { id: 'grid',    name: 'Grid',        desc: 'Product cards in a clean column grid' },
+  { id: 'feature', name: 'Feature',     desc: 'Hero product + supporting grid below' },
+  { id: 'catalog', name: 'Catalog',     desc: 'Dense list, great for many products' },
+  { id: 'promo',   name: 'Promo Flyer', desc: 'Bold header with prominent pricing' },
+  { id: 'minimal', name: 'Minimal',     desc: 'Clean editorial with strong typography' },
+];
+
+function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function price(p: string | number) {
+  return `$${Number(p).toFixed(2)}`;
+}
+
+function imgTag(src: string, style: string) {
+  return `<img src="${esc(src)}" style="${style}" onerror="this.style.display='none'" />`;
+}
+
+function renderGrid(products: Product[], s: Settings, accent: string): string {
+  const colW = `calc(${Math.floor(100 / s.columns)}% - ${Math.ceil((s.columns - 1) * 14 / s.columns)}px)`;
+  const cards = products.map(p => `
+    <div style="width:${colW};border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:100%;height:160px;object-fit:cover;display:block;')}
+      <div style="padding:10px 12px;">
+        ${s.showCategory ? `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:${accent};margin-bottom:2px;">${esc(p.category)}</div>` : ''}
+        <div style="font-size:13px;font-weight:700;margin-bottom:${s.showDescriptions ? '4px' : '6px'};line-height:1.3;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:10px;color:#666;margin-bottom:6px;line-height:1.4;">${esc(p.description.substring(0, 90))}${p.description.length > 90 ? '…' : ''}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:17px;font-weight:800;color:${accent};">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:28px 32px;">
+    <div style="text-align:center;margin-bottom:28px;border-bottom:3px solid ${accent};padding-bottom:18px;">
+      <h1 style="font-size:28px;font-weight:800;margin:0 0 6px;color:${accent};">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:14px;color:#666;margin:0;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;">${cards}</div>
+    ${s.footerText ? `<div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#999;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+function renderFeature(products: Product[], s: Settings, accent: string): string {
+  const [hero, ...rest] = products;
+  if (!hero) return '<div style="padding:40px;text-align:center;color:#aaa;font-family:Arial,sans-serif;">Select products to preview</div>';
+  const colW = `calc(${Math.floor(100 / Math.min(s.columns, 3))}% - 10px)`;
+  const restCards = rest.map(p => `
+    <div style="width:${colW};border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:100%;height:130px;object-fit:cover;display:block;')}
+      <div style="padding:10px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:3px;line-height:1.3;">${esc(p.name)}</div>
+        ${s.showPrices ? `<div style="font-size:14px;font-weight:800;color:${accent};">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;">
+    <div style="background:${accent};color:#fff;padding:20px 28px;">
+      <h1 style="font-size:26px;font-weight:800;margin:0 0 4px;">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:13px;opacity:.85;margin:0;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="padding:20px 28px;">
+      <div style="display:flex;gap:20px;margin-bottom:24px;border:2px solid ${accent};border-radius:10px;overflow:hidden;">
+        ${imgTag(hero.image, 'width:40%;object-fit:cover;max-height:240px;flex-shrink:0;')}
+        <div style="flex:1;padding:20px;display:flex;flex-direction:column;justify-content:center;">
+          ${s.showCategory ? `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:${accent};">${esc(hero.category)}</div>` : ''}
+          <h2 style="font-size:22px;font-weight:800;margin:6px 0 10px;line-height:1.2;">${esc(hero.name)}</h2>
+          ${s.showDescriptions && hero.description ? `<p style="font-size:12px;color:#555;line-height:1.5;margin:0 0 12px;">${esc(hero.description.substring(0, 200))}${hero.description.length > 200 ? '…' : ''}</p>` : ''}
+          ${s.showPrices ? `<div style="font-size:26px;font-weight:800;color:${accent};">${price(hero.price)}</div>` : ''}
+        </div>
+      </div>
+      ${rest.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:12px;">${restCards}</div>` : ''}
+      ${s.footerText ? `<div style="margin-top:20px;padding-top:10px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#999;">${esc(s.footerText)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderCatalog(products: Product[], s: Settings, accent: string): string {
+  const rows = products.map(p => `
+    <div style="break-inside:avoid;display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #f0f0f0;">
+      ${imgTag(p.image, 'width:56px;height:56px;object-fit:cover;border-radius:5px;flex-shrink:0;')}
+      <div style="flex:1;min-width:0;">
+        ${s.showCategory ? `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${accent};">${esc(p.category)}</div>` : ''}
+        <div style="font-size:12px;font-weight:700;margin:1px 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:9px;color:#666;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${esc(p.description)}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:12px;font-weight:800;color:${accent};margin-top:1px;">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:24px 28px;">
+    <div style="border-left:4px solid ${accent};padding-left:14px;margin-bottom:20px;">
+      <h1 style="font-size:24px;font-weight:800;margin:0 0 3px;">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:12px;color:#666;margin:0;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="columns:${Math.min(s.columns, 3)};column-gap:22px;">${rows}</div>
+    ${s.footerText ? `<div style="margin-top:18px;padding-top:10px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#999;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+function renderPromo(products: Product[], s: Settings, accent: string): string {
+  const colW = `calc(${Math.floor(100 / s.columns)}% - ${Math.ceil((s.columns - 1) * 12 / s.columns)}px)`;
+  const cards = products.map(p => `
+    <div style="width:${colW};border:2px solid ${accent};border-radius:8px;overflow:hidden;page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:100%;height:170px;object-fit:cover;display:block;')}
+      <div style="padding:10px;text-align:center;">
+        <div style="font-size:13px;font-family:Arial Black,sans-serif;font-weight:800;text-transform:uppercase;margin-bottom:3px;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:10px;font-family:Arial,sans-serif;color:#555;margin-bottom:5px;font-weight:400;">${esc(p.description.substring(0, 55))}${p.description.length > 55 ? '…' : ''}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:26px;color:${accent};font-weight:900;font-family:Arial Black,sans-serif;">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial Black,sans-serif;color:#1a1a1a;background:#fff;">
+    <div style="background:${accent};padding:28px;text-align:center;">
+      <h1 style="font-size:44px;color:#fff;margin:0;line-height:1;text-transform:uppercase;letter-spacing:-1px;">${esc(s.title || 'SHOP NOW')}</h1>
+      ${s.tagline ? `<p style="font-size:16px;color:rgba(255,255,255,.85);margin:6px 0 0;font-family:Arial,sans-serif;font-weight:400;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="padding:20px 24px;">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;">${cards}</div>
+    </div>
+    ${s.footerText ? `<div style="background:${accent};color:#fff;padding:10px;text-align:center;font-family:Arial,sans-serif;font-size:12px;font-weight:400;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+function renderMinimal(products: Product[], s: Settings, accent: string): string {
+  const rows = products.map((p, i) => `
+    <div style="display:flex;gap:22px;padding:18px 0;${i < products.length - 1 ? 'border-bottom:1px solid #e5e7eb;' : ''}page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:90px;height:90px;object-fit:cover;border-radius:4px;flex-shrink:0;')}
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px;">
+        ${s.showCategory ? `<div style="font-size:9px;font-family:Arial,sans-serif;letter-spacing:.15em;text-transform:uppercase;color:${accent};font-weight:700;">${esc(p.category)}</div>` : ''}
+        <div style="font-size:17px;font-weight:400;line-height:1.2;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:11px;font-family:Arial,sans-serif;color:#666;line-height:1.5;">${esc(p.description.substring(0, 140))}${p.description.length > 140 ? '…' : ''}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:18px;font-family:Arial,sans-serif;font-weight:700;color:${accent};margin-top:2px;">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;background:#fff;padding:36px 40px;">
+    <div style="margin-bottom:30px;">
+      <h1 style="font-size:32px;font-weight:400;margin:0 0 6px;letter-spacing:-.5px;">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:13px;color:#888;margin:0;font-style:italic;font-family:Arial,sans-serif;">${esc(s.tagline)}</p>` : ''}
+      <div style="width:44px;height:3px;background:${accent};margin-top:10px;"></div>
+    </div>
+    ${rows}
+    ${s.footerText ? `<div style="margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-family:Arial,sans-serif;text-align:center;font-size:10px;color:#aaa;font-style:italic;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+const RENDERERS: Record<TemplateId, (p: Product[], s: Settings, a: string) => string> = {
+  grid: renderGrid,
+  feature: renderFeature,
+  catalog: renderCatalog,
+  promo: renderPromo,
+  minimal: renderMinimal,
+};
+
+export default function BrochureBuilder({ productList }: { productList: Product[] }) {
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [template, setTemplate] = useState<TemplateId>('grid');
+  const [settings, setSettings] = useState<Settings>({
+    title: 'GridMart Products',
+    tagline: 'Fresh, local, and always in season.',
+    accentColor: '#0d9488',
+    columns: 3,
+    showPrices: true,
+    showDescriptions: true,
+    showCategory: true,
+    footerText: '3176 Walker Rd, Windsor | gridmart.ca',
+    pageSize: 'letter',
+  });
+
+  const selectedProducts = selectedIds
+    .map(id => productList.find(p => p.id === id))
+    .filter(Boolean) as Product[];
+
+  const filteredProducts = productList.filter(p =>
+    !search ||
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.category.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const brochureHtml = RENDERERS[template](selectedProducts, settings, settings.accentColor);
+
+  const printBrochure = useCallback(() => {
+    const html = RENDERERS[template](selectedProducts, settings, settings.accentColor);
+    const pageSize = settings.pageSize === 'a4' ? 'A4' : 'letter';
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${esc(settings.title || 'Brochure')}</title>
+  <style>
+    * { box-sizing: border-box; }
+    @page { size: ${pageSize}; margin: 0.4in; }
+    @media print { body { margin: 0; } }
+    body { margin: 0; padding: 0; }
+    img { max-width: 100%; }
+  </style>
+</head>
+<body>${html}</body>
+</html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 350);
+  }, [template, selectedProducts, settings]);
+
+  const toggleProduct = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const setSetting = <K extends keyof Settings>(k: K, v: Settings[K]) =>
+    setSettings(s => ({ ...s, [k]: v }));
+
+  return (
+    <div className="flex gap-5" style={{ minHeight: '600px' }}>
+      {/* Left: Controls */}
+      <div className="w-72 flex-shrink-0 space-y-3 overflow-y-auto" style={{ maxHeight: '80vh' }}>
+        {/* Template picker */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Template</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-1.5">
+            {TEMPLATES.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTemplate(t.id)}
+                className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-all ${template === t.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/50'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <div className="font-semibold text-xs">{t.name}</div>
+                    <div className="text-xs text-muted-foreground leading-tight">{t.desc}</div>
+                  </div>
+                  {template === t.id && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Product picker */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Products</CardTitle>
+              {selectedIds.length > 0 && (
+                <Badge variant="secondary" className="text-xs">{selectedIds.length}</Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search products..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+            <div className="border rounded-md overflow-y-auto space-y-px p-1" style={{ maxHeight: '240px' }}>
+              {filteredProducts.length === 0 && (
+                <div className="text-xs text-muted-foreground text-center py-4">No products found</div>
+              )}
+              {filteredProducts.map(p => {
+                const sel = selectedIds.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => toggleProduct(p.id)}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors ${sel ? 'bg-primary/8' : 'hover:bg-muted/40'}`}
+                  >
+                    <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${sel ? 'bg-primary border-primary' : 'border-input'}`}>
+                      {sel && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                    </div>
+                    <img src={p.image} className="w-7 h-7 object-cover rounded flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{p.name}</div>
+                      <div className="text-muted-foreground">${Number(p.price).toFixed(2)}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="text-xs text-muted-foreground hover:text-foreground w-full text-center underline"
+              >
+                Clear all
+              </button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Customization */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customize</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-3">
+            <div>
+              <Label className="text-xs">Title</Label>
+              <Input value={settings.title} onChange={e => setSetting('title', e.target.value)} className="h-8 text-xs mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Tagline</Label>
+              <Input value={settings.tagline} onChange={e => setSetting('tagline', e.target.value)} className="h-8 text-xs mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Footer Text</Label>
+              <Input value={settings.footerText} onChange={e => setSetting('footerText', e.target.value)} className="h-8 text-xs mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Accent Color</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  type="color"
+                  value={settings.accentColor}
+                  onChange={e => setSetting('accentColor', e.target.value)}
+                  className="w-9 h-8 p-0.5 flex-shrink-0"
+                />
+                <Input
+                  value={settings.accentColor}
+                  onChange={e => setSetting('accentColor', e.target.value)}
+                  className="h-8 text-xs flex-1 font-mono"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Columns</Label>
+                <Select value={String(settings.columns)} onValueChange={v => setSetting('columns', Number(v))}>
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 col</SelectItem>
+                    <SelectItem value="3">3 col</SelectItem>
+                    <SelectItem value="4">4 col</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Page Size</Label>
+                <Select value={settings.pageSize} onValueChange={v => setSetting('pageSize', v as 'letter' | 'a4')}>
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="letter">Letter</SelectItem>
+                    <SelectItem value="a4">A4</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              {([
+                ['showPrices', 'Show Prices'],
+                ['showDescriptions', 'Show Descriptions'],
+                ['showCategory', 'Show Categories'],
+              ] as const).map(([key, label]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <Label className="text-xs font-normal cursor-pointer">{label}</Label>
+                  <Switch
+                    checked={settings[key] as boolean}
+                    onCheckedChange={v => setSetting(key, v)}
+                    className="scale-[0.7] origin-right"
+                  />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Right: Preview */}
+      <div className="flex-1 min-w-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {selectedIds.length === 0
+              ? 'Select products to preview your brochure'
+              : `${selectedIds.length} product${selectedIds.length !== 1 ? 's' : ''} — live preview below`}
+          </p>
+          <Button
+            onClick={printBrochure}
+            disabled={selectedIds.length === 0}
+            size="sm"
+            className="gap-1.5"
+          >
+            <Printer className="w-4 h-4" />
+            Print / Save PDF
+          </Button>
+        </div>
+
+        <div className="flex-1 border rounded-xl bg-muted/20 overflow-auto">
+          {selectedIds.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+              <BookOpen className="w-10 h-10 opacity-20" />
+              <p className="text-sm">Your brochure preview will appear here</p>
+            </div>
+          ) : (
+            <div
+              className="bg-white shadow-sm"
+              dangerouslySetInnerHTML={{ __html: brochureHtml }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+Now I'll update BrochureBuilder to add the Poster / Flyer / Brochure format selector before wiring up AdminDashboard.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\BrochureBuilder.tsx
+Added 7 lines
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\BrochureBuilder.tsx
+Added 10 lines
+Now add the format selector UI at the top of the return JSX, before the two-column layout:
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\BrochureBuilder.tsx
+Added 19 lines
+Close the extra wrapper div at the end of the return:
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\BrochureBuilder.tsx
+Added 1 line
+Now update AdminDashboard: add the lazy import, rename "Flyers" → "Advertising", and update the tab content with sub-tabs.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx
+Added 1 line
+All pre-existing warnings. Now rename the tab label and update the tab content.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx
+Modified
+Now update the tab content to add sub-tabs.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx
+Added 19 lines
+All pre-existing. Let me commit and push.
+
+Bash Commit and push advertising tab + brochure builder
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git add client/src/components/admin/BrochureBuilder.tsx client/src/pages/AdminDashboard.tsx && git commit -m "$(cat <<'EOF'
+feat: add Print Builder to Advertising tab (brochures, flyers, posters)
+
+- Rename 'Flyers' tab to 'Advertising'
+- Add 'Print Builder' sub-tab alongside Flyer Distribution
+- BrochureBuilder: format selector (Flyer / Brochure / Poster) with
+  appropriate page sizes (letter / tabloid); 5 templates (Grid, Feature,
+  Catalog, Promo Flyer, Minimal); live preview with inline styles;
+  product picker with search; customizable title, tagline, accent color,
+  columns, footer; Print / Save PDF via new window
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)" && git push
+
+OUT
+warning: in the working copy of 'client/src/components/admin/BrochureBuilder.tsx', LF will be replaced by CRLF the next time Git touches it
+[main 2deb7c5] feat: add Print Builder to Advertising tab (brochures, flyers, posters)
+ 2 files changed, 497 insertions(+), 5 deletions(-)
+ create mode 100644 client/src/components/admin/BrochureBuilder.tsx
+To https://github.com/laaboafolabi8-eng/Gridmart
+   ef2f1d7..2deb7c5  main -> main
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Pushed. Here's what's now live under Admin → Advertising:
+
+Print Builder sub-tab:
+
+Format selector at the top — Flyer (letter), Brochure (letter), Poster (tabloid 11×17) — each sets appropriate page size and default template
+5 templates: Grid, Feature (hero product + grid), Catalog (dense multi-column), Promo Flyer (bold/impact), Minimal (editorial)
+Product picker with live search and checkbox selection — products appear in selection order
+Customization: title, tagline, footer text, accent color, column count, toggles for prices/descriptions/categories
+Print / Save PDF opens a clean new window with all inline styles (no Tailwind dependency) and triggers the browser print dialog — user can save as PDF from there
+The existing Flyer Distribution map tool is unchanged, now lives in the other sub-tab.
+
+push and commit
+Bash Check git status
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git status
+
+OUT
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Already up to date — everything was committed and pushed in the previous step.
+
+allow selection of paper size and orientation, allow manual reordering by dragging
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\BrochureBuilder.tsx
+I'll rewrite the component to add paper size options, orientation toggle, and HTML5 drag-to-reorder.
+
+Write C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\BrochureBuilder.tsx
+505 lines
+import React, { useState, useRef, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Printer, Search, Check, BookOpen, GripVertical, X } from 'lucide-react';
+import type { Product } from '@shared/schema';
+
+type TemplateId = 'grid' | 'feature' | 'catalog' | 'promo' | 'minimal';
+type FormatType = 'flyer' | 'brochure' | 'poster';
+type PageSize = 'letter' | 'legal' | 'a4' | 'tabloid' | 'a3';
+type Orientation = 'portrait' | 'landscape';
+
+const FORMATS: { id: FormatType; label: string; desc: string; pageSize: PageSize; orientation: Orientation }[] = [
+  { id: 'flyer',    label: 'Flyer',    desc: 'Letter · single page · distribute',    pageSize: 'letter',  orientation: 'portrait'  },
+  { id: 'brochure', label: 'Brochure', desc: 'Letter · product showcase · info-rich', pageSize: 'letter',  orientation: 'portrait'  },
+  { id: 'poster',   label: 'Poster',   desc: 'Tabloid 11×17 · large display format',  pageSize: 'tabloid', orientation: 'portrait'  },
+];
+
+const PAGE_SIZES: { value: PageSize; label: string }[] = [
+  { value: 'letter',  label: 'Letter (8.5×11″)' },
+  { value: 'legal',   label: 'Legal (8.5×14″)'  },
+  { value: 'tabloid', label: 'Tabloid (11×17″)'  },
+  { value: 'a4',      label: 'A4 (210×297mm)'   },
+  { value: 'a3',      label: 'A3 (297×420mm)'   },
+];
+
+interface Settings {
+  title: string;
+  tagline: string;
+  accentColor: string;
+  columns: number;
+  showPrices: boolean;
+  showDescriptions: boolean;
+  showCategory: boolean;
+  footerText: string;
+  pageSize: PageSize;
+  orientation: Orientation;
+}
+
+const TEMPLATES: { id: TemplateId; name: string; desc: string }[] = [
+  { id: 'grid',    name: 'Grid',        desc: 'Product cards in a clean column grid' },
+  { id: 'feature', name: 'Feature',     desc: 'Hero product + supporting grid below' },
+  { id: 'catalog', name: 'Catalog',     desc: 'Dense list, great for many products'  },
+  { id: 'promo',   name: 'Promo Flyer', desc: 'Bold header with prominent pricing'   },
+  { id: 'minimal', name: 'Minimal',     desc: 'Clean editorial with strong typography'},
+];
+
+function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function price(p: string | number) { return `$${Number(p).toFixed(2)}`; }
+function imgTag(src: string, style: string) {
+  return `<img src="${esc(src)}" style="${style}" onerror="this.style.display='none'" />`;
+}
+
+function renderGrid(products: Product[], s: Settings, accent: string): string {
+  const colW = `calc(${Math.floor(100 / s.columns)}% - ${Math.ceil((s.columns - 1) * 14 / s.columns)}px)`;
+  const cards = products.map(p => `
+    <div style="width:${colW};border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:100%;height:160px;object-fit:cover;display:block;')}
+      <div style="padding:10px 12px;">
+        ${s.showCategory ? `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:${accent};margin-bottom:2px;">${esc(p.category)}</div>` : ''}
+        <div style="font-size:13px;font-weight:700;margin-bottom:${s.showDescriptions ? '4px' : '6px'};line-height:1.3;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:10px;color:#666;margin-bottom:6px;line-height:1.4;">${esc(p.description.substring(0, 90))}${p.description.length > 90 ? '…' : ''}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:17px;font-weight:800;color:${accent};">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:28px 32px;">
+    <div style="text-align:center;margin-bottom:28px;border-bottom:3px solid ${accent};padding-bottom:18px;">
+      <h1 style="font-size:28px;font-weight:800;margin:0 0 6px;color:${accent};">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:14px;color:#666;margin:0;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;">${cards}</div>
+    ${s.footerText ? `<div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#999;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+function renderFeature(products: Product[], s: Settings, accent: string): string {
+  const [hero, ...rest] = products;
+  if (!hero) return '<div style="padding:40px;text-align:center;color:#aaa;font-family:Arial,sans-serif;">Select products to preview</div>';
+  const colW = `calc(${Math.floor(100 / Math.min(s.columns, 3))}% - 10px)`;
+  const restCards = rest.map(p => `
+    <div style="width:${colW};border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:100%;height:130px;object-fit:cover;display:block;')}
+      <div style="padding:10px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:3px;line-height:1.3;">${esc(p.name)}</div>
+        ${s.showPrices ? `<div style="font-size:14px;font-weight:800;color:${accent};">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;">
+    <div style="background:${accent};color:#fff;padding:20px 28px;">
+      <h1 style="font-size:26px;font-weight:800;margin:0 0 4px;">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:13px;opacity:.85;margin:0;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="padding:20px 28px;">
+      <div style="display:flex;gap:20px;margin-bottom:24px;border:2px solid ${accent};border-radius:10px;overflow:hidden;">
+        ${imgTag(hero.image, 'width:40%;object-fit:cover;max-height:240px;flex-shrink:0;')}
+        <div style="flex:1;padding:20px;display:flex;flex-direction:column;justify-content:center;">
+          ${s.showCategory ? `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:${accent};">${esc(hero.category)}</div>` : ''}
+          <h2 style="font-size:22px;font-weight:800;margin:6px 0 10px;line-height:1.2;">${esc(hero.name)}</h2>
+          ${s.showDescriptions && hero.description ? `<p style="font-size:12px;color:#555;line-height:1.5;margin:0 0 12px;">${esc(hero.description.substring(0, 200))}${hero.description.length > 200 ? '…' : ''}</p>` : ''}
+          ${s.showPrices ? `<div style="font-size:26px;font-weight:800;color:${accent};">${price(hero.price)}</div>` : ''}
+        </div>
+      </div>
+      ${rest.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:12px;">${restCards}</div>` : ''}
+      ${s.footerText ? `<div style="margin-top:20px;padding-top:10px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#999;">${esc(s.footerText)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderCatalog(products: Product[], s: Settings, accent: string): string {
+  const rows = products.map(p => `
+    <div style="break-inside:avoid;display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #f0f0f0;">
+      ${imgTag(p.image, 'width:56px;height:56px;object-fit:cover;border-radius:5px;flex-shrink:0;')}
+      <div style="flex:1;min-width:0;">
+        ${s.showCategory ? `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${accent};">${esc(p.category)}</div>` : ''}
+        <div style="font-size:12px;font-weight:700;margin:1px 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:9px;color:#666;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${esc(p.description)}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:12px;font-weight:800;color:${accent};margin-top:1px;">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:24px 28px;">
+    <div style="border-left:4px solid ${accent};padding-left:14px;margin-bottom:20px;">
+      <h1 style="font-size:24px;font-weight:800;margin:0 0 3px;">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:12px;color:#666;margin:0;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="columns:${Math.min(s.columns, 3)};column-gap:22px;">${rows}</div>
+    ${s.footerText ? `<div style="margin-top:18px;padding-top:10px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#999;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+function renderPromo(products: Product[], s: Settings, accent: string): string {
+  const colW = `calc(${Math.floor(100 / s.columns)}% - ${Math.ceil((s.columns - 1) * 12 / s.columns)}px)`;
+  const cards = products.map(p => `
+    <div style="width:${colW};border:2px solid ${accent};border-radius:8px;overflow:hidden;page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:100%;height:170px;object-fit:cover;display:block;')}
+      <div style="padding:10px;text-align:center;">
+        <div style="font-size:13px;font-family:Arial Black,sans-serif;font-weight:800;text-transform:uppercase;margin-bottom:3px;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:10px;font-family:Arial,sans-serif;color:#555;margin-bottom:5px;font-weight:400;">${esc(p.description.substring(0, 55))}${p.description.length > 55 ? '…' : ''}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:26px;color:${accent};font-weight:900;font-family:Arial Black,sans-serif;">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Arial Black,sans-serif;color:#1a1a1a;background:#fff;">
+    <div style="background:${accent};padding:28px;text-align:center;">
+      <h1 style="font-size:44px;color:#fff;margin:0;line-height:1;text-transform:uppercase;letter-spacing:-1px;">${esc(s.title || 'SHOP NOW')}</h1>
+      ${s.tagline ? `<p style="font-size:16px;color:rgba(255,255,255,.85);margin:6px 0 0;font-family:Arial,sans-serif;font-weight:400;">${esc(s.tagline)}</p>` : ''}
+    </div>
+    <div style="padding:20px 24px;">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;">${cards}</div>
+    </div>
+    ${s.footerText ? `<div style="background:${accent};color:#fff;padding:10px;text-align:center;font-family:Arial,sans-serif;font-size:12px;font-weight:400;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+function renderMinimal(products: Product[], s: Settings, accent: string): string {
+  const rows = products.map((p, i) => `
+    <div style="display:flex;gap:22px;padding:18px 0;${i < products.length - 1 ? 'border-bottom:1px solid #e5e7eb;' : ''}page-break-inside:avoid;">
+      ${imgTag(p.image, 'width:90px;height:90px;object-fit:cover;border-radius:4px;flex-shrink:0;')}
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px;">
+        ${s.showCategory ? `<div style="font-size:9px;font-family:Arial,sans-serif;letter-spacing:.15em;text-transform:uppercase;color:${accent};font-weight:700;">${esc(p.category)}</div>` : ''}
+        <div style="font-size:17px;font-weight:400;line-height:1.2;">${esc(p.name)}</div>
+        ${s.showDescriptions && p.description ? `<div style="font-size:11px;font-family:Arial,sans-serif;color:#666;line-height:1.5;">${esc(p.description.substring(0, 140))}${p.description.length > 140 ? '…' : ''}</div>` : ''}
+        ${s.showPrices ? `<div style="font-size:18px;font-family:Arial,sans-serif;font-weight:700;color:${accent};margin-top:2px;">${price(p.price)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;background:#fff;padding:36px 40px;">
+    <div style="margin-bottom:30px;">
+      <h1 style="font-size:32px;font-weight:400;margin:0 0 6px;letter-spacing:-.5px;">${esc(s.title)}</h1>
+      ${s.tagline ? `<p style="font-size:13px;color:#888;margin:0;font-style:italic;font-family:Arial,sans-serif;">${esc(s.tagline)}</p>` : ''}
+      <div style="width:44px;height:3px;background:${accent};margin-top:10px;"></div>
+    </div>
+    ${rows}
+    ${s.footerText ? `<div style="margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-family:Arial,sans-serif;text-align:center;font-size:10px;color:#aaa;font-style:italic;">${esc(s.footerText)}</div>` : ''}
+  </div>`;
+}
+
+const RENDERERS: Record<TemplateId, (p: Product[], s: Settings, a: string) => string> = {
+  grid: renderGrid, feature: renderFeature, catalog: renderCatalog, promo: renderPromo, minimal: renderMinimal,
+};
+
+export default function BrochureBuilder({ productList }: { productList: Product[] }) {
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [format, setFormat] = useState<FormatType>('flyer');
+  const [template, setTemplate] = useState<TemplateId>('promo');
+  const [settings, setSettings] = useState<Settings>({
+    title: 'GridMart Products',
+    tagline: 'Fresh, local, and always in season.',
+    accentColor: '#0d9488',
+    columns: 2,
+    showPrices: true,
+    showDescriptions: true,
+    showCategory: true,
+    footerText: '3176 Walker Rd, Windsor | gridmart.ca',
+    pageSize: 'letter',
+    orientation: 'portrait',
+  });
+
+  // Drag-to-reorder state
+  const dragIndex = useRef<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  const setSetting = <K extends keyof Settings>(k: K, v: Settings[K]) =>
+    setSettings(s => ({ ...s, [k]: v }));
+
+  const handleFormatChange = (f: FormatType) => {
+    setFormat(f);
+    const cfg = FORMATS.find(x => x.id === f)!;
+    setSetting('pageSize', cfg.pageSize);
+    setSetting('orientation', cfg.orientation);
+    if (f === 'poster')   { setSetting('columns', 2); setTemplate('promo'); }
+    if (f === 'flyer')    { setSetting('columns', 2); setTemplate('promo'); }
+    if (f === 'brochure') { setSetting('columns', 3); setTemplate('grid');  }
+  };
+
+  const toggleProduct = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const onDragStart = (i: number) => { dragIndex.current = i; };
+  const onDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    setDragOver(i);
+    if (dragIndex.current === null || dragIndex.current === i) return;
+    setSelectedIds(prev => {
+      const arr = [...prev];
+      const [removed] = arr.splice(dragIndex.current!, 1);
+      arr.splice(i, 0, removed);
+      dragIndex.current = i;
+      return arr;
+    });
+  };
+  const onDragEnd = () => { dragIndex.current = null; setDragOver(null); };
+
+  const selectedProducts = selectedIds
+    .map(id => productList.find(p => p.id === id))
+    .filter(Boolean) as Product[];
+
+  const filteredProducts = productList.filter(p =>
+    !search ||
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.category.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const brochureHtml = RENDERERS[template](selectedProducts, settings, settings.accentColor);
+
+  const printBrochure = useCallback(() => {
+    const html = RENDERERS[template](selectedProducts, settings, settings.accentColor);
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${esc(settings.title || 'Brochure')}</title>
+  <style>
+    * { box-sizing: border-box; }
+    @page { size: ${settings.pageSize} ${settings.orientation}; margin: 0.4in; }
+    @media print { body { margin: 0; } }
+    body { margin: 0; padding: 0; }
+    img { max-width: 100%; }
+  </style>
+</head>
+<body>${html}</body>
+</html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 350);
+  }, [template, selectedProducts, settings]);
+
+  return (
+    <div className="space-y-4">
+      {/* Format selector */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Format</p>
+        <div className="flex gap-2">
+          {FORMATS.map(f => (
+            <button key={f.id} type="button" onClick={() => handleFormatChange(f.id)}
+              className={`flex-1 text-left px-4 py-3 rounded-xl border text-sm transition-all ${format === f.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40'}`}
+            >
+              <div className="font-semibold text-sm">{f.label}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{f.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-5" style={{ minHeight: '600px' }}>
+        {/* Left: Controls */}
+        <div className="w-72 flex-shrink-0 space-y-3 overflow-y-auto" style={{ maxHeight: '82vh' }}>
+
+          {/* Template picker */}
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Template</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-1.5">
+              {TEMPLATES.map(t => (
+                <button key={t.id} type="button" onClick={() => setTemplate(t.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-all ${template === t.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/50'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <div className="font-semibold text-xs">{t.name}</div>
+                      <div className="text-xs text-muted-foreground leading-tight">{t.desc}</div>
+                    </div>
+                    {template === t.id && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
+                  </div>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Product picker */}
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Products</CardTitle>
+                {selectedIds.length > 0 && <Badge variant="secondary" className="text-xs">{selectedIds.length}</Badge>}
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-8 text-xs" />
+              </div>
+              <div className="border rounded-md overflow-y-auto space-y-px p-1" style={{ maxHeight: '220px' }}>
+                {filteredProducts.length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-4">No products found</div>
+                )}
+                {filteredProducts.map(p => {
+                  const sel = selectedIds.includes(p.id);
+                  return (
+                    <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors ${sel ? 'bg-primary/8' : 'hover:bg-muted/40'}`}
+                    >
+                      <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${sel ? 'bg-primary border-primary' : 'border-input'}`}>
+                        {sel && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                      </div>
+                      <img src={p.image} className="w-7 h-7 object-cover rounded flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{p.name}</div>
+                        <div className="text-muted-foreground">${Number(p.price).toFixed(2)}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedIds.length > 0 && (
+                <button type="button" onClick={() => setSelectedIds([])}
+                  className="text-xs text-muted-foreground hover:text-foreground w-full text-center underline"
+                >
+                  Clear all
+                </button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Drag-to-reorder selected products */}
+          {selectedIds.length > 1 && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-1">
+                <p className="text-xs text-muted-foreground mb-2">Drag to reorder</p>
+                {selectedIds.map((id, i) => {
+                  const p = productList.find(x => x.id === id);
+                  if (!p) return null;
+                  return (
+                    <div
+                      key={id}
+                      draggable
+                      onDragStart={() => onDragStart(i)}
+                      onDragOver={e => onDragOver(e, i)}
+                      onDragEnd={onDragEnd}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded border text-xs cursor-grab active:cursor-grabbing transition-colors select-none ${dragOver === i ? 'border-primary bg-primary/5' : 'border-border bg-background hover:bg-muted/40'}`}
+                    >
+                      <GripVertical className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="w-4 text-center font-mono text-muted-foreground">{i + 1}</span>
+                      <img src={p.image} className="w-6 h-6 object-cover rounded flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
+                      <span className="flex-1 truncate font-medium">{p.name}</span>
+                      <button type="button" onClick={() => toggleProduct(id)}
+                        className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Customization */}
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customize</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3">
+              <div>
+                <Label className="text-xs">Title</Label>
+                <Input value={settings.title} onChange={e => setSetting('title', e.target.value)} className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Tagline</Label>
+                <Input value={settings.tagline} onChange={e => setSetting('tagline', e.target.value)} className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Footer Text</Label>
+                <Input value={settings.footerText} onChange={e => setSetting('footerText', e.target.value)} className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Accent Color</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input type="color" value={settings.accentColor} onChange={e => setSetting('accentColor', e.target.value)} className="w-9 h-8 p-0.5 flex-shrink-0" />
+                  <Input value={settings.accentColor} onChange={e => setSetting('accentColor', e.target.value)} className="h-8 text-xs flex-1 font-mono" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Columns</Label>
+                <Select value={String(settings.columns)} onValueChange={v => setSetting('columns', Number(v))}>
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 columns</SelectItem>
+                    <SelectItem value="3">3 columns</SelectItem>
+                    <SelectItem value="4">4 columns</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Paper Size</Label>
+                <Select value={settings.pageSize} onValueChange={v => setSetting('pageSize', v as PageSize)}>
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZES.map(ps => (
+                      <SelectItem key={ps.value} value={ps.value}>{ps.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Orientation</Label>
+                <div className="flex gap-2 mt-1">
+                  {(['portrait', 'landscape'] as const).map(o => (
+                    <button key={o} type="button" onClick={() => setSetting('orientation', o)}
+                      className={`flex-1 py-1.5 rounded-lg border text-xs font-medium capitalize transition-all ${settings.orientation === o ? 'border-primary bg-primary/5 ring-1 ring-primary/20 text-primary' : 'border-border hover:bg-muted/40'}`}
+                    >
+                      {o === 'portrait' ? '↕ Portrait' : '↔ Landscape'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                {([
+                  ['showPrices', 'Show Prices'],
+                  ['showDescriptions', 'Show Descriptions'],
+                  ['showCategory', 'Show Categories'],
+                ] as const).map(([key, label]) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <Label className="text-xs font-normal cursor-pointer">{label}</Label>
+                    <Switch checked={settings[key] as boolean} onCheckedChange={v => setSetting(key, v)} className="scale-[0.7] origin-right" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: Preview */}
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {selectedIds.length === 0
+                ? 'Select products to preview your brochure'
+                : `${selectedIds.length} product${selectedIds.length !== 1 ? 's' : ''} · ${PAGE_SIZES.find(p => p.value === settings.pageSize)?.label} · ${settings.orientation}`}
+            </p>
+            <Button onClick={printBrochure} disabled={selectedIds.length === 0} size="sm" className="gap-1.5">
+              <Printer className="w-4 h-4" />
+              Print / Save PDF
+            </Button>
+          </div>
+
+          <div className="flex-1 border rounded-xl bg-muted/20 overflow-auto">
+            {selectedIds.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+                <BookOpen className="w-10 h-10 opacity-20" />
+                <p className="text-sm">Your brochure preview will appear here</p>
+              </div>
+            ) : (
+              <div className="bg-white shadow-sm" dangerouslySetInnerHTML={{ __html: brochureHtml }} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+Bash Commit and push paper size, orientation, drag reorder
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git add client/src/components/admin/BrochureBuilder.tsx && git commit -m "$(cat <<'EOF'
+feat: add paper size/orientation selection and drag-to-reorder in Print Builder
+
+- Paper size: Letter, Legal, Tabloid, A4, A3 — independent of format preset
+- Orientation: Portrait / Landscape toggle — passed to @page CSS at print time
+- Drag-to-reorder: selected products panel shows numbered drag handles;
+  HTML5 drag events reorder selectedIds in real time, updating the preview
+- Status line in preview header shows current paper size + orientation
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)" && git push
+
+OUT
+warning: in the working copy of 'client/src/components/admin/BrochureBuilder.tsx', LF will be replaced by CRLF the next time Git touches it
+[main a6b7a1f] feat: add paper size/orientation selection and drag-to-reorder in Print Builder
+ 1 file changed, 242 insertions(+), 210 deletions(-)
+To https://github.com/laaboafolabi8-eng/Gridmart
+   2deb7c5..a6b7a1f  main -> main
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Pushed and deployed. No action needed — this is just the automated post-push reminder from the PBV hook.
+
+allow drag and drop for interior and exterio photos, not just url
+Let me find where the storefront image URL fields live in AdminDashboard.
+
+Bash Find storefront image fields in AdminDashboard
+IN
+grep -n "storefrontHeroImage\|storefrontInteriorImage\|exterior\|interior\|Exterior\|Interior" "C:/Users/Laabo/Downloads/Gridmart/client/src/pages/AdminDashboard.tsx" | head -30
+
+OUT
+6389:        const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
+21798:                    <Label className="text-sm font-medium">Exterior / Main Photo URL</Label>
+21801:                      value={(homepageCopy as any).storefrontHeroImage || ''}
+21802:                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: e.target.value } as any))}
+21806:                    <Label className="text-sm font-medium">Interior Photo URL</Label>
+21809:                      value={(homepageCopy as any).storefrontInteriorImage || ''}
+21810:                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: e.target.value } as any))}
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 21791-21825)
+Let me check the existing upload mechanism in the codebase.
+
+Bash Find upload endpoints in routes
+IN
+grep -n "upload\|Upload\|/api/upload\|multipart\|formData\|FormData" "C:/Users/Laabo/Downloads/Gridmart/server/routes.ts" | head -20
+
+OUT
+358:  // Register object storage routes for file uploads
+10533:                const fullPath = `${privateDir}/uploads/${objectId}`;
+10545:                const apiPath = `/api/objects/uploads/${objectId}`;
+10555:            // Download external image and upload to our storage
+10637:              // Use presigned URL upload (works with public access prevention)
+10646:              const fullPath = `${privateDir}/uploads/${objectId}`;
+10660:              const apiPath = `/api/objects/uploads/${objectId}`;
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\components\ObjectUploader.tsx
+Let me see how ObjectUploader is currently used in AdminDashboard to understand the upload pattern.
+
+Bash Find ObjectUploader usage patterns
+IN
+grep -n "ObjectUploader\|onGetUploadParameters\|presigned\|/api/objects" "C:/Users/Laabo/Downloads/Gridmart/client/src/pages/AdminDashboard.tsx" | head -20
+
+OUT
+118:import { ObjectUploader } from '@/components/ObjectUploader';
+6548:      // Request presigned URL
+6564:      // Upload file to presigned URL
+8063:      // The objectPath is stored in file.meta.objectPath by the ObjectUploader
+8077:            return `/api/objects/${pathMatch[1]}`;
+14001:                                    <ObjectUploader
+14003:                                      onGetUploadParameters={getUploadParameters}
+14008:                                    </ObjectUploader>
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 6541-6580)
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 13991-14020)
+I'll create a self-contained ImageDropZone component, then swap it into the two storefront photo fields.
+
+Write C:\Users\Laabo\Downloads\Gridmart\client\src\components\admin\ImageDropZone.tsx
+104 lines
+import React, { useRef, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Loader2, Upload, X, ImageIcon } from 'lucide-react';
+
+interface ImageDropZoneProps {
+  value: string;
+  onChange: (url: string) => void;
+  onUpload: (file: File) => Promise<string | null>;
+  label: string;
+  hint?: string;
+}
+
+export function ImageDropZone({ value, onChange, onUpload, label, hint }: ImageDropZoneProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    setUploading(true);
+    const url = await onUpload(file);
+    if (url) onChange(url);
+    setUploading(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  const onFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">{label}</label>
+
+      <div
+        className={`relative rounded-lg border-2 border-dashed transition-colors cursor-pointer overflow-hidden ${
+          dragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'
+        } ${value ? 'h-36' : 'h-28'}`}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        onClick={() => !uploading && inputRef.current?.click()}
+      >
+        {value ? (
+          <>
+            <img
+              src={value}
+              alt={label}
+              className="w-full h-full object-cover"
+              onError={e => (e.currentTarget.style.display = 'none')}
+            />
+            <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              <span className="text-white text-xs font-medium flex items-center gap-1">
+                <Upload className="w-3.5 h-3.5" /> Replace photo
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onChange(''); }}
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-white" />
+            </button>
+          </>
+        ) : uploading ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="text-xs">Uploading…</span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground pointer-events-none">
+            <ImageIcon className="w-7 h-7 opacity-30" />
+            <span className="text-xs font-medium">Drag & drop or click to upload</span>
+            {hint && <span className="text-xs opacity-60">{hint}</span>}
+          </div>
+        )}
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={onFileInput}
+        />
+      </div>
+
+      <Input
+        placeholder="or paste image URL…"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="text-xs h-8"
+      />
+    </div>
+  );
+}
+Now import it in AdminDashboard and replace the two URL-only fields.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx (lines 19-23)
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx
+Added 1 line
+All pre-existing. Now replace the two URL-only fields with ImageDropZone.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\AdminDashboard.tsx
+Removed 3 lines
+All pre-existing. Committing and pushing.
+
+Bash Commit and push ImageDropZone changes
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git add client/src/components/admin/ImageDropZone.tsx client/src/pages/AdminDashboard.tsx && git commit -m "$(cat <<'EOF'
+feat: replace storefront photo URL inputs with drag-and-drop upload zones
+
+Add ImageDropZone component: drag-and-drop or click-to-pick image files,
+uploads via existing presigned URL flow, shows live preview thumbnail with
+hover overlay to replace, X button to clear, URL paste input as fallback.
+Applied to Exterior and Interior photo fields in Site Settings.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)" && git push
+
+OUT
+warning: in the working copy of 'client/src/components/admin/ImageDropZone.tsx', LF will be replaced by CRLF the next time Git touches it
+[main bab2fa5] feat: replace storefront photo URL inputs with drag-and-drop upload zones
+ 2 files changed, 118 insertions(+), 17 deletions(-)
+ create mode 100644 client/src/components/admin/ImageDropZone.tsx
+To https://github.com/laaboafolabi8-eng/Gridmart
+   a6b7a1f..bab2fa5  main -> main
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Pushed. The two storefront photo fields in Admin → Site Settings → Storefront Photos & Info now support:
+
+Drag & drop a photo directly onto the zone
+Click to pick from file browser
+Live thumbnail preview with hover-to-replace overlay
+X button to clear the photo
+URL paste input still available below each zone as a fallback
+have exterior photo be large, page spanning background image with interior being smaller one on top. also, instead of having storefront be node
+Let me read the current hero section fully before making changes, and I'll note the second request is cut off — I'll clarify after.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx (lines 841-955)
+Clear picture. I'll rework the section so the exterior photo spans the full background with a dark overlay, text content overlaid on the left, and the interior photo as a floating card on the right. Your second sentence got cut off — let me handle the layout first and you can finish that thought.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx
+Edit failed
+The file has slightly different content from the summary. Let me read the exact lines.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx (lines 863-952)
+Now I have the exact content. Let me do the replacement targeting unique anchors at start and end.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx
+Added 11 lines
+Now update the text content to conditionally use white colors when a background image is present, and replace the right column photo section:
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx
+Edit failed
+The first edit already applied. Let me read the current state before the next edit.
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx (lines 887-956)
+Good. Now I'll replace the h1 and everything through </section> in two targeted edits — the h1/p block first, then the right column + close.
+
+Edit C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx
+Edit failed
+The \u00A0 characters are tripping the string match. I'll use Python to do the replacements directly.
+
+Bash Apply hero layout changes via Python script
+IN
+python3 - << 'PYEOF'
+import re
+
+path = r"C:/Users/Laabo/Downloads/Gridmart/client/src/pages/Home.tsx"
+with open(path, 'r', encoding='utf-8') as f:
+    content = f.read()
+
+# Replace h1 style to add bg-conditional colors
+old_h1_style = "style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}"
+new_h1_style = "style={{ transform: siteSettings.heroTitleOffset ? `translateY(${siteSettings.heroTitleOffset}px)` : undefined, color: siteSettings.heroLine1Color || (siteSettings.storefrontHeroImage ? '#ffffff' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined, textShadow: siteSettings.storefrontHeroImage ? '0 2px 8px rgba(0,0,0,0.5)' : undefined }}"
+content = content.replace(old_h1_style, new_h1_style, 1)
+
+# Replace span class to remove text-gradient when bg image present
+old_span_class = '`${siteSettings.heroLine2Color ? \'\' : \'text-gradient\'}'
+new_span_class = '`${siteSettings.heroLine2Color ? \'\' : siteSettings.storefrontHeroImage ? \'\' : \'text-gradient\'}'
+content = content.replace(old_span_class, new_span_class, 1)
+
+# Replace span style for line2 color
+old_span_style = "style={{ color: siteSettings.heroLine2Color || undefined }}>{siteSettings.heroLine2"
+new_span_style = "style={{ color: siteSettings.heroLine2Color || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.85)' : undefined) }}>{siteSettings.heroLine2"
+content = content.replace(old_span_style, new_span_style, 1)
+
+# Replace p subtitle colors
+old_p_style = "color: siteSettings.heroSubtitleColor || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}"
+new_p_style = "color: siteSettings.heroSubtitleColor || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.75)' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined }}"
+content = content.replace(old_p_style, new_p_style, 1)
+
+# Replace address/hours colors
+old_addr = 'className="flex items-start gap-2 text-sm text-foreground/80">\n                  <MapPin className="w-4 h-4 mt-0.5 text-primary shrink-0"'
+new_addr = 'className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? \'text-white/80\' : \'text-foreground/80\'}`}>\n                  <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? \'text-white/70\' : \'text-primary\'}`}'
+content = content.replace(old_addr, new_addr, 1)
+
+old_hours_div = '                  <div className="flex items-start gap-2 text-sm text-foreground/80">\n                    <Clock className="w-4 h-4 mt-0.5 text-primary shrink-0"'
+new_hours_div = '                  <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? \'text-white/80\' : \'text-foreground/80\'}`}>\n                    <Clock className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? \'text-white/70\' : \'text-primary\'}`}'
+content = content.replace(old_hours_div, new_hours_div, 1)
+
+# Update Browse Products button for bg image
+old_browse_btn = '<Button size="lg" onClick={() => document.getElementById(\'products\')?.scrollIntoView({ behavior: \'smooth\' })}>\n                  <ShoppingBag className="w-4 h-4 mr-2" />\n                  Browse Products\n                </Button>'
+new_browse_btn = '<Button size="lg" className={siteSettings.storefrontHeroImage ? \'bg-white text-gray-900 hover:bg-white/90\' : \'\'} onClick={() => document.getElementById(\'products\')?.scrollIntoView({ behavior: \'smooth\' })}>\n                  <ShoppingBag className="w-4 h-4 mr-2" />\n                  Browse Products\n                </Button>'
+content = content.replace(old_browse_btn, new_browse_btn, 1)
+
+# Update Pickup Locations button for bg image
+old_pickup_btn = '<Button size="lg" variant="outline" onClick={() => document.getElementById(\'pickup\')?.scrollIntoView({ behavior: \'smooth\' })}>\n                  <MapPin className="w-4 h-4 mr-2" />\n                  Pickup Locations\n                </Button>'
+new_pickup_btn = '<Button size="lg" variant="outline" className={siteSettings.storefrontHeroImage ? \'border-white/60 text-white hover:bg-white/10\' : \'\'} onClick={() => document.getElementById(\'pickup\')?.scrollIntoView({ behavior: \'smooth\' })}>\n                  <MapPin className="w-4 h-4 mr-2" />\n                  Pickup Locations\n                </Button>'
+content = content.replace(old_pickup_btn, new_pickup_btn, 1)
+
+# Replace the right column photos section
+old_right = '''            {/* Right – storefront photos */}
+            <div className="space-y-3">
+              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3]">
+                {siteSettings.storefrontHeroImage ? (
+                  <img src={siteSettings.storefrontHeroImage} alt="Store exterior" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 gap-3 p-8 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <ShoppingBag className="w-8 h-8 text-primary/30" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
+                  </div>
+                )}
+              </div>
+              {siteSettings.storefrontInteriorImage && (
+                <div className="rounded-xl overflow-hidden shadow-md bg-muted aspect-[16/7]">
+                  <img src={siteSettings.storefrontInteriorImage} alt="Store interior" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>'''
+
+new_right = '''            {/* Right – interior photo card (only when set) */}
+            {siteSettings.storefrontInteriorImage && (
+              <div className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 aspect-[4/3]">
+                <img src={siteSettings.storefrontInteriorImage} alt="Store interior" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {/* Fallback placeholder when no photos set */}
+            {!siteSettings.storefrontHeroImage && !siteSettings.storefrontInteriorImage && (
+              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3] flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ShoppingBag className="w-8 h-8 text-primary/30" />
+                </div>
+                <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
+              </div>
+            )}'''
+
+if old_right in content:
+    content = content.replace(old_right, new_right, 1)
+    print("Right column replaced OK")
+else:
+    print("Right column NOT found - checking actual content around line 935")
+    lines = content.split('\n')
+    for i, line in enumerate(lines[930:950], start=931):
+        print(f"{i}: {repr(line)}")
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(content)
+print("Done")
+PYEOF
+
+OUT
+Exit code 49
+Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.
+Bash Check Python availability
+IN
+python3 --version 2>/dev/null || python --version 2>/dev/null || py --version 2>/dev/null
+
+OUT
+Python 3.13.12
+Bash Apply hero layout changes via Python
+IN
+python << 'PYEOF'
+path = r"C:/Users/Laabo/Downloads/Gridmart/client/src/pages/Home.tsx"
+with open(path, 'r', encoding='utf-8') as f:
+    content = f.read()
+
+# 1. h1 style – add bg-conditional color + text-shadow
+old = "color: siteSettings.heroLine1Color || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}"
+new = "color: siteSettings.heroLine1Color || (siteSettings.storefrontHeroImage ? '#ffffff' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined, textShadow: siteSettings.storefrontHeroImage ? '0 2px 8px rgba(0,0,0,0.5)' : undefined }}"
+content = content.replace(old, new, 1)
+
+# 2. span class – skip text-gradient when bg image
+old = "${siteSettings.heroLine2Color ? '' : 'text-gradient'}"
+new = "${siteSettings.heroLine2Color ? '' : siteSettings.storefrontHeroImage ? '' : 'text-gradient'}"
+content = content.replace(old, new, 1)
+
+# 3. span style – line2 color on bg
+old = "style={{ color: siteSettings.heroLine2Color || undefined }}>{siteSettings.heroLine2"
+new = "style={{ color: siteSettings.heroLine2Color || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.85)' : undefined) }}>{siteSettings.heroLine2"
+content = content.replace(old, new, 1)
+
+# 4. subtitle color on bg
+old = "color: siteSettings.heroSubtitleColor || undefined, textAlign: (siteSettings.heroAlign as any) || undefined }}"
+new = "color: siteSettings.heroSubtitleColor || (siteSettings.storefrontHeroImage ? 'rgba(255,255,255,0.75)' : undefined), textAlign: (siteSettings.heroAlign as any) || undefined }}"
+content = content.replace(old, new, 1)
+
+# 5. Address row – conditional color
+old = 'className="flex items-start gap-2 text-sm text-foreground/80">\n                  <MapPin className="w-4 h-4 mt-0.5 text-primary shrink-0"'
+new = "className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>\n                  <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? 'text-white/70' : 'text-primary'}`}"
+content = content.replace(old, new, 1)
+
+# 6. Hours row – conditional color
+old = '                  <div className="flex items-start gap-2 text-sm text-foreground/80">\n                    <Clock className="w-4 h-4 mt-0.5 text-primary shrink-0"'
+new = "                  <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>\n                    <Clock className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? 'text-white/70' : 'text-primary'}`}"
+content = content.replace(old, new, 1)
+
+# 7. Browse Products button
+old = "                <Button size=\"lg\" onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>"
+new = "                <Button size=\"lg\" className={siteSettings.storefrontHeroImage ? 'bg-white text-gray-900 hover:bg-white/90' : ''} onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>"
+content = content.replace(old, new, 1)
+
+# 8. Pickup Locations button
+old = "                <Button size=\"lg\" variant=\"outline\" onClick={() => document.getElementById('pickup')?.scrollIntoView({ behavior: 'smooth' })}>"
+new = "                <Button size=\"lg\" variant=\"outline\" className={siteSettings.storefrontHeroImage ? 'border-white/60 text-white hover:bg-white/10' : ''} onClick={() => document.getElementById('pickup')?.scrollIntoView({ behavior: 'smooth' })}>"
+content = content.replace(old, new, 1)
+
+# 9. Right column – replace entire photos block
+old_right = """            {/* Right – storefront photos */}
+            <div className="space-y-3">
+              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3]">
+                {siteSettings.storefrontHeroImage ? (
+                  <img src={siteSettings.storefrontHeroImage} alt="Store exterior" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 gap-3 p-8 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <ShoppingBag className="w-8 h-8 text-primary/30" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
+                  </div>
+                )}
+              </div>
+              {siteSettings.storefrontInteriorImage && (
+                <div className="rounded-xl overflow-hidden shadow-md bg-muted aspect-[16/7]">
+                  <img src={siteSettings.storefrontInteriorImage} alt="Store interior" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>"""
+new_right = """            {/* Right – interior photo (shown when set; exterior is the full-bleed background) */}
+            {siteSettings.storefrontInteriorImage && (
+              <div className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 aspect-[4/3]">
+                <img src={siteSettings.storefrontInteriorImage} alt="Store interior" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {/* Placeholder when no photos configured */}
+            {!siteSettings.storefrontHeroImage && !siteSettings.storefrontInteriorImage && (
+              <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3] flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ShoppingBag className="w-8 h-8 text-primary/30" />
+                </div>
+                <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
+              </div>
+            )}"""
+
+if old_right in content:
+    content = content.replace(old_right, new_right, 1)
+    print("Right column OK")
+else:
+    print("Right column NOT found")
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(content)
+print("All done")
+PYEOF
+
+OUT
+Right column OK
+All done
+Let me verify the key parts look right:
+
+Read C:\Users\Laabo\Downloads\Gridmart\client\src\pages\Home.tsx (lines 863-962)
+Everything looks correct. Committing and pushing.
+
+Bash Commit and push hero layout rework
+IN
+cd "C:\Users\Laabo\Downloads\Gridmart" && git add client/src/pages/Home.tsx && git commit -m "$(cat <<'EOF'
+feat: rework hero so exterior photo is full-bleed background
+
+- Exterior photo fills the entire hero section (absolute positioned, object-cover)
+- 55% dark overlay ensures text readability on any photo
+- Text, address, hours, and buttons adapt to white when a background image
+  is set (text-shadow, button styles, icon colors)
+- Interior photo appears as a 4/3 rounded card on the right column only
+  when both images are configured; otherwise text spans full width
+- Gradient + blur blobs kept as fallback when no exterior photo is set
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)" && git push
+
+OUT
+[main a4a5a03] feat: rework hero so exterior photo is full-bleed background
+ 1 file changed, 41 insertions(+), 34 deletions(-)
+To https://github.com/laaboafolabi8-eng/Gridmart
+   bab2fa5..a4a5a03  main -> main
+Shell cwd was reset to c:\Users\Laabo\Downloads\universalpbvprebuildverificationforclaudecode
+Pushed. Your earlier message cut off at "instead of having storefront be node" — what did you want to do with the storefront instead?
+
+Remove option for storefront to be node, it's its own thing instead, display it on map with it's own special icon with address as 3170 Walker Road Windsor ontario n8w 3r5, to add products to it, they dont have to go to a crate, instead by "instore" checkbox in products tab and also a group action for add in store to do it batch. orders cannot be placed for products in store but still display them when pickup options are show on a product's page.
