@@ -96,6 +96,7 @@ export default function ProductDetail() {
   const productMapRef = useRef<HTMLDivElement>(null);
   const productMapCirclesRef = useRef<google.maps.Circle[]>([]);
   const productMapInstanceRef = useRef<google.maps.Map | null>(null);
+  const inStoreMapRef = useRef<HTMLDivElement>(null);
   const [mapSelectedNode, setMapSelectedNode] = useState<{ id: string; name: string } | null>(null);
   const [mapSlots, setMapSlots] = useState<any[]>([]);
   const [mapSlotsLoading, setMapSlotsLoading] = useState(false);
@@ -406,6 +407,34 @@ export default function ProductDetail() {
     };
   }, [nodesWithStockIds, mapsReady, siteSettingsLoaded, nodeColors, nodeBorderColors, nodeOpacities, nodeStrokeOpacities, siteSettings.mapLat, siteSettings.mapLng, siteSettings.mapZoom, siteSettings.nodeCircleSize]);
 
+  // In-store-only map: show fixed GridMart store pin when product is inStore and has no node inventory
+  useEffect(() => {
+    const isInStoreOnly = (product as any)?.inStore && nodesWithStockForMap.length === 0;
+    if (!inStoreMapRef.current || !isInStoreOnly || !mapsReady) return;
+
+    const STORE = { lat: 42.2955, lng: -83.0006 };
+    const map = new google.maps.Map(inStoreMapRef.current, {
+      center: STORE,
+      zoom: 15,
+      styles: GRIDMART_MAP_STYLES,
+      disableDefaultUI: true,
+      zoomControl: true,
+      gestureHandling: 'cooperative',
+    });
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50"><path fill="#f59e0b" stroke="#b45309" stroke-width="1.5" d="M20 0C9 0 0 9 0 20c0 13 20 30 20 30S40 33 40 20C40 9 31 0 20 0z"/><rect x="9" y="11" width="22" height="16" rx="2" fill="white"/><rect x="9" y="8" width="22" height="6" rx="1.5" fill="white" opacity="0.75"/><rect x="15" y="18" width="10" height="9" rx="1" fill="#f59e0b"/></svg>`;
+    new google.maps.Marker({
+      position: STORE,
+      map,
+      title: 'GridMart Store — 3170 Walker Rd',
+      icon: {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+        scaledSize: new google.maps.Size(40, 50),
+        anchor: new google.maps.Point(20, 50),
+      },
+    });
+  }, [product?.id, (product as any)?.inStore, nodesWithStockForMap.length, mapsReady]);
+
   useEffect(() => {
     if (nodesWithStockForMap.length === 0 || mapSelectedNode) return;
 
@@ -467,9 +496,9 @@ export default function ProductDetail() {
     );
   }
 
-  // Check if product is available at any node (allow coming soon products through)
+  // Check if product is available at any node (allow coming soon and in-store products through)
   const hasNodeInventory = product.inventory?.some(inv => inv.quantity > 0);
-  if (!hasNodeInventory && !product.comingSoon) {
+  if (!hasNodeInventory && !product.comingSoon && !(product as any).inStore) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -874,11 +903,23 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {(product as any).inStore && (
-            <div className="mt-6 flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900">
+          {(product as any).inStore && nodesWithStockForMap.length === 0 && (
+            <div className="mt-6">
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 mb-3">
+                <Store className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">Available In-Store</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">3170 Walker Rd, Windsor, ON N8W 3R5 · Visit us to see this product in person.</p>
+                </div>
+              </div>
+              <div ref={inStoreMapRef} className="h-[180px] rounded-xl overflow-hidden border border-amber-200 shadow-sm" data-testid="in-store-map" />
+            </div>
+          )}
+          {(product as any).inStore && nodesWithStockForMap.length > 0 && (
+            <div className="mt-3 flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900">
               <Store className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">Available In-Store</p>
+                <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">Also Available In-Store</p>
                 <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">3170 Walker Rd, Windsor, ON N8W 3R5 · Visit us to see this product in person.</p>
               </div>
             </div>
