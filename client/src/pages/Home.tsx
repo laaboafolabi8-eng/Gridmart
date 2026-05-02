@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useSearch, useLocation } from 'wouter';
 import { loadGoogleMaps, GRIDMART_MAP_STYLES } from '@/lib/googleMaps';
-import { Search, MapPin, Package, Truck, Warehouse, ChevronLeft, ChevronRight, ChevronDown, Check, Plus, Home as HomeIcon, Wallet, Calendar, Zap, Clock, Loader2, User, Phone, LogOut, Settings, ShoppingBag, Heart, Shield, Camera, Store } from 'lucide-react';
+import { Search, MapPin, Package, Truck, Warehouse, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, Plus, Home as HomeIcon, Wallet, Calendar, Zap, Clock, Loader2, User, Phone, LogOut, Settings, ShoppingBag, Heart, Shield, Camera, Store } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -705,6 +705,10 @@ export default function Home() {
   // In-Store location filter (mutually exclusive with node filter)
   const [inStoreFilter, setInStoreFilter] = useState(false);
 
+  // Category carousel state
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   // Helper to extract base code from product code
   const getBaseCode = (product: Product): string => {
     if (!product.productCode) return '';
@@ -847,6 +851,20 @@ export default function Home() {
   const scrollNext = useCallback(() => {
     setSpotlightIndex(prev => (prev + 1) % displayProducts.length);
   }, [displayProducts.length]);
+
+  // Seeded shuffle per category for carousel rows — stable across re-renders
+  const shuffledByCategory = useMemo(() => {
+    const result: Record<string, Product[]> = {};
+    categories.forEach(cat => {
+      const arr = [...displayProducts.filter(p => p.category === cat)];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(seededRandom(cat + i + (arr[i]?.id || '')) * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      result[cat] = arr;
+    });
+    return result;
+  }, [displayProducts, categories]);
 
   // Get visible products for spotlight (current, prev, next)
   const getVisibleProduct = (offset: number) => {
@@ -1123,58 +1141,108 @@ export default function Home() {
           ) : displayProducts.length > 0 ? (
             <div className="mt-4">
               {selectedCategory === null ? (
-                // Group by category when "All" is selected
+                // Category carousel rows — one per category, expand to full grid on demand
                 <div className="space-y-8">
                   {categories.map(cat => {
-                    const categoryProducts = sortProducts(displayProducts
-                      .filter(p => p.category === cat));
+                    const categoryProducts = sortProducts(displayProducts.filter(p => p.category === cat));
                     if (categoryProducts.length === 0) return null;
+                    const isExpanded = expandedCategories.has(cat);
                     const subs = getSubcategoriesForCategory(cat);
                     const hasSubcategories = subs.length > 0 && categoryProducts.some(p => p.subcategory);
+                    const carouselProducts = shuffledByCategory[cat] || categoryProducts;
                     return (
                       <div key={cat}>
-                        <h2 className={catHeadingClass} style={catHeadingStyle}>{cat}</h2>
-                        {hasSubcategories ? (
-                          <div className="space-y-6">
-                            {(() => {
-                              const uncategorized = categoryProducts.filter(p => !p.subcategory);
-                              if (uncategorized.length === 0) return null;
-                              return (
-                                <div className="sf-product-grid">
-                                  {uncategorized.map((product) => {
-                                    const baseCode = getBaseCode(product);
-                                    const variants = baseCode ? (variantGroups[baseCode] || []).filter(p => p.id !== product.id && p.variantSuffix) : [];
-                                    return <ProductCard key={product.id} product={product} variants={variants} layout={storefrontLayout} />;
-                                  })}
-                                </div>
-                              );
-                            })()}
-                            {subs.map(sub => {
-                              const subProducts = categoryProducts.filter(p => p.subcategory === sub.name);
-                              if (subProducts.length === 0) return null;
-                              return (
-                                <div key={sub.id}>
-                                  <h3 className={subcatHeadingClass} style={subcatHeadingStyle}>{sub.name}</h3>
+                        <div className="flex items-center justify-between mb-3">
+                          <h2 className={catHeadingClass} style={{ ...catHeadingStyle, marginBottom: 0 }}>{cat}</h2>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-muted-foreground hover:text-foreground shrink-0 gap-1"
+                            onClick={() => setExpandedCategories(prev => {
+                              const next = new Set(prev);
+                              if (next.has(cat)) next.delete(cat); else next.add(cat);
+                              return next;
+                            })}
+                          >
+                            {isExpanded ? <><ChevronUp className="w-3.5 h-3.5" /> Collapse</> : <><ChevronDown className="w-3.5 h-3.5" /> View All ({categoryProducts.length})</>}
+                          </Button>
+                        </div>
+
+                        {isExpanded ? (
+                          hasSubcategories ? (
+                            <div className="space-y-6">
+                              {(() => {
+                                const uncategorized = categoryProducts.filter(p => !p.subcategory);
+                                if (uncategorized.length === 0) return null;
+                                return (
                                   <div className="sf-product-grid">
-                                    {subProducts.map((product) => {
+                                    {uncategorized.map((product) => {
                                       const baseCode = getBaseCode(product);
                                       const variants = baseCode ? (variantGroups[baseCode] || []).filter(p => p.id !== product.id && p.variantSuffix) : [];
                                       return <ProductCard key={product.id} product={product} variants={variants} layout={storefrontLayout} />;
                                     })}
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                                );
+                              })()}
+                              {subs.map(sub => {
+                                const subProducts = categoryProducts.filter(p => p.subcategory === sub.name);
+                                if (subProducts.length === 0) return null;
+                                return (
+                                  <div key={sub.id}>
+                                    <h3 className={subcatHeadingClass} style={subcatHeadingStyle}>{sub.name}</h3>
+                                    <div className="sf-product-grid">
+                                      {subProducts.map((product) => {
+                                        const baseCode = getBaseCode(product);
+                                        const variants = baseCode ? (variantGroups[baseCode] || []).filter(p => p.id !== product.id && p.variantSuffix) : [];
+                                        return <ProductCard key={product.id} product={product} variants={variants} layout={storefrontLayout} />;
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="sf-product-grid">
+                              {categoryProducts.map((product) => {
+                                const baseCode = getBaseCode(product);
+                                const variants = baseCode ? (variantGroups[baseCode] || []).filter(p => p.id !== product.id && p.variantSuffix) : [];
+                                return <ProductCard key={product.id} product={product} variants={variants} layout={storefrontLayout} />;
+                              })}
+                            </div>
+                          )
                         ) : (
-                          <div className="sf-product-grid">
-                            {categoryProducts.map((product) => {
-                              const baseCode = getBaseCode(product);
-                              const variants = baseCode 
-                                ? (variantGroups[baseCode] || []).filter(p => p.id !== product.id && p.variantSuffix)
-                                : [];
-                              return <ProductCard key={product.id} product={product} variants={variants} layout={storefrontLayout} />;
-                            })}
+                          <div className="relative">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 h-8 w-8 rounded-full shadow-sm hidden sm:flex"
+                              onClick={() => carouselRefs.current[cat]?.scrollBy({ left: -320, behavior: 'smooth' })}
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <div
+                              ref={el => { carouselRefs.current[cat] = el; }}
+                              className="flex gap-2 overflow-x-auto scrollbar-hide pb-2"
+                              style={{ scrollSnapType: 'x mandatory' }}
+                            >
+                              {carouselProducts.map((product) => {
+                                const baseCode = getBaseCode(product);
+                                const variants = baseCode ? (variantGroups[baseCode] || []).filter(p => p.id !== product.id && p.variantSuffix) : [];
+                                return (
+                                  <div key={product.id} className="shrink-0 w-36 sm:w-40 lg:w-44" style={{ scrollSnapAlign: 'start' }}>
+                                    <ProductCard product={product} variants={variants} layout={storefrontLayout} hideImageNav />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 h-8 w-8 rounded-full shadow-sm hidden sm:flex"
+                              onClick={() => carouselRefs.current[cat]?.scrollBy({ left: 320, behavior: 'smooth' })}
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
                           </div>
                         )}
                       </div>
