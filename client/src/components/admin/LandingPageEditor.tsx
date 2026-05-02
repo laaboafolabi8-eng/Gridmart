@@ -547,7 +547,7 @@ export default function LandingPageEditor({ editingPage, productList, promoCodeL
                 <h2 className="font-bold mb-2" style={{ fontSize: `${Math.max(12, formData.headlineFontSize * 0.35)}px` }}>{formData.headline || 'Featured Products'}</h2>
                 {formData.subheadline && <p className="opacity-80 mb-4" style={{ fontSize: `${Math.max(8, formData.subheadlineFontSize * 0.45)}px` }}>{formData.subheadline}</p>}
                 <div className="flex gap-3 justify-center flex-wrap">
-                  {formData.productIds.slice(0, 4).map(pid => {
+                  {formData.productIds.map(pid => {
                     const p = productList.find(pr => String(pr.id) === pid);
                     return p ? (
                       <div key={pid} className="w-24 bg-white/10 rounded-lg p-2">

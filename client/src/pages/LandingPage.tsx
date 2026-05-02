@@ -1553,7 +1553,8 @@ export default function LandingPage() {
               </div>
 
               {(() => {
-                const gridClass = `grid gap-6 ${heroProducts.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : heroProducts.length === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`;
+                const desktopCols = heroProducts.length <= 2 ? 2 : heroProducts.length === 3 ? 3 : heroProducts.length <= 6 ? 3 : heroProducts.length <= 8 ? 4 : 5;
+                const gridClass = `grid gap-6 grid-cols-1 sm:grid-cols-2 ${desktopCols === 2 ? 'lg:grid-cols-2' : desktopCols === 3 ? 'lg:grid-cols-3' : desktopCols === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-5'}`;
                 const renderCard = (hp: ProductWithExtras) => {
                   const hpPrice = typeof hp.price === 'string' ? parseFloat(hp.price) : hp.price;
                   const hpImage = hp.images?.[0] || (hp as any).image || '';
