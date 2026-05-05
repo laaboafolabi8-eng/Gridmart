@@ -20645,7 +20645,9 @@ Check other listings for more products`);
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="debit">Debit</SelectItem>
                         <SelectItem value="e-transfer">E-Transfer</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -29794,6 +29796,7 @@ Check other listings for more products`);
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="debit">Debit</SelectItem>
                   <SelectItem value="e_transfer">E-Transfer</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
@@ -29808,6 +29811,7 @@ Check other listings for more products`);
                   <SelectValue placeholder="Select a node..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__store__">GridMart Store (In-Store)</SelectItem>
                   {(allNodes || []).filter((n: any) => n.status === 'active').map((node: any) => (
                     <SelectItem key={node.id} value={node.id}>{node.name}</SelectItem>
                   ))}
@@ -29903,7 +29907,8 @@ Check other listings for more products`);
                     body: JSON.stringify({
                       items: manualSaleItems.map(item => ({ productId: item.productId, quantity: item.quantity })),
                       paymentMethod: manualSalePaymentMethod,
-                      nodeId: manualSaleNodeId || undefined,
+                      nodeId: (manualSaleNodeId && manualSaleNodeId !== '__store__') ? manualSaleNodeId : undefined,
+                      isInStore: manualSaleNodeId === '__store__' || undefined,
                       manualSource: manualSaleSource === 'other' ? (manualSaleSourceOther.trim() || 'other') : manualSaleSource,
                       buyerName: manualSaleBuyerName || undefined,
                       buyerPhone: manualSaleBuyerPhone || undefined,
