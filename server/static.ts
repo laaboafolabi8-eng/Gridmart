@@ -19,6 +19,8 @@ export function serveStatic(app: Express) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
+      } else if (filePath.match(/\.(js|css|woff2?|ttf|otf)$/)) {
+        res.setHeader('Vary', 'Accept-Encoding');
       }
     }
   }));

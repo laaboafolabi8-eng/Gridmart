@@ -174,7 +174,7 @@ app.post(
   }
 );
 
-app.use(compression());
+app.use(compression({ level: 6, threshold: 1024 }));
 
 // Session setup - use memory store as fallback to avoid blocking on DB connection
 const PgStore = connectPgSimple(session);

@@ -27,18 +27,22 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(urlCategory);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
 
-  const { data: storefrontLayout } = useQuery<StorefrontLayoutSettings>({
-    queryKey: ['storefrontLayout'],
+  // Single fetch for all site settings — derived values computed from this one query
+  const { data: siteSettings = {}, isSuccess: siteSettingsLoaded } = useQuery<Record<string, string>>({
+    queryKey: ['site-settings'],
     queryFn: async () => {
       const res = await fetch('/api/site-settings');
-      const settings = await res.json();
-      if (settings.storefrontLayout) {
-        try { return JSON.parse(settings.storefrontLayout); } catch { return {}; }
-      }
-      return {};
+      if (!res.ok) return {};
+      return res.json();
     },
     staleTime: 60000,
   });
+
+  const storefrontLayout = useMemo((): StorefrontLayoutSettings => {
+    if (!siteSettings.storefrontLayout) return {} as StorefrontLayoutSettings;
+    try { return JSON.parse(siteSettings.storefrontLayout) as StorefrontLayoutSettings; }
+    catch { return {} as StorefrontLayoutSettings; }
+  }, [siteSettings.storefrontLayout]);
 
   const gridGapValue = ({ tight: '4px', normal: '8px', relaxed: '16px', spacious: '24px' } as Record<string, string>)[storefrontLayout?.gridGap || 'normal'] || '8px';
   const gridColsDesktop = parseInt(storefrontLayout?.columnsDesktop || '7') || 7;
@@ -74,15 +78,6 @@ export default function Home() {
     queryFn: async () => {
       const res = await fetch('/api/products?live=true');
       if (!res.ok) throw new Error('Failed to fetch products');
-      return res.json();
-    },
-  });
-
-  const { data: siteSettings = {}, isSuccess: siteSettingsLoaded } = useQuery<Record<string, string>>({
-    queryKey: ['site-settings'],
-    queryFn: async () => {
-      const res = await fetch('/api/site-settings');
-      if (!res.ok) return {};
       return res.json();
     },
   });
