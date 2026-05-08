@@ -235,7 +235,7 @@ export default function Home() {
                   <div className="space-y-2 pt-1">
                     <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>
                       <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${siteSettings.storefrontHeroImage ? 'text-white/70' : 'text-primary'}`} />
-                      <span>{siteSettings.storefrontAddress || '3170 Walker Rd, Windsor'}</span>
+                      <span>{siteSettings.storefrontAddress || '3176 Walker Rd, Windsor'}</span>
                     </div>
                     {siteSettings.storefrontHours && (
                       <div className={`flex items-start gap-2 text-sm ${siteSettings.storefrontHeroImage ? 'text-white/80' : 'text-foreground/80'}`}>
@@ -603,7 +603,7 @@ export default function Home() {
               {siteSettings.pickupSectionTitle || 'Visit Our Store'}
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              {siteSettings.pickupSectionSubtitle || 'Come see us in person to browse our full selection at 3170 Walker Rd, Windsor.'}
+              {siteSettings.pickupSectionSubtitle || 'Come see us in person to browse our full selection at 3176 Walker Rd, Windsor.'}
             </p>
           </div>
 
@@ -626,7 +626,7 @@ export default function Home() {
               <div>
                 <h3 className="font-display font-semibold mb-1">{siteSettings.feature2Title || 'Easy to Find'}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {siteSettings.feature2Desc || 'Located at 3170 Walker Rd in Windsor, with convenient parking available.'}
+                  {siteSettings.feature2Desc || 'Located at 3176 Walker Rd in Windsor, with convenient parking available.'}
                 </p>
               </div>
             </div>

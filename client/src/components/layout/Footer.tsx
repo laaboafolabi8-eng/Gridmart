@@ -1,4 +1,4 @@
-import { MapPin } from 'lucide-react';
+import { MapPin, Clock } from 'lucide-react';
 import logoIcon from '@/assets/gridmart-logo-icon.png';
 import logoText from '@/assets/gridmart-logo-text.png';
 import { useAuth } from '@/lib/auth';
@@ -8,7 +8,7 @@ export function Footer() {
   const { isAuthenticated } = useAuth();
 
   const { data: siteSettings } = useQuery<Record<string, string>>({
-    queryKey: ['/api/site-settings'],
+    queryKey: ['site-settings'],
     queryFn: async () => {
       const res = await fetch('/api/site-settings');
       if (!res.ok) return {};
@@ -17,8 +17,10 @@ export function Footer() {
     staleTime: 60000,
   });
 
-  const footerTagline = siteSettings?.footerTagline || 'Community-powered local pickup. Shop from local producers and pick up from neighborhood Nodes. Fresh, fast, and friendly.';
-  
+  const footerTagline = siteSettings?.footerTagline || 'Local products, in-store shopping in Windsor, ON. Browse online and pick up at 3176 Walker Rd.';
+  const address = siteSettings?.storefrontAddress || '3176 Walker Rd';
+  const hours = siteSettings?.storefrontHours;
+
   return (
     <footer className="border-t bg-muted/30 mt-auto">
       <div className="container mx-auto px-4 py-12">
@@ -38,7 +40,6 @@ export function Footer() {
             <ul className="space-y-2 text-muted-foreground">
               <li><a href="/" className="hover:text-foreground transition-colors">Shop Products</a></li>
               <li><a href="/about" className="hover:text-foreground transition-colors">About Us</a></li>
-              <li><a href="/apply" className="hover:text-foreground transition-colors">Become a Node Host</a></li>
               {isAuthenticated && (
                 <li><a href="/orders" className="hover:text-foreground transition-colors">Track Orders</a></li>
               )}
@@ -52,19 +53,32 @@ export function Footer() {
               <li><a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
               <li><a href="/agreement/terms" className="hover:text-foreground transition-colors">Terms of Service</a></li>
               <li><a href="/agreement/refund" className="hover:text-foreground transition-colors">Refund Policy</a></li>
-              <li><a href="/agreement/host_handoff" className="hover:text-foreground transition-colors">Host Handoff Responsibilities</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-display font-semibold mb-4">Service Areas</h4>
-            <ul className="space-y-2 text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
-                <span className="font-medium text-foreground">Windsor, ON</span>
-              </li>
-              <li className="text-sm text-muted-foreground italic">More coming soon</li>
-            </ul>
+            <h4 className="font-display font-semibold mb-4">Visit Us</h4>
+            <address className="not-italic space-y-2 text-sm">
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                <div>
+                  <p className="font-medium text-foreground" itemProp="name">GridMart</p>
+                  <p itemProp="streetAddress">{address}</p>
+                  <p>
+                    <span itemProp="addressLocality">Windsor</span>,{' '}
+                    <span itemProp="addressRegion">ON</span>{' '}
+                    <span itemProp="postalCode">N8W 3R5</span>
+                  </p>
+                  <p itemProp="addressCountry">Canada</p>
+                </div>
+              </div>
+              {hours && (
+                <div className="flex items-start gap-2 text-muted-foreground">
+                  <Clock className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                  <p itemProp="openingHours">{hours}</p>
+                </div>
+              )}
+            </address>
           </div>
         </div>
 

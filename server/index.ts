@@ -67,7 +67,7 @@ Refunds or replacements may be offered at GridMart's discretion for:
 • Items that were purchased damaged or defective
 
 Returns accepted in-store within 30 days of purchase with original packaging at:
-3170 Walker Rd, Windsor, ON N8W 3R5
+3176 Walker Rd, Windsor, ON N8W 3R5
 
 Refunds are not provided for:
 
@@ -75,10 +75,22 @@ Refunds are not provided for:
 • Manufacturer warranty, promotional or product registration failures
 • Compatibility or preference issues`;
 
+async function migrateStoreAddress() {
+  try {
+    const addr = await storage.getSiteSetting('storefrontAddress');
+    if (addr && addr.includes('3170')) {
+      await storage.setSiteSetting('storefrontAddress', addr.replace(/3170/g, '3176'));
+      console.log('Store address corrected 3170 → 3176');
+    }
+  } catch (error) {
+    console.error('Failed to migrate store address:', error);
+  }
+}
+
 async function migrateRefundPolicy() {
   try {
     const existing = await storage.getAgreement('refund');
-    if (!existing || existing.content === 'Please add your Refund Policy content here.' || existing.content.indexOf('3170 Walker Rd') === -1) {
+    if (!existing || existing.content === 'Please add your Refund Policy content here.' || existing.content.indexOf('3176 Walker Rd') === -1) {
       await storage.upsertAgreement('refund', 'Refund Policy', REFUND_POLICY_CONTENT);
       console.log('Refund policy updated');
     }
@@ -305,6 +317,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       cleanupDuplicateInventory();
       seedDefaultApplicationStatuses();
+      migrateStoreAddress();
       migrateRefundPolicy();
       startOrderExpirationJob(1);
       startOrderReminderJob(5); // Check for reminders every 5 minutes

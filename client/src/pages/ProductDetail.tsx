@@ -426,7 +426,7 @@ export default function ProductDetail() {
     new google.maps.Marker({
       position: STORE,
       map,
-      title: 'GridMart Store — 3170 Walker Rd',
+      title: 'GridMart Store — 3176 Walker Rd',
       icon: {
         url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
         scaledSize: new google.maps.Size(40, 50),
@@ -909,7 +909,7 @@ export default function ProductDetail() {
                 <Store className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">Available In-Store</p>
-                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">3170 Walker Rd, Windsor, ON N8W 3R5 · Visit us to see this product in person.</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">3176 Walker Rd, Windsor, ON N8W 3R5 · Visit us to see this product in person.</p>
                 </div>
               </div>
               <div ref={inStoreMapRef} className="h-[180px] rounded-xl overflow-hidden border border-amber-200 shadow-sm" data-testid="in-store-map" />
@@ -920,7 +920,7 @@ export default function ProductDetail() {
               <Store className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">Also Available In-Store</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">3170 Walker Rd, Windsor, ON N8W 3R5 · Visit us to see this product in person.</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">3176 Walker Rd, Windsor, ON N8W 3R5 · Visit us to see this product in person.</p>
               </div>
             </div>
           )}
