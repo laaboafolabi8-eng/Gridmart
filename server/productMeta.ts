@@ -15,6 +15,15 @@ function truncate(str: string, max: number): string {
   return str.substring(0, max - 3) + '...';
 }
 
+function extractDescription(raw: unknown): string {
+  if (!raw) return '';
+  if (Array.isArray(raw)) {
+    return raw.filter(Boolean).join(' ').trim();
+  }
+  if (typeof raw === 'string') return raw;
+  return '';
+}
+
 export function setupProductMetaRoutes(app: Express) {
   app.get("/product/:slug", async (req: Request, res: Response, next: NextFunction) => {
     const slug = req.params.slug;
@@ -55,20 +64,14 @@ export function injectProductMeta(html: string, res: Response, baseUrl: string):
   const price = product.price ? ` - $${parseFloat(product.price).toFixed(2)}` : '';
   const ogTitle = `${title}${price} | GridMart`;
 
-  let description = '';
-  if (product.description) {
-    const lines = product.description.split('\n').filter((l: string) => l.trim());
-    description = escapeHtml(truncate(lines[0] || '', 200));
-  }
-  if (!description) {
-    description = `Shop ${escapeHtml(product.name)} on GridMart - Local pickup marketplace`;
-  }
+  const rawDesc = extractDescription(product.description);
+  const description = escapeHtml(truncate(rawDesc, 200)) ||
+    `Shop ${escapeHtml(product.name)} at GridMart — 3176 Walker Rd, Windsor, ON`;
 
-  const imageUrl = product.image
-    ? `${baseUrl}${product.image}`
-    : '';
-
+  const imageUrl = product.image ? `${baseUrl}${product.image}` : '';
   const productPageUrl = `${baseUrl}${productUrl(product)}`;
+
+  // ── OG / Twitter meta ────────────────────────────────────────────────────
 
   html = html.replace(
     /<meta property="og:title" content="[^"]*"\s*\/?>/,
@@ -110,6 +113,103 @@ export function injectProductMeta(html: string, res: Response, baseUrl: string):
     /<title>[^<]*<\/title>/,
     `<title>${title} | GridMart</title>`
   );
+
+  // ── JSON-LD Product schema (read by Google without JS execution) ──────────
+
+  const priceFormatted = product.price ? parseFloat(product.price).toFixed(2) : null;
+  const availability = product.comingSoon
+    ? 'https://schema.org/PreOrder'
+    : (product as any).inStore
+      ? 'https://schema.org/InStock'
+      : 'https://schema.org/LimitedAvailability';
+
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    url: productPageUrl,
+    description: rawDesc || `${product.name} available at GridMart`,
+    sku: product.productCode || product.id.split('-')[0],
+    brand: {
+      '@type': 'Brand',
+      name: 'GridMart',
+    },
+  };
+
+  if (imageUrl) schema.image = imageUrl;
+
+  if (priceFormatted) {
+    schema.offers = {
+      '@type': 'Offer',
+      price: priceFormatted,
+      priceCurrency: 'CAD',
+      availability,
+      url: productPageUrl,
+      seller: {
+        '@type': 'Organization',
+        name: 'GridMart',
+        url: baseUrl,
+      },
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'CA',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+        merchantReturnDays: 30,
+        returnMethod: 'https://schema.org/ReturnInStore',
+      },
+    };
+  }
+
+  const jsonLd = JSON.stringify(schema);
+  html = html.replace(
+    '</head>',
+    `<script type="application/ld+json">${jsonLd}</script>\n</head>`
+  );
+
+  // ── noscript fallback (for feed validators that skip JS) ─────────────────
+  // Rendered as plain readable HTML; only shown when JavaScript is disabled.
+  // Googlebot indexes noscript content and this ensures the product price,
+  // title, and availability are always present in the raw HTML response.
+
+  const priceHtml = priceFormatted
+    ? `<p style="font-size:22px;font-weight:700;color:#0d9488;margin:0 0 6px">$${priceFormatted} CAD</p>`
+    : '';
+
+  const availText = (product as any).inStore
+    ? '✓ In Stock — Available at GridMart Store'
+    : product.comingSoon
+      ? 'Coming Soon'
+      : 'Currently Unavailable';
+  const availColor = (product as any).inStore ? '#16a34a' : product.comingSoon ? '#d97706' : '#6b7280';
+
+  const imageHtml = imageUrl
+    ? `<img src="${imageUrl}" alt="${title}" style="max-width:280px;float:left;margin:0 20px 16px 0;border-radius:8px" />`
+    : '';
+
+  const descHtml = rawDesc
+    ? `<p style="color:#374151;font-size:15px;line-height:1.65;margin:12px 0 0;clear:both">${escapeHtml(truncate(rawDesc, 500))}</p>`
+    : '';
+
+  const noscript = `<noscript>
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:900px;margin:0 auto;padding:32px 16px;color:#111">
+  <nav style="font-size:13px;color:#6b7280;margin-bottom:20px">
+    <a href="/" style="color:#6b7280;text-decoration:none">GridMart</a> &rsaquo; ${title}
+  </nav>
+  <h1 style="font-size:26px;font-weight:700;margin:0 0 10px;line-height:1.3">${title}</h1>
+  ${priceHtml}
+  <p style="font-size:14px;font-weight:600;color:${availColor};margin:0 0 16px">${availText}</p>
+  ${imageHtml}
+  ${descHtml}
+  <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;clear:both">
+    <p style="font-size:13px;color:#6b7280;margin:0">
+      <strong style="color:#374151">GridMart Store</strong> &mdash;
+      3176 Walker Rd, Windsor, ON N8W 3R5, Canada
+    </p>
+  </div>
+</div>
+</noscript>`;
+
+  html = html.replace('<div id="root">', `${noscript}\n<div id="root">`);
 
   return html;
 }
