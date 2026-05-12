@@ -95,9 +95,52 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} GridMart (BookBuy Express Inc.). All rights reserved.</p>
-          <p className="text-xs mt-1 opacity-50">v1.1.0</p>
+        <div className="border-t mt-8 pt-8 space-y-4">
+          {/* Payment logos */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs text-muted-foreground mr-1">Secure payments via</span>
+            {/* Visa */}
+            <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Visa" role="img">
+              <rect width="60" height="38" rx="4" fill="#1A1F71"/>
+              <text x="30" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontStyle="italic" fontFamily="Arial, sans-serif">VISA</text>
+            </svg>
+            {/* Mastercard */}
+            <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Mastercard" role="img">
+              <rect width="60" height="38" rx="4" fill="#252525"/>
+              <circle cx="23" cy="19" r="11" fill="#EB001B"/>
+              <circle cx="37" cy="19" r="11" fill="#F79E1B"/>
+              <path d="M30 10.5a11 11 0 0 1 0 17 11 11 0 0 1 0-17z" fill="#FF5F00"/>
+            </svg>
+            {/* Amex */}
+            <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="American Express" role="img">
+              <rect width="60" height="38" rx="4" fill="#2E77BC"/>
+              <text x="30" y="17" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">AMERICAN</text>
+              <text x="30" y="27" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">EXPRESS</text>
+            </svg>
+            {/* Discover */}
+            <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Discover" role="img">
+              <rect width="60" height="38" rx="4" fill="white" stroke="#e5e7eb" strokeWidth="1"/>
+              <circle cx="40" cy="19" r="12" fill="#F76F20"/>
+              <text x="18" y="23" textAnchor="middle" fill="#231F20" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">DISCOVER</text>
+            </svg>
+            {/* Apple Pay */}
+            <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Apple Pay" role="img">
+              <rect width="60" height="38" rx="4" fill="#000"/>
+              <text x="30" y="17" textAnchor="middle" fill="white" fontSize="8" fontFamily="Arial, sans-serif"></text>
+              <text x="30" y="25" textAnchor="middle" fill="white" fontSize="9" fontWeight="500" fontFamily="Arial, sans-serif">Pay</text>
+              <text x="22" y="19" textAnchor="middle" fill="white" fontSize="13" fontFamily="-apple-system, Arial, sans-serif"></text>
+            </svg>
+            {/* Google Pay */}
+            <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Google Pay" role="img">
+              <rect width="60" height="38" rx="4" fill="white" stroke="#e5e7eb" strokeWidth="1"/>
+              <text x="10" y="24" fill="#4285F4" fontSize="12" fontWeight="bold" fontFamily="Arial, sans-serif">G</text>
+              <text x="20" y="24" fill="#555" fontSize="10" fontFamily="Arial, sans-serif">Pay</text>
+            </svg>
+          </div>
+          <div className="text-center text-sm text-muted-foreground">
+            <p>&copy; {new Date().getFullYear()} GridMart (BookBuy Express Inc.). All rights reserved.</p>
+            <p className="text-xs mt-1 opacity-50">v1.1.0</p>
+          </div>
         </div>
       </div>
     </footer>
