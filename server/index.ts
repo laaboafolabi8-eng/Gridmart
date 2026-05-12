@@ -125,6 +125,15 @@ if (process.env.NODE_ENV === "production") {
   app.set('trust proxy', 1);
 }
 
+// www → non-www redirect (belt-and-suspenders; primary redirect should be in Cloudflare)
+app.use((req, res, next) => {
+  if (req.hostname?.startsWith('www.')) {
+    const nonWww = req.hostname.slice(4);
+    return res.redirect(301, `https://${nonWww}${req.originalUrl}`);
+  }
+  next();
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
