@@ -1,4 +1,4 @@
-import { MapPin, Clock } from 'lucide-react';
+import { MapPin, Clock, Mail, Phone } from 'lucide-react';
 import logoIcon from '@/assets/gridmart-logo-icon.png';
 import logoText from '@/assets/gridmart-logo-text.png';
 import { useAuth } from '@/lib/auth';
@@ -18,8 +18,10 @@ export function Footer() {
   });
 
   const footerTagline = siteSettings?.footerTagline || 'Local products, in-store shopping in Windsor, ON. Browse online and pick up at 3176 Walker Rd.';
-  const address = siteSettings?.storefrontAddress || '3176 Walker Rd';
-  const hours = siteSettings?.storefrontHours;
+  const address = siteSettings?.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
+  const hours = siteSettings?.storefrontHours || 'Monday–Friday, 10:00 AM – 7:00 PM';
+  const contactEmail = siteSettings?.contactEmail || 'admin@gridmart.ca';
+  const contactPhone = siteSettings?.contactPhone || '';
 
   return (
     <footer className="border-t bg-muted/30 mt-auto">
@@ -57,33 +59,44 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="font-display font-semibold mb-4">Visit Us</h4>
-            <address className="not-italic space-y-2 text-sm">
+            <h4 className="font-display font-semibold mb-4">Contact Us</h4>
+            <address className="not-italic space-y-3 text-sm">
               <div className="flex items-start gap-2 text-muted-foreground">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                <div>
+                <div itemScope itemType="https://schema.org/LocalBusiness">
                   <p className="font-medium text-foreground" itemProp="name">GridMart</p>
-                  <p itemProp="streetAddress">{address}</p>
-                  <p>
-                    <span itemProp="addressLocality">Windsor</span>,{' '}
-                    <span itemProp="addressRegion">ON</span>{' '}
-                    <span itemProp="postalCode">N8W 3R5</span>
-                  </p>
+                  <p className="text-xs opacity-75">GridMart is a registered trade name of BookBuy Express Inc.</p>
+                  <p className="mt-1" itemProp="address">{address}</p>
                   <p itemProp="addressCountry">Canada</p>
                 </div>
               </div>
-              {hours && (
-                <div className="flex items-start gap-2 text-muted-foreground">
-                  <Clock className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                  <p itemProp="openingHours">{hours}</p>
+
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Mail className="w-4 h-4 shrink-0 text-primary" />
+                <a href={`mailto:${contactEmail}`} className="hover:text-foreground transition-colors" itemProp="email">
+                  {contactEmail}
+                </a>
+              </div>
+
+              {contactPhone && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="w-4 h-4 shrink-0 text-primary" />
+                  <a href={`tel:${contactPhone.replace(/[^+\d]/g, '')}`} className="hover:text-foreground transition-colors" itemProp="telephone">
+                    {contactPhone}
+                  </a>
                 </div>
               )}
+
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <Clock className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                <p itemProp="openingHours">{hours}</p>
+              </div>
             </address>
           </div>
         </div>
 
         <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} GridMart. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} GridMart (BookBuy Express Inc.). All rights reserved.</p>
           <p className="text-xs mt-1 opacity-50">v1.1.0</p>
         </div>
       </div>
