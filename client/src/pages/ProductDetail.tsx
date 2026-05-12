@@ -353,17 +353,20 @@ export default function ProductDetail() {
                 })()}
               </div>
 
-              {/* Price + stock badge */}
-              <div className="flex items-center gap-3 mb-4">
+              {/* Price + availability */}
+              <div className="mb-4">
                 <span className="font-display text-3xl font-bold" data-testid="text-product-price">
                   {formatCurrency(product.price)}
                 </span>
-                {totalStock === 0 && product.comingSoon && (
-                  <Badge className="bg-amber-500 hover:bg-amber-500 text-white" data-testid="badge-coming-soon">Coming Soon</Badge>
-                )}
-                {totalStock === 0 && !product.comingSoon && (
-                  <Badge variant="destructive">Out of stock</Badge>
-                )}
+                <div className="flex items-center gap-2 mt-1.5">
+                  {totalStock > 0 ? (
+                    <span className="text-sm font-semibold text-green-600" data-testid="badge-in-stock">In Stock</span>
+                  ) : product.comingSoon ? (
+                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white" data-testid="badge-coming-soon">Coming Soon</Badge>
+                  ) : (
+                    <span className="text-sm font-semibold text-destructive" data-testid="badge-out-of-stock">Out of Stock</span>
+                  )}
+                </div>
               </div>
 
               {/* Color selector */}

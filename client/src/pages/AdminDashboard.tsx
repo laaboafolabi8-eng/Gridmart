@@ -13082,6 +13082,16 @@ Check other listings for more products`);
                           data-testid={`checkbox-stock-${product.id}`}
                           className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                         />
+                        {/* Visible stock quantity */}
+                        {(() => {
+                          const invStock = product.inventory?.reduce((s: number, inv: any) => s + inv.quantity, 0) || 0;
+                          const totalStk = invStock > 0 ? invStock : (product.sheetQuantity || 0);
+                          return (
+                            <span className={`text-[10px] font-mono w-6 text-center ${totalStk > 0 ? 'text-green-700' : 'text-muted-foreground'}`} data-testid={`text-stock-qty-${product.id}`}>
+                              {totalStk}
+                            </span>
+                          );
+                        })()}
                         {(() => {
                           const invStock = product.inventory?.reduce((s: number, inv: any) => s + inv.quantity, 0) || 0;
                           const totalStk = invStock > 0 ? invStock : (product.sheetQuantity || 0);
