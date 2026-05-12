@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Send, Phone, MapPin, Clock, ExternalLink } from 'lucide-react';
+import { Mail, Send, Phone, MapPin, Clock, ExternalLink, Instagram, Facebook } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'wouter';
 
 export default function Contact() {
   const { user, isAuthenticated } = useAuth();
@@ -23,10 +24,10 @@ export default function Contact() {
     staleTime: 60000,
   });
 
-  const contactEmail = siteSettings.contactEmail || 'support@gridmart.ca';
+  const contactEmail = siteSettings.contactEmail || 'admin@gridmart.ca';
   const contactPhone = siteSettings.contactPhone || '';
   const address = siteSettings.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
-  const hours = siteSettings.storefrontHours || '';
+  const hours = siteSettings.storefrontHours || 'Monday–Friday, 10:00 AM – 7:00 PM';
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -65,18 +66,26 @@ export default function Contact() {
 
       <main className="flex-1 py-12">
         <div className="container mx-auto px-4 max-w-4xl">
-          <h1 className="font-display text-3xl font-bold text-center mb-2">Contact Us</h1>
-          <p className="text-muted-foreground text-center mb-10">
-            We'd love to hear from you. Reach out by form, email, or visit us in store.
-          </p>
+
+          {/* Business identity */}
+          <div className="text-center mb-10">
+            <h1 className="font-display text-3xl font-bold mb-1">Contact Us</h1>
+            <p className="font-semibold text-lg">GridMart &mdash; gridmart.ca</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              GridMart is a registered trade name of BookBuy Express Inc.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              We typically respond within <strong>24 hours</strong>.
+            </p>
+          </div>
 
           {/* Info cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10">
             <Card>
               <CardContent className="pt-6 text-center">
-                <MapPin className="w-8 h-8 text-primary mx-auto mb-3" />
-                <h3 className="font-semibold mb-1">Visit Us</h3>
-                <p className="text-sm text-muted-foreground leading-snug">{address}</p>
+                <MapPin className="w-7 h-7 text-primary mx-auto mb-3" />
+                <h3 className="font-semibold mb-1 text-sm">Visit Us</h3>
+                <p className="text-xs text-muted-foreground leading-snug">{address}</p>
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(address)}`}
                   target="_blank"
@@ -90,11 +99,11 @@ export default function Contact() {
 
             <Card>
               <CardContent className="pt-6 text-center">
-                <Mail className="w-8 h-8 text-primary mx-auto mb-3" />
-                <h3 className="font-semibold mb-1">Email</h3>
+                <Mail className="w-7 h-7 text-primary mx-auto mb-3" />
+                <h3 className="font-semibold mb-1 text-sm">Email</h3>
                 <a
                   href={`mailto:${contactEmail}`}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors break-all"
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors break-all"
                   data-testid="text-contact-email"
                 >
                   {contactEmail}
@@ -105,32 +114,56 @@ export default function Contact() {
             {contactPhone ? (
               <Card>
                 <CardContent className="pt-6 text-center">
-                  <Phone className="w-8 h-8 text-primary mx-auto mb-3" />
-                  <h3 className="font-semibold mb-1">Phone</h3>
+                  <Phone className="w-7 h-7 text-primary mx-auto mb-3" />
+                  <h3 className="font-semibold mb-1 text-sm">Phone</h3>
                   <a
                     href={`tel:${contactPhone.replace(/[^+\d]/g, '')}`}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
                     data-testid="text-contact-phone"
                   >
                     {contactPhone}
                   </a>
                 </CardContent>
               </Card>
-            ) : hours ? (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <Clock className="w-8 h-8 text-primary mx-auto mb-3" />
-                  <h3 className="font-semibold mb-1">Store Hours</h3>
-                  <p className="text-sm text-muted-foreground">{hours}</p>
-                </CardContent>
-              </Card>
             ) : null}
+
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <Clock className="w-7 h-7 text-primary mx-auto mb-3" />
+                <h3 className="font-semibold mb-1 text-sm">Hours</h3>
+                <p className="text-xs text-muted-foreground leading-snug">{hours}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Social media */}
+          <div className="flex items-center justify-center gap-4 mb-10">
+            <span className="text-sm text-muted-foreground">Connect with us:</span>
+            <a
+              href="https://www.instagram.com/grid.mart/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+              aria-label="GridMart on Instagram"
+            >
+              <Instagram className="w-4 h-4" /> Instagram
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61586144236175"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+              aria-label="GridMart on Facebook"
+            >
+              <Facebook className="w-4 h-4" /> Facebook
+            </a>
           </div>
 
           {/* Contact form */}
           <Card>
             <CardHeader>
               <CardTitle>Send us a message</CardTitle>
+              <p className="text-sm text-muted-foreground">We'll get back to you within 24 hours.</p>
             </CardHeader>
             <CardContent>
               {submitted ? (
@@ -190,9 +223,15 @@ export default function Contact() {
                     />
                   </div>
                   {error && <p className="text-sm text-destructive">{error}</p>}
-                  <Button type="submit" disabled={isSubmitting} data-testid="button-contact-submit">
-                    {isSubmitting ? 'Sending...' : 'Send Message'}
-                  </Button>
+                  <div className="space-y-2">
+                    <Button type="submit" disabled={isSubmitting} data-testid="button-contact-submit">
+                      {isSubmitting ? 'Sending...' : 'Send Message'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      By submitting this form, you agree to our{' '}
+                      <Link href="/privacy" className="underline hover:text-primary">Privacy Policy</Link>.
+                    </p>
+                  </div>
                 </form>
               )}
             </CardContent>
