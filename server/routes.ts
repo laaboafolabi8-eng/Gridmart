@@ -4460,7 +4460,13 @@ export async function registerRoutes(
   // Create payment intent for embedded Stripe Elements
   app.post("/api/stripe/payment-intent", async (req, res) => {
     try {
-      const { items, nodeId, scheduledDate, scheduledTime, buyerName, buyerEmail, buyerPhone, vehicleInfo, promoCodeId, giftProductIds } = req.body;
+      const {
+        items, nodeId, scheduledDate, scheduledTime,
+        buyerName, buyerEmail, buyerPhone, vehicleInfo,
+        promoCodeId, giftProductIds,
+        fulfillmentType = 'pickup',
+        shippingName, shippingStreet, shippingCity, shippingProvince, shippingPostalCode,
+      } = req.body;
       
       if (!items || items.length === 0) {
         return res.status(400).json({ error: "No items in cart" });
@@ -4524,7 +4530,15 @@ export async function registerRoutes(
       const orderTaxEnabled = orderSiteSettings.taxEnabled !== 'false';
       const orderTaxRate = orderTaxEnabled ? parseFloat(orderSiteSettings.taxRate || '13') / 100 : 0;
       const taxAmount = subtotalAfterDiscount * orderTaxRate;
-      const orderTotal = subtotalAfterDiscount + taxAmount;
+
+      // Shipping cost (flat rate, free above threshold)
+      const flatRate = parseFloat(orderSiteSettings.shippingFlatRate || '15.00');
+      const freeThreshold = parseFloat(orderSiteSettings.freeShippingThreshold || '99.00');
+      const shippingCost = fulfillmentType === 'ship'
+        ? (subtotalAfterDiscount >= freeThreshold ? 0 : flatRate)
+        : 0;
+
+      const orderTotal = subtotalAfterDiscount + taxAmount + shippingCost;
       const amountInCents = Math.round(orderTotal * 100);
       
       // Build order items including gift products
@@ -4553,7 +4567,7 @@ export async function registerRoutes(
       
       // Create pending order
       const order = await storage.createOrder({
-        nodeId,
+        nodeId: fulfillmentType === 'pickup' ? (nodeId || null) : null,
         buyerId: req.session.userId,
         buyerName,
         buyerEmail,
@@ -4565,9 +4579,16 @@ export async function registerRoutes(
         giftProductIds: giftProductIds?.length > 0 ? giftProductIds : null,
         status: 'pending_payment',
         pickupCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        pickupDate: scheduledDate,
-        pickupTime: scheduledTime,
+        pickupDate: fulfillmentType === 'pickup' ? scheduledDate : null,
+        pickupTime: fulfillmentType === 'pickup' ? scheduledTime : null,
         vehicleInfo: vehicleInfo || null,
+        fulfillmentType,
+        shippingName: fulfillmentType === 'ship' ? shippingName : null,
+        shippingStreet: fulfillmentType === 'ship' ? shippingStreet : null,
+        shippingCity: fulfillmentType === 'ship' ? shippingCity : null,
+        shippingProvince: fulfillmentType === 'ship' ? shippingProvince : null,
+        shippingPostalCode: fulfillmentType === 'ship' ? shippingPostalCode : null,
+        shippingCost: shippingCost.toFixed(2),
       }, orderItems);
       
       // Record promo code usage for this customer

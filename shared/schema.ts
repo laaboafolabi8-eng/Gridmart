@@ -270,6 +270,15 @@ export const orders = pgTable("orders", {
   customerArrivedAt: timestamp("customer_arrived_at"), // When customer texted HERE
   pickedUpAt: timestamp("picked_up_at"), // When order was handed off / picked up
   hostNotificationQueued: boolean("host_notification_queued").default(false), // Queued until pickup window opens
+  // Fulfillment
+  fulfillmentType: text("fulfillment_type").notNull().default('pickup'), // 'pickup' | 'ship'
+  shippingName: text("shipping_name"),
+  shippingStreet: text("shipping_street"),
+  shippingCity: text("shipping_city"),
+  shippingProvince: text("shipping_province"),
+  shippingPostalCode: text("shipping_postal_code"),
+  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }).notNull().default('0'),
+  trackingNumber: text("tracking_number"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

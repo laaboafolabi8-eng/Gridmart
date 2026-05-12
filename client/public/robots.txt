@@ -1,0 +1,31 @@
+# Google's shopping bot — needs checkout access for price consistency checks
+# https://support.google.com/merchants/answer/6098185
+User-agent: Storebot-Google
+Disallow: /admin
+Disallow: /node-dashboard
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+Allow: /product/
+Allow: /api/objects/
+Disallow: /admin
+Disallow: /node-dashboard
+Disallow: /api/
+Disallow: /checkout
+Disallow: /thank-you
+
+User-agent: Googlebot-Image
+Allow: /api/objects/
+Allow: /product/
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /node-dashboard
+Disallow: /api/
+Allow: /api/objects/
+Disallow: /checkout
+Disallow: /thank-you
+
+Sitemap: https://gridmart.ca/sitemap.xml

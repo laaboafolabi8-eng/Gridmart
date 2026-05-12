@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Mail, Send, Phone } from 'lucide-react';
+import { useState } from 'react';
+import { Mail, Send, Phone, MapPin, Clock, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,43 +8,40 @@ import { Textarea } from '@/components/ui/textarea';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth';
+import { useQuery } from '@tanstack/react-query';
 
 export default function Contact() {
   const { user, isAuthenticated } = useAuth();
+
+  const { data: siteSettings = {} } = useQuery<Record<string, string>>({
+    queryKey: ['site-settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/site-settings');
+      if (!res.ok) return {};
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  const contactEmail = siteSettings.contactEmail || 'support@gridmart.ca';
+  const contactPhone = siteSettings.contactPhone || '';
+  const address = siteSettings.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
+  const hours = siteSettings.storefrontHours || '';
+
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    name: user?.name || '',
+    email: user?.email || '',
     subject: '',
     message: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [contactEmail, setContactEmail] = useState('support@gridmart.ca');
-  const [contactPhone, setContactPhone] = useState('');
-
-  useEffect(() => {
-    fetch('/api/site-settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.contactEmail) setContactEmail(data.contactEmail);
-        if (data.contactPhone) setContactPhone(data.contactPhone);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        name: user.name || '',
-        email: user.email || '',
-      }));
-    }
-  }, [user]);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError('');
     try {
       const res = await fetch('/api/contact', {
         method: 'POST',
@@ -53,41 +50,84 @@ export default function Contact() {
       });
       if (res.ok) {
         setSubmitted(true);
+      } else {
+        setError('Failed to send message. Please try again or email us directly.');
       }
-    } catch {}
+    } catch {
+      setError('Connection error. Please try again.');
+    }
     setIsSubmitting(false);
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
+
       <main className="flex-1 py-12">
         <div className="container mx-auto px-4 max-w-4xl">
           <h1 className="font-display text-3xl font-bold text-center mb-2">Contact Us</h1>
-          <p className="text-muted-foreground text-center mb-8">
-            Have questions? We'd love to hear from you.
+          <p className="text-muted-foreground text-center mb-10">
+            We'd love to hear from you. Reach out by form, email, or visit us in store.
           </p>
 
-          <div className="flex justify-center gap-4 mb-8">
-            <Card className="w-full max-w-xs">
+          {/* Info cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <MapPin className="w-8 h-8 text-primary mx-auto mb-3" />
+                <h3 className="font-semibold mb-1">Visit Us</h3>
+                <p className="text-sm text-muted-foreground leading-snug">{address}</p>
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                >
+                  Get directions <ExternalLink className="w-3 h-3" />
+                </a>
+              </CardContent>
+            </Card>
+
+            <Card>
               <CardContent className="pt-6 text-center">
                 <Mail className="w-8 h-8 text-primary mx-auto mb-3" />
                 <h3 className="font-semibold mb-1">Email</h3>
-                <a href={`mailto:${contactEmail}`} className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="text-contact-email">{contactEmail}</a>
+                <a
+                  href={`mailto:${contactEmail}`}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors break-all"
+                  data-testid="text-contact-email"
+                >
+                  {contactEmail}
+                </a>
               </CardContent>
             </Card>
-            {contactPhone && (
-              <Card className="w-full max-w-xs">
+
+            {contactPhone ? (
+              <Card>
                 <CardContent className="pt-6 text-center">
                   <Phone className="w-8 h-8 text-primary mx-auto mb-3" />
                   <h3 className="font-semibold mb-1">Phone</h3>
-                  <a href={`tel:${contactPhone.replace(/[^+\d]/g, '')}`} className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="text-contact-phone">{contactPhone}</a>
+                  <a
+                    href={`tel:${contactPhone.replace(/[^+\d]/g, '')}`}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="text-contact-phone"
+                  >
+                    {contactPhone}
+                  </a>
                 </CardContent>
               </Card>
-            )}
+            ) : hours ? (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <Clock className="w-8 h-8 text-primary mx-auto mb-3" />
+                  <h3 className="font-semibold mb-1">Store Hours</h3>
+                  <p className="text-sm text-muted-foreground">{hours}</p>
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
 
+          {/* Contact form */}
           <Card>
             <CardHeader>
               <CardTitle>Send us a message</CardTitle>
@@ -149,6 +189,7 @@ export default function Contact() {
                       data-testid="textarea-contact-message"
                     />
                   </div>
+                  {error && <p className="text-sm text-destructive">{error}</p>}
                   <Button type="submit" disabled={isSubmitting} data-testid="button-contact-submit">
                     {isSubmitting ? 'Sending...' : 'Send Message'}
                   </Button>
@@ -158,7 +199,7 @@ export default function Contact() {
           </Card>
         </div>
       </main>
-      
+
       <Footer />
     </div>
   );

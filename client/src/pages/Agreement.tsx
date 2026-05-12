@@ -1,4 +1,22 @@
 import { useRoute, Link } from 'wouter';
+
+function linkifyContent(text: string): string {
+  // Escape HTML first, then selectively add safe anchor tags
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  // Linkify emails
+  const withEmails = escaped.replace(
+    /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g,
+    '<a href="mailto:$1" class="text-primary hover:underline">$1</a>'
+  );
+  // Linkify URLs
+  return withEmails.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>'
+  );
+}
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -66,9 +84,11 @@ export default function Agreement() {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap" data-testid="text-agreement-content">
-                  {agreement.content}
-                </div>
+                <div
+                  className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap"
+                  data-testid="text-agreement-content"
+                  dangerouslySetInnerHTML={{ __html: linkifyContent(agreement.content) }}
+                />
               </CardContent>
             </Card>
           )}

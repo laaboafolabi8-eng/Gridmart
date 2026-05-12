@@ -15,7 +15,7 @@ import {
   Copy, Tag, Percent, Gift, Image as ImageIcon, X, Upload, ArrowUpDown, ArrowUp, ArrowDown, Filter, FolderOpen, FolderPlus,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ArrowRight, Printer, Bold, Italic, Underline, List, ListOrdered, Sparkles, GripVertical, Check,
   AlertTriangle, TrendingUp, BarChart3, DollarSign, ShoppingCart, Loader2, RefreshCw, Info, Wand2, Link2, Eraser, Eye, Navigation, Layers,
-  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode, Store
+  Users, User, UserMinus, Mail, FileEdit, RotateCcw, Minus, FileSpreadsheet, PenSquare, AlignJustify, FileText, Star, MessageSquare, ExternalLink, Clock, Calendar, Download, Lock, Shield, FolderArchive, Globe, Bell, Palette, Send, ClipboardList, Type, LayoutGrid, Megaphone, QrCode, Store, Truck
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
 const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
@@ -5836,6 +5836,8 @@ Check other listings for more products`);
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState('13');
   const [taxLabel, setTaxLabel] = useState('HST');
+  const [shippingFlatRate, setShippingFlatRate] = useState('15.00');
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState('99.00');
   const [homepageCopy, setHomepageCopy] = useState({
     heroLine1: '',
     heroLine2: '',
@@ -5944,6 +5946,7 @@ Check other listings for more products`);
   const [designSelectedNodes, setDesignSelectedNodes] = useState<Set<string>>(new Set());
   const [expandedDesignNode, setExpandedDesignNode] = useState<string>('');
   const [isSavingTax, setIsSavingTax] = useState(false);
+  const [isSavingShipping, setIsSavingShipping] = useState(false);
   const [isSavingMinProfit, setIsSavingMinProfit] = useState(false);
   const [nodeSettingsTemplate, setNodeSettingsTemplate] = useState<{
     kitCount?: number;
@@ -6385,6 +6388,8 @@ Check other listings for more products`);
         if (settings.taxEnabled !== undefined) setTaxEnabled(settings.taxEnabled !== 'false');
         if (settings.taxRate) setTaxRate(settings.taxRate);
         if (settings.taxLabel) setTaxLabel(settings.taxLabel);
+        if (settings.shippingFlatRate) setShippingFlatRate(settings.shippingFlatRate);
+        if (settings.freeShippingThreshold) setFreeShippingThreshold(settings.freeShippingThreshold);
         const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontHeroImageEnabled','storefrontInteriorImageEnabled','storefrontHeroImagePosition','storefrontHeroImageOverlay','storefrontInteriorImageAspect','storefrontInteriorImageSize','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
         const loadedCopy: Record<string, string> = {};
         copyKeys.forEach(k => { if (settings[k]) loadedCopy[k] = settings[k]; });
@@ -17753,6 +17758,90 @@ Check other listings for more products`);
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Truck className="w-4 h-4" />
+                  Shipping Rates
+                </CardTitle>
+                <CardDescription>
+                  Flat rate charged for Canada-wide shipping. Orders at or above the free shipping threshold ship free.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="shipping-flat-rate" className="text-sm">Flat Rate (CAD)</Label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                      <Input
+                        id="shipping-flat-rate"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={shippingFlatRate}
+                        onChange={(e) => setShippingFlatRate(e.target.value)}
+                        onBlur={async () => {
+                          setIsSavingShipping(true);
+                          try {
+                            await fetch('/api/site-settings/shippingFlatRate', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ value: shippingFlatRate }),
+                            });
+                            toast.success('Shipping flat rate saved');
+                          } catch {
+                            toast.error('Failed to save shipping flat rate');
+                          }
+                          setIsSavingShipping(false);
+                        }}
+                        className="pl-7"
+                        data-testid="input-shipping-flat-rate"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="free-shipping-threshold" className="text-sm">Free Shipping Threshold (CAD)</Label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                      <Input
+                        id="free-shipping-threshold"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={freeShippingThreshold}
+                        onChange={(e) => setFreeShippingThreshold(e.target.value)}
+                        onBlur={async () => {
+                          setIsSavingShipping(true);
+                          try {
+                            await fetch('/api/site-settings/freeShippingThreshold', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ value: freeShippingThreshold }),
+                            });
+                            toast.success('Free shipping threshold saved');
+                          } catch {
+                            toast.error('Failed to save free shipping threshold');
+                          }
+                          setIsSavingShipping(false);
+                        }}
+                        className="pl-7"
+                        data-testid="input-free-shipping-threshold"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {isSavingShipping && (
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Saving…
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-3">
+                  Current: ${shippingFlatRate} flat rate · Free on orders over ${freeShippingThreshold}
+                </p>
               </CardContent>
             </Card>
 

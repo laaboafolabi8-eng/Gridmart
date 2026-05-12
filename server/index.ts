@@ -19,6 +19,24 @@ import { sql } from 'drizzle-orm';
 import { applicationStatuses } from '../shared/schema';
 import { storage } from './storage';
 
+async function migrateShippingColumns() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE orders
+        ADD COLUMN IF NOT EXISTS fulfillment_type text NOT NULL DEFAULT 'pickup',
+        ADD COLUMN IF NOT EXISTS shipping_name text,
+        ADD COLUMN IF NOT EXISTS shipping_street text,
+        ADD COLUMN IF NOT EXISTS shipping_city text,
+        ADD COLUMN IF NOT EXISTS shipping_province text,
+        ADD COLUMN IF NOT EXISTS shipping_postal_code text,
+        ADD COLUMN IF NOT EXISTS shipping_cost decimal(10,2) NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS tracking_number text
+    `);
+  } catch (error) {
+    console.error('Shipping columns migration warning:', error);
+  }
+}
+
 async function cleanupDuplicateInventory() {
   try {
     const result = await db.execute(sql`
@@ -319,6 +337,7 @@ app.use((req, res, next) => {
       seedDefaultApplicationStatuses();
       migrateStoreAddress();
       migrateRefundPolicy();
+      migrateShippingColumns();
       startOrderExpirationJob(1);
       startOrderReminderJob(5); // Check for reminders every 5 minutes
       startOrderNotificationQueue(); // Check for queued order notifications every 60s

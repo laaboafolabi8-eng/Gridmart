@@ -95,7 +95,7 @@ export default function Terms() {
             <section>
               <h2 className="font-display text-xl font-semibold mb-3">11. Contact</h2>
               <p className="text-muted-foreground">
-                Questions about these Terms? Contact us at legal@gridmart.ca.
+                Questions about these Terms? Contact us at <a href="mailto:legal@gridmart.ca" className="text-primary hover:underline">legal@gridmart.ca</a>.
               </p>
             </section>
           </div>

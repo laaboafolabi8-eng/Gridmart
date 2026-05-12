@@ -121,6 +121,7 @@ export default function Login() {
         setError(data.error || 'Failed to send verification code');
       }
     } catch (err) {
+      console.error('Send code error:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -216,6 +217,7 @@ export default function Login() {
         setError(data.error || 'Failed to save email');
       }
     } catch (err) {
+      console.error('Save email error:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -242,6 +244,7 @@ export default function Login() {
         setError(data.error || 'Failed to resend code');
       }
     } catch (err) {
+      console.error('Resend code error:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -265,6 +268,13 @@ export default function Login() {
         </div>
 
         <Card>
+          {step === 'phone' && (
+            <div className="text-center pt-4 pb-0 px-6">
+              <a href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Browse without signing in &rarr;
+              </a>
+            </div>
+          )}
           {step === 'verify' && (
             <CardHeader className="pb-4">
               <CardDescription className="text-center">
