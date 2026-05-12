@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearch } from 'wouter';
-import { Search, MapPin, Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShoppingBag, Clock, Wallet, Store } from 'lucide-react';
+import { Search, MapPin, Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShoppingBag, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/Header';
@@ -594,56 +594,6 @@ export default function Home() {
           )}
         </div>
       </main>
-
-      {/* ── STORE INFO ── */}
-      <section id="store" className="bg-muted/30 border-t py-14">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="font-display text-2xl md:text-3xl font-bold mb-2">
-              {siteSettings.pickupSectionTitle || 'Visit Our Store'}
-            </h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              {siteSettings.pickupSectionSubtitle || 'Come see us in person to browse our full selection at 3176 Walker Rd, Windsor.'}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12 max-w-4xl mx-auto">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center shrink-0 shadow-sm border">
-                <Store className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold mb-1">{siteSettings.feature1Title || 'In-Store Shopping'}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {siteSettings.feature1Desc || 'Browse our full selection in person and take it home the same day.'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center shrink-0 shadow-sm border">
-                <MapPin className="w-6 h-6" style={{ color: '#fda612' }} />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold mb-1">{siteSettings.feature2Title || 'Easy to Find'}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {siteSettings.feature2Desc || 'Located at 3176 Walker Rd in Windsor, with convenient parking available.'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center shrink-0 shadow-sm border">
-                <Wallet className="w-6 h-6 text-primary" style={{ transform: 'rotate(-22.5deg)' }} />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold mb-1">{siteSettings.feature3Title || 'No Shipping Fees'}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {siteSettings.feature3Desc || 'Shop locally and avoid delivery fees entirely.'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <Footer />
     </div>
