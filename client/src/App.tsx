@@ -1,4 +1,6 @@
 import { useEffect, lazy, Suspense } from "react";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { initConsent } from "@/lib/cookieConsent";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -125,6 +127,7 @@ function App() {
   const { checkSession } = useAuth();
 
   useEffect(() => {
+    initConsent();
     checkSession();
   }, [checkSession]);
 
@@ -134,6 +137,7 @@ function App() {
         <Toaster />
         <SonnerToaster position="top-right" richColors />
         <Router />
+        <CookieConsentBanner />
       </TooltipProvider>
     </QueryClientProvider>
   );

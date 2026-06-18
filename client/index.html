@@ -21,6 +21,19 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..800;1,300..800&family=Inter:wght@300..700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..800;1,300..800&family=Inter:wght@300..700&display=swap" /></noscript>
     <title>GridMart</title>
+
+    <!-- Google Consent Mode v2 — defaults must be set before any measurement -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        wait_for_update: 2000
+      });
+    </script>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -47,7 +60,7 @@
         "opens": "10:00",
         "closes": "19:00"
       },
-      "email": "support@gridmart.ca",
+      "email": "admin@gridmart.ca",
       "priceRange": "$$",
       "currenciesAccepted": "CAD",
       "paymentAccepted": "Cash, Credit Card, Debit Card",
@@ -69,32 +82,7 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script async src="https://t.contentsquare.net/uxa/a6494df2d03ae.js"></script>
-    <script type="text/javascript">
-      window._mfq = window._mfq || [];
-      (function() {
-        var mf = document.createElement("script");
-        mf.type = "text/javascript"; mf.defer = true;
-        mf.src = "//cdn.mouseflow.com/projects/5fa389d2-850c-4525-8eb8-8aa70e6660e7.js";
-        document.getElementsByTagName("head")[0].appendChild(mf);
-      })();
-    </script>
-    <!-- Meta Pixel Code -->
-    <script>
-    !function(f,b,e,v,n,t,s)
-    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '1354818533359055');
-    fbq('track', 'PageView');
-    </script>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=1354818533359055&ev=PageView&noscript=1"
-    /></noscript>
-    <!-- End Meta Pixel Code -->
+    <!-- Tracking scripts (ContentSquare, Mouseflow, Meta Pixel) are loaded
+         by CookieConsentBanner after the user grants consent. -->
   </body>
 </html>
