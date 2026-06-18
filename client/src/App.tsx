@@ -39,6 +39,8 @@ const Screening = lazy(() => import("@/pages/Screening"));
 const DropoutSurvey = lazy(() => import("@/pages/DropoutSurvey"));
 const ThankYou = lazy(() => import("@/pages/ThankYou"));
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const Shipping = lazy(() => import("@/pages/Shipping"));
+const TrackOrder = lazy(() => import("@/pages/TrackOrder"));
 
 function PageLoader() {
   return (
@@ -84,6 +86,8 @@ function Router() {
         <Route path="/feedback" component={Feedback} />
         <Route path="/screening/:token" component={Screening} />
         <Route path="/lp/:slug" component={LandingPage} />
+        <Route path="/shipping" component={Shipping} />
+        <Route path="/track-order" component={TrackOrder} />
         <Route path="/survey/:id" component={DropoutSurvey} />
         <Route path="/payment-success">
           {() => (

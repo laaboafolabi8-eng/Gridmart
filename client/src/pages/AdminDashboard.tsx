@@ -20457,6 +20457,7 @@ Check other listings for more products`);
                         <TableHead>Net Profit</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Notes</TableHead>
+                        <TableHead>Tracking #</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead className="w-10"></TableHead>
                       </TableRow>
@@ -20613,6 +20614,33 @@ Check other listings for more products`);
                                 <span className="text-xs text-muted-foreground max-w-[120px] truncate block" title={order.saleNotes}>
                                   {order.saleNotes}
                                 </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                              {(order.fulfillmentType === 'ship' || (!order.fulfillmentType && false)) ? (
+                                <input
+                                  type="text"
+                                  defaultValue={order.trackingNumber || ''}
+                                  placeholder="1Z..."
+                                  className="w-28 text-xs font-mono border rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary bg-transparent"
+                                  onBlur={async (e) => {
+                                    const val = e.target.value.trim();
+                                    if (val === (order.trackingNumber || '')) return;
+                                    try {
+                                      await fetch(`/api/orders/${order.id}/tracking`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ trackingNumber: val || null }),
+                                      });
+                                      queryClient.invalidateQueries({ queryKey: ['admin-all-orders'] });
+                                    } catch {
+                                      console.error('Failed to save tracking number');
+                                    }
+                                  }}
+                                  data-testid={`input-tracking-${order.id}`}
+                                />
                               ) : (
                                 <span className="text-xs text-muted-foreground">—</span>
                               )}

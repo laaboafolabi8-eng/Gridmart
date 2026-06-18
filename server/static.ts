@@ -168,6 +168,34 @@ export function serveStatic(app: Express) {
         html = await injectPolicyContent(html, 'terms', 'Terms of Service');
       } else if (url === '/contact') {
         html = await injectContactMeta(html);
+      } else if (url === '/shipping') {
+        html = html.replace(/<title>[^<]*<\/title>/, '<title>Shipping Policy | GridMart</title>');
+        const noscript = `<noscript>
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:800px;margin:0 auto;padding:32px 16px;color:#111">
+  <h1 style="font-size:28px;font-weight:700;margin:0 0 16px">Shipping Policy</h1>
+  <p><strong>Carrier:</strong> UPS (United Parcel Service)</p>
+  <p><strong>Ships to:</strong> All Canadian provinces and territories</p>
+  <p><strong>Does not ship to:</strong> United States or international destinations</p>
+  <p><strong>Handling time:</strong> 1–2 business days</p>
+  <p><strong>Transit time:</strong> 3–7 business days via UPS</p>
+  <p><strong>Order cutoff:</strong> 2:00 PM EST, Monday–Friday</p>
+  <p><strong>Flat rate:</strong> $15.00 CAD. Free shipping on orders $99+</p>
+  <p><strong>No customs or import fees</strong> for Canadian orders.</p>
+  <p><strong>Contact:</strong> <a href="mailto:admin@gridmart.ca" style="color:#0d9488">admin@gridmart.ca</a></p>
+</div>
+</noscript>`;
+        html = html.replace('<div id="root">', `${noscript}\n<div id="root">`);
+      } else if (url === '/track-order') {
+        html = html.replace(/<title>[^<]*<\/title>/, '<title>Track Your Order | GridMart</title>');
+        const noscript = `<noscript>
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:700px;margin:0 auto;padding:32px 16px;color:#111">
+  <h1 style="font-size:28px;font-weight:700;margin:0 0 16px">Track Your Order</h1>
+  <p>To track your order, please enable JavaScript or contact us directly.</p>
+  <p><strong>Email:</strong> <a href="mailto:admin@gridmart.ca" style="color:#0d9488">admin@gridmart.ca</a></p>
+  <p>Include your order code (from your confirmation email) and we will provide an update within 24 hours.</p>
+</div>
+</noscript>`;
+        html = html.replace('<div id="root">', `${noscript}\n<div id="root">`);
       }
     }
 

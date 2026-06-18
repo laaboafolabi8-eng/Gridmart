@@ -2526,6 +2526,38 @@ export async function registerRoutes(
     }
   });
   
+  // Guest order tracking — no auth required
+  app.get("/api/orders/track", async (req, res) => {
+    try {
+      const code = (req.query.code as string || '').trim().toUpperCase();
+      const email = (req.query.email as string || '').trim().toLowerCase();
+      if (!code || !email) return res.status(400).json({ error: 'Order code and email are required' });
+
+      const allOrders = await storage.getAllOrders();
+      const order = allOrders.find((o: any) =>
+        o.pickupCode?.toUpperCase() === code &&
+        o.buyerEmail?.toLowerCase() === email
+      );
+      if (!order) return res.status(404).json({ error: 'Order not found. Please check your order code and email.' });
+
+      return res.json({
+        id: order.id,
+        pickupCode: order.pickupCode,
+        status: order.status,
+        fulfillmentType: (order as any).fulfillmentType || 'pickup',
+        trackingNumber: (order as any).trackingNumber || null,
+        shippingName: (order as any).shippingName || null,
+        shippingCity: (order as any).shippingCity || null,
+        shippingProvince: (order as any).shippingProvince || null,
+        createdAt: order.createdAt,
+        total: order.total,
+      });
+    } catch (err) {
+      console.error('Order track error:', err);
+      return res.status(500).json({ error: 'Failed to look up order' });
+    }
+  });
+
   // Get single order
   app.get("/api/orders/:id", async (req, res) => {
     try {
@@ -2660,6 +2692,20 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Update order status error:", error);
       res.status(500).json({ error: "Failed to update order status" });
+    }
+  });
+
+  // Set tracking number (admin only)
+  app.patch("/api/orders/:id/tracking", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { trackingNumber } = req.body;
+      const updated = await storage.updateOrder(req.params.id, { trackingNumber: trackingNumber || null } as any);
+      if (!updated) return res.status(404).json({ error: 'Order not found' });
+      return res.json(updated);
+    } catch (err) {
+      console.error('Tracking number update error:', err);
+      return res.status(500).json({ error: 'Failed to update tracking number' });
     }
   });
 
