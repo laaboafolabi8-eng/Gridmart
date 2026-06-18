@@ -4510,8 +4510,9 @@ function NotificationsTab() {
           <p className="text-sm text-muted-foreground">These details are displayed on your Contact Us page.</p>
         </CardHeader>
         <CardContent>
-          <NotifFieldRow label="Contact Email" description="Displayed on the Contact Us page" settingKey="contactEmail" placeholder="support@gridmart.ca" value={notifSettings.contactEmail || ''} saving={notifSaving} onSave={saveField} />
-          <NotifFieldRow label="Contact Phone" description="Displayed on the Contact Us page" settingKey="contactPhone" placeholder="+1 (555) 123-4567" value={notifSettings.contactPhone || ''} saving={notifSaving} onSave={saveField} />
+          <NotifFieldRow label="Contact Email" description="Displayed on the footer and Contact Us page" settingKey="contactEmail" placeholder="admin@gridmart.ca" value={notifSettings.contactEmail || ''} saving={notifSaving} onSave={saveField} />
+          <NotifFieldRow label="Contact Phone" description="Displayed on the footer and Contact Us page" settingKey="contactPhone" placeholder="(519) 919-7764" value={notifSettings.contactPhone || ''} saving={notifSaving} onSave={saveField} />
+          <NotifFieldRow label="Business Registration Number" description="Optional — displayed in the footer for trust signals (e.g. Ontario Reg. 1234567 or CRA BN)" settingKey="businessRegNumber" placeholder="e.g. 123456789 RT0001" value={notifSettings.businessRegNumber || ''} saving={notifSaving} onSave={saveField} />
         </CardContent>
       </Card>
       <Card>

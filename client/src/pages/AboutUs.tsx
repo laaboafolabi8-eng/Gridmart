@@ -25,7 +25,7 @@ export default function AboutUs() {
   const aboutUsText = siteSettings.aboutUsText || '';
   const address = siteSettings.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
   const hours = siteSettings.storefrontHours || '';
-  const contactPhone = siteSettings.contactPhone || '';
+  const contactPhone = siteSettings.contactPhone || '(519) 919-7764';
   const contactEmail = siteSettings.contactEmail || 'admin@gridmart.ca';
 
   return (
