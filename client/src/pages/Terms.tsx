@@ -1,7 +1,9 @@
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { useSiteInfo } from '@/lib/useSiteInfo';
 
 export default function Terms() {
+  const { email } = useSiteInfo();
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -95,7 +97,7 @@ export default function Terms() {
             <section>
               <h2 className="font-display text-xl font-semibold mb-3">11. Contact</h2>
               <p className="text-muted-foreground">
-                Questions about these Terms? Contact us at <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">admin@gridmart.ca</a>.
+                Questions about these Terms? Contact us at <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>.
               </p>
             </section>
           </div>

@@ -5839,6 +5839,9 @@ Check other listings for more products`);
   const [taxLabel, setTaxLabel] = useState('HST');
   const [shippingFlatRate, setShippingFlatRate] = useState('15.00');
   const [freeShippingThreshold, setFreeShippingThreshold] = useState('99.00');
+  const [shippingHandlingTime, setShippingHandlingTime] = useState('1–2 business days after payment');
+  const [shippingTransitTime, setShippingTransitTime] = useState('3–7 business days');
+  const [shippingOrderCutoff, setShippingOrderCutoff] = useState('2:00 PM EST, Monday–Friday');
   const [homepageCopy, setHomepageCopy] = useState({
     heroLine1: '',
     heroLine2: '',
@@ -6391,6 +6394,9 @@ Check other listings for more products`);
         if (settings.taxLabel) setTaxLabel(settings.taxLabel);
         if (settings.shippingFlatRate) setShippingFlatRate(settings.shippingFlatRate);
         if (settings.freeShippingThreshold) setFreeShippingThreshold(settings.freeShippingThreshold);
+        if (settings.shippingHandlingTime) setShippingHandlingTime(settings.shippingHandlingTime);
+        if (settings.shippingTransitTime) setShippingTransitTime(settings.shippingTransitTime);
+        if (settings.shippingOrderCutoff) setShippingOrderCutoff(settings.shippingOrderCutoff);
         const copyKeys = ['heroLine1','heroLine2','heroSubtitle','heroLine1FontSize','heroLine1Weight','heroLine1Color','heroLine2FontSize','heroLine2Weight','heroLine2Color','heroSubtitleFontSize','heroSubtitleWeight','heroSubtitleColor','heroAlign','mapLabel','mapHint','feature1Title','feature1Desc','feature2Title','feature2Desc','feature3Title','feature3Desc','heroTitleOffset','heroSubtitleOffset','nodeCircleSize','footerTagline','aboutUsText','storefrontHeroImage','storefrontInteriorImage','storefrontHeroImageEnabled','storefrontInteriorImageEnabled','storefrontHeroImagePosition','storefrontHeroImageOverlay','storefrontInteriorImageAspect','storefrontInteriorImageSize','storefrontAddress','storefrontHours','pickupSectionTitle','pickupSectionSubtitle'];
         const loadedCopy: Record<string, string> = {};
         copyKeys.forEach(k => { if (settings[k]) loadedCopy[k] = settings[k]; });
@@ -17832,6 +17838,81 @@ Check other listings for more products`);
                         data-testid="input-free-shipping-threshold"
                       />
                     </div>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Shown on product page shipping tab</p>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Handling Time</Label>
+                    <Input
+                      value={shippingHandlingTime}
+                      onChange={(e) => setShippingHandlingTime(e.target.value)}
+                      onBlur={async () => {
+                        setIsSavingShipping(true);
+                        try {
+                          await fetch('/api/site-settings/shippingHandlingTime', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ value: shippingHandlingTime }),
+                          });
+                          toast.success('Handling time saved');
+                        } catch {
+                          toast.error('Failed to save');
+                        }
+                        setIsSavingShipping(false);
+                      }}
+                      placeholder="1–2 business days after payment"
+                      className="text-sm"
+                      data-testid="input-shipping-handling-time"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Estimated Transit</Label>
+                    <Input
+                      value={shippingTransitTime}
+                      onChange={(e) => setShippingTransitTime(e.target.value)}
+                      onBlur={async () => {
+                        setIsSavingShipping(true);
+                        try {
+                          await fetch('/api/site-settings/shippingTransitTime', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ value: shippingTransitTime }),
+                          });
+                          toast.success('Transit time saved');
+                        } catch {
+                          toast.error('Failed to save');
+                        }
+                        setIsSavingShipping(false);
+                      }}
+                      placeholder="3–7 business days"
+                      className="text-sm"
+                      data-testid="input-shipping-transit-time"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Order Cutoff</Label>
+                    <Input
+                      value={shippingOrderCutoff}
+                      onChange={(e) => setShippingOrderCutoff(e.target.value)}
+                      onBlur={async () => {
+                        setIsSavingShipping(true);
+                        try {
+                          await fetch('/api/site-settings/shippingOrderCutoff', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ value: shippingOrderCutoff }),
+                          });
+                          toast.success('Order cutoff saved');
+                        } catch {
+                          toast.error('Failed to save');
+                        }
+                        setIsSavingShipping(false);
+                      }}
+                      placeholder="2:00 PM EST, Monday–Friday"
+                      className="text-sm"
+                      data-testid="input-shipping-order-cutoff"
+                    />
                   </div>
                 </div>
                 {isSavingShipping && (

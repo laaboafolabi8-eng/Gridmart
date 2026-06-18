@@ -1,8 +1,10 @@
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Link } from 'wouter';
+import { useSiteInfo } from '@/lib/useSiteInfo';
 
 export default function PaymentPolicy() {
+  const { email, phone, address, phoneRaw } = useSiteInfo();
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -78,8 +80,8 @@ export default function PaymentPolicy() {
 
               <p className="text-muted-foreground mt-4">
                 If you experience difficulty at checkout, contact us at{' '}
-                <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">admin@gridmart.ca</a>{' '}
-                or call <a href="tel:+15199197764" className="text-primary hover:underline">(519) 919-7764</a> and
+                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>{' '}
+                or call <a href={`tel:${phoneRaw}`} className="text-primary hover:underline">{phone}</a> and
                 we will assist you.
               </p>
             </section>
@@ -88,7 +90,7 @@ export default function PaymentPolicy() {
             <section>
               <h2 className="font-display text-xl font-semibold mb-3">In-Store Payments</h2>
               <p className="text-muted-foreground mb-2">
-                At our store located at <strong>3176 Walker Rd, Windsor, ON N8W 3R5</strong>, we accept:
+                At our store located at <strong>{address}</strong>, we accept:
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>Cash (CAD)</li>
@@ -172,7 +174,7 @@ export default function PaymentPolicy() {
               </p>
               <p className="text-muted-foreground mt-3">
                 If you continue to experience issues, contact us at{' '}
-                <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">admin@gridmart.ca</a>{' '}
+                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>{' '}
                 and we will do our best to help.
               </p>
             </section>
@@ -202,13 +204,13 @@ export default function PaymentPolicy() {
               <ul className="list-none text-muted-foreground mt-3 space-y-1">
                 <li>
                   <strong>Email:</strong>{' '}
-                  <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">admin@gridmart.ca</a>
+                  <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>
                 </li>
                 <li>
                   <strong>Phone:</strong>{' '}
-                  <a href="tel:+15199197764" className="text-primary hover:underline">(519) 919-7764</a>
+                  <a href={`tel:${phoneRaw}`} className="text-primary hover:underline">{phone}</a>
                 </li>
-                <li><strong>Address:</strong> 3176 Walker Rd, Windsor, ON N8W 3R5, Canada</li>
+                <li><strong>Address:</strong> {address}</li>
                 <li><strong>Hours:</strong> Monday–Friday, 10:00 AM – 7:00 PM</li>
               </ul>
             </section>

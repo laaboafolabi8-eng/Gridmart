@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSiteInfo } from '@/lib/useSiteInfo';
 import { Package, Truck, Store, Search, ExternalLink, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,7 @@ function statusBadge(status: string) {
 }
 
 export default function TrackOrder() {
+  const { email: contactEmail, address: storeAddress } = useSiteInfo();
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const [result, setResult] = useState<any>(null);
@@ -136,7 +138,7 @@ export default function TrackOrder() {
                       <p className="text-muted-foreground text-xs">{result.shippingCity}, {result.shippingProvince}</p>
                     )}
                     {result.fulfillmentType === 'pickup' && (
-                      <p className="text-muted-foreground text-xs">3176 Walker Rd, Windsor, ON</p>
+                      <p className="text-muted-foreground text-xs">{storeAddress}</p>
                     )}
                   </div>
                 </div>
@@ -193,11 +195,11 @@ export default function TrackOrder() {
               },
               {
                 q: "My package shows delivered but I haven't received it.",
-                a: (<>Check around your door, mailbox, and with neighbours. Allow 24 hours. If still missing, contact us at <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a> and we will open a UPS claim.</>),
+                a: (<>Check around your door, mailbox, and with neighbours. Allow 24 hours. If still missing, contact us at <a href={`mailto:${contactEmail}`} className="text-primary underline">{contactEmail}</a> and we will open a UPS claim.</>),
               },
               {
                 q: 'How do I change my delivery address?',
-                a: (<>Address changes must be requested before your order ships. Contact us immediately at <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a> with your order code.</>),
+                a: (<>Address changes must be requested before your order ships. Contact us immediately at <a href={`mailto:${contactEmail}`} className="text-primary underline">{contactEmail}</a> with your order code.</>),
               },
               {
                 q: 'What if my package is delayed?',
@@ -216,7 +218,7 @@ export default function TrackOrder() {
             <CardContent className="pt-5 text-sm space-y-2">
               <p className="font-medium">Need help?</p>
               <p className="text-muted-foreground">
-                Email <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a> — we respond within 24 hours (Monday–Friday, 10:00 AM – 7:00 PM).
+                Email <a href={`mailto:${contactEmail}`} className="text-primary underline">{contactEmail}</a> — we respond within 24 hours (Monday–Friday, 10:00 AM – 7:00 PM).
               </p>
               <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground border-t">
                 <Link href="/shipping" className="text-primary hover:underline">Shipping Policy</Link>

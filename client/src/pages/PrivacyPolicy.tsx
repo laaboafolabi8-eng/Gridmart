@@ -1,7 +1,9 @@
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { useSiteInfo } from '@/lib/useSiteInfo';
 
 export default function PrivacyPolicy() {
+  const { email } = useSiteInfo();
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -59,14 +61,14 @@ export default function PrivacyPolicy() {
               <h2 className="font-display text-xl font-semibold mb-3">6. Your Rights</h2>
               <p className="text-muted-foreground">
                 You have the right to access, correct, or delete your personal information. 
-                Contact us at <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">admin@gridmart.ca</a> to exercise these rights.
+                Contact us at <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> to exercise these rights.
               </p>
             </section>
 
             <section>
               <h2 className="font-display text-xl font-semibold mb-3">7. Contact Us</h2>
               <p className="text-muted-foreground">
-                If you have questions about this Privacy Policy, please contact us at <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">admin@gridmart.ca</a>.
+                If you have questions about this Privacy Policy, please contact us at <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>.
               </p>
             </section>
           </div>

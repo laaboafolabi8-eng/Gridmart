@@ -26,6 +26,7 @@ export default function Shipping() {
 
   const flatRate = parseFloat(siteSettings.shippingFlatRate || '15.00');
   const freeThreshold = parseFloat(siteSettings.freeShippingThreshold || '99.00');
+  const contactEmail = siteSettings.contactEmail || 'admin@gridmart.ca';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -156,7 +157,7 @@ export default function Shipping() {
                 <ul className="list-disc list-inside space-y-1">
                   <li>Check around your door, with neighbours, and in your mailbox</li>
                   <li>Allow 24 hours — packages are sometimes marked delivered early</li>
-                  <li>Contact us at <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a></li>
+                  <li>Contact us at <a href={`mailto:${contactEmail}`} className="text-primary underline">{contactEmail}</a></li>
                 </ul>
                 <p className="pt-1">If your package has not arrived within the estimated delivery window, please <Link href="/contact" className="text-primary underline hover:no-underline">contact us</Link> within <strong>30 days of your order date</strong>. We will open a UPS claim on your behalf.</p>
               </CardContent>

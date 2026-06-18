@@ -1,7 +1,9 @@
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { useSiteInfo } from '@/lib/useSiteInfo';
 
 export default function WarrantyPolicy() {
+  const { email } = useSiteInfo();
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -31,8 +33,8 @@ export default function WarrantyPolicy() {
               <h2 className="font-display text-xl font-semibold mb-3">Shipped Orders</h2>
               <p className="text-muted-foreground">
                 If you received a shipped product that is defective, contact{' '}
-                <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">
-                  admin@gridmart.ca
+                <a href={`mailto:${email}`} className="text-primary hover:underline">
+                  {email}
                 </a>{' '}
                 with your order number, a description of the issue, and photos where applicable.
               </p>

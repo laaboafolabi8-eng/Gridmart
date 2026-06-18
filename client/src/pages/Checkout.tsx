@@ -182,6 +182,7 @@ export default function Checkout() {
   const taxLabel = siteSettings.taxLabel || 'HST';
   const flatShippingRate = parseFloat(siteSettings.shippingFlatRate || '15.00');
   const freeShippingThreshold = parseFloat(siteSettings.freeShippingThreshold || '99.00');
+  const storeAddress = siteSettings.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
 
   const { data: agreements = [] } = useQuery<Agreement[]>({
     queryKey: ['agreements'],
@@ -462,7 +463,7 @@ export default function Checkout() {
                         <Store className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold">Pick Up In Store</p>
-                          <p className="text-sm text-muted-foreground">Free · 3176 Walker Rd, Windsor, ON N8W 3R5</p>
+                          <p className="text-sm text-muted-foreground">Free · {storeAddress}</p>
                         </div>
                         <Badge className="bg-green-100 text-green-700 border-green-200 shrink-0">Free</Badge>
                       </button>

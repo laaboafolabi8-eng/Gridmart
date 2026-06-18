@@ -89,6 +89,11 @@ export default function ProductDetail() {
   const flatRate = parseFloat(siteSettings.shippingFlatRate || '15.00');
   const freeThreshold = parseFloat(siteSettings.freeShippingThreshold || '99.00');
   const shippingText = `Flat rate $${flatRate.toFixed(2)} · Free on orders over $${freeThreshold.toFixed(0)}`;
+  const handlingTime = siteSettings.shippingHandlingTime || '1–2 business days after payment';
+  const transitTime = siteSettings.shippingTransitTime || '3–7 business days';
+  const orderCutoff = siteSettings.shippingOrderCutoff || '2:00 PM EST, Monday–Friday';
+  const contactEmail = siteSettings.contactEmail || 'admin@gridmart.ca';
+  const storeAddress = siteSettings.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
 
   const linkedVariants = useMemo(() => {
     if (!product) return [];
@@ -476,7 +481,7 @@ export default function ProductDetail() {
                   <Store className="w-5 h-5 text-amber-600 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm">Free In-Store Pickup</p>
-                    <p className="text-xs text-muted-foreground">3176 Walker Rd, Windsor, ON · Ready when you arrive</p>
+                    <p className="text-xs text-muted-foreground">{storeAddress} · Ready when you arrive</p>
                   </div>
                   <Badge
                     variant="outline"
@@ -529,14 +534,14 @@ export default function ProductDetail() {
                     <ul className="space-y-1">
                       <li>Flat rate shipping: <strong>${flatRate.toFixed(2)} CAD</strong></li>
                       <li>Free shipping on orders over <strong>${freeThreshold.toFixed(0)}</strong></li>
-                      <li>Handling time: 1–2 business days after payment</li>
-                      <li>Estimated transit: 3–7 business days</li>
-                      <li>Order cutoff: 2:00 PM EST, Monday–Friday</li>
+                      <li>Handling time: {handlingTime}</li>
+                      <li>Estimated transit: {transitTime}</li>
+                      <li>Order cutoff: {orderCutoff}</li>
                     </ul>
                   </div>
                   <div>
                     <p className="font-semibold text-foreground mb-1">Free In-Store Pickup</p>
-                    <p>Pick up your order at no charge at <strong>3176 Walker Rd, Windsor, ON N8W 3R5</strong>. Your order will be ready when you arrive during store hours (Monday–Friday, 10:00 AM – 7:00 PM).</p>
+                    <p>Pick up your order at no charge at <strong>{storeAddress}</strong>. Your order will be ready when you arrive during store hours (Monday–Friday, 10:00 AM – 7:00 PM).</p>
                   </div>
                   <p>
                     <Link href="/shipping" className="text-primary underline hover:no-underline">View full Shipping Policy →</Link>
@@ -554,8 +559,8 @@ export default function ProductDetail() {
                   <div>
                     <p className="font-semibold text-foreground mb-1">How to Request a Return</p>
                     <ul className="space-y-1">
-                      <li><strong>In-store purchase:</strong> Bring the product and proof of purchase to 3176 Walker Rd, Windsor, ON.</li>
-                      <li><strong>Online order:</strong> Email <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a> with your order number and reason for return.</li>
+                      <li><strong>In-store purchase:</strong> Bring the product and proof of purchase to {storeAddress}.</li>
+                      <li><strong>Online order:</strong> Email <a href={`mailto:${contactEmail}`} className="text-primary underline">{contactEmail}</a> with your order number and reason for return.</li>
                     </ul>
                   </div>
                   <div>

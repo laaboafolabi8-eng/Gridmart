@@ -1,7 +1,9 @@
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { useSiteInfo } from '@/lib/useSiteInfo';
 
 export default function Disclaimer() {
+  const { email, phone, address, phoneRaw } = useSiteInfo();
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -117,13 +119,13 @@ export default function Disclaimer() {
               <ul className="list-none text-muted-foreground mt-3 space-y-1">
                 <li>
                   <strong>Email:</strong>{' '}
-                  <a href="mailto:admin@gridmart.ca" className="text-primary hover:underline">admin@gridmart.ca</a>
+                  <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>
                 </li>
                 <li>
                   <strong>Phone:</strong>{' '}
-                  <a href="tel:+15199197764" className="text-primary hover:underline">(519) 919-7764</a>
+                  <a href={`tel:${phoneRaw}`} className="text-primary hover:underline">{phone}</a>
                 </li>
-                <li><strong>Address:</strong> 3176 Walker Rd, Windsor, ON N8W 3R5, Canada</li>
+                <li><strong>Address:</strong> {address}</li>
               </ul>
             </section>
 
