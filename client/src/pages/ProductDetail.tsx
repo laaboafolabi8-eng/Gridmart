@@ -274,6 +274,10 @@ export default function ProductDetail() {
                     <img
                       src={product.images[currentImageIndex] || product.images[0]}
                       alt={product.name}
+                      width={800}
+                      height={800}
+                      fetchPriority={currentImageIndex === 0 ? 'high' : 'auto'}
+                      decoding="async"
                       className="w-full max-h-[500px] object-contain cursor-zoom-in"
                     />
                   </Zoom>
@@ -304,7 +308,7 @@ export default function ProductDetail() {
                   {product.images.map((img, idx) => (
                     <button key={idx} onClick={() => setCurrentImageIndex(idx)}
                       className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${idx === currentImageIndex ? 'border-primary' : 'border-transparent'}`}>
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <img src={img} alt="" width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

@@ -39,13 +39,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-charts': ['recharts'],
-          'vendor-stripe': ['@stripe/stripe-js', '@stripe/react-stripe-js'],
+        manualChunks(id) {
+          if (id.includes('@stripe')) return 'vendor-stripe';
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          if (id.includes('lucide-react')) return 'vendor-icons';
+          if (id.includes('@radix-ui')) return 'vendor-radix';
+          if (id.includes('@tanstack')) return 'vendor-query';
+          if (id.includes('react-dom')) return 'vendor-react-dom';
+          if (id.includes('react')) return 'vendor-react';
         },
       },
     },

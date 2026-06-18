@@ -187,6 +187,8 @@ export function ProductCard({ product, variants = [], layout, hideImageNav }: Pr
                 <img
                   src={getYouTubeThumbnail(extractYouTubeVideoId(currentImage) || '', 'hq')}
                   alt={product.name}
+                  width={400}
+                  height={400}
                   loading="lazy"
                   decoding="async"
                   className={`w-full h-full object-cover transition-transform duration-300 ${hoverEffect === 'scale' || hoverEffect === 'lift' ? 'group-hover:scale-105' : ''}`}
@@ -201,6 +203,8 @@ export function ProductCard({ product, variants = [], layout, hideImageNav }: Pr
               <img
                 src={currentImage}
                 alt={product.name}
+                width={400}
+                height={400}
                 loading="lazy"
                 decoding="async"
                 className={`w-full h-full transition-transform duration-300 ${hoverEffect === 'scale' || hoverEffect === 'lift' ? 'group-hover:scale-105' : ''}`}
