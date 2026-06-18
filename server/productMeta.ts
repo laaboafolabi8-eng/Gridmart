@@ -117,11 +117,12 @@ export function injectProductMeta(html: string, res: Response, baseUrl: string):
   // ── JSON-LD Product schema (read by Google without JS execution) ──────────
 
   const priceFormatted = product.price ? parseFloat(product.price).toFixed(2) : null;
+  const totalStock = (product.sheetQuantity || 0);
   const availability = product.comingSoon
     ? 'https://schema.org/PreOrder'
-    : (product as any).inStore
+    : totalStock > 0
       ? 'https://schema.org/InStock'
-      : 'https://schema.org/LimitedAvailability';
+      : 'https://schema.org/OutOfStock';
 
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -175,12 +176,12 @@ export function injectProductMeta(html: string, res: Response, baseUrl: string):
     ? `<p style="font-size:22px;font-weight:700;color:#0d9488;margin:0 0 6px">$${priceFormatted} CAD</p>`
     : '';
 
-  const availText = (product as any).inStore
-    ? '✓ In Stock — Available at GridMart Store'
+  const availText = totalStock > 0
+    ? '✓ In Stock'
     : product.comingSoon
       ? 'Coming Soon'
-      : 'Currently Unavailable';
-  const availColor = (product as any).inStore ? '#16a34a' : product.comingSoon ? '#d97706' : '#6b7280';
+      : 'Out of Stock';
+  const availColor = totalStock > 0 ? '#16a34a' : product.comingSoon ? '#d97706' : '#dc2626';
 
   const imageHtml = imageUrl
     ? `<img src="${imageUrl}" alt="${title}" style="max-width:280px;float:left;margin:0 20px 16px 0;border-radius:8px" />`
