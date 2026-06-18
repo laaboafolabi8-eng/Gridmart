@@ -193,11 +193,11 @@ export default function TrackOrder() {
               },
               {
                 q: "My package shows delivered but I haven't received it.",
-                a: 'Check around your door, mailbox, and with neighbours. Allow 24 hours. If still missing, contact us at admin@gridmart.ca and we will open a UPS claim.',
+                a: (<>Check around your door, mailbox, and with neighbours. Allow 24 hours. If still missing, contact us at <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a> and we will open a UPS claim.</>),
               },
               {
                 q: 'How do I change my delivery address?',
-                a: 'Address changes must be requested before your order ships. Contact us immediately at admin@gridmart.ca with your order code.',
+                a: (<>Address changes must be requested before your order ships. Contact us immediately at <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a> with your order code.</>),
               },
               {
                 q: 'What if my package is delayed?',

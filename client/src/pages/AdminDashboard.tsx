@@ -21968,13 +21968,13 @@ Check other listings for more products`);
                       </div>
                       <div className="space-y-2">
                         <Input
-                          placeholder="Shipping-Free Pricing"
+                          placeholder="Free In-Store Pickup"
                           value={homepageCopy.feature3Title}
                           onChange={e => setHomepageCopy(prev => ({ ...prev, feature3Title: e.target.value }))}
                           data-testid="input-feature3-title"
                         />
                         <Textarea
-                          placeholder="Zero shipping charges - your neighbourhood, your savings."
+                          placeholder="Order online and pick up at our store at no extra charge. We also ship across Canada via UPS."
                           value={homepageCopy.feature3Desc}
                           onChange={e => setHomepageCopy(prev => ({ ...prev, feature3Desc: e.target.value }))}
                           rows={2}

@@ -270,9 +270,9 @@ export default function Contact() {
                 <Wallet className="w-6 h-6 text-primary" style={{ transform: 'rotate(-22.5deg)' }} />
               </div>
               <div>
-                <h3 className="font-display font-semibold mb-1">{siteSettings.feature3Title || 'No Shipping Fees'}</h3>
+                <h3 className="font-display font-semibold mb-1">{siteSettings.feature3Title || 'Free In-Store Pickup'}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {siteSettings.feature3Desc || 'Shop locally and avoid delivery fees entirely.'}
+                  {siteSettings.feature3Desc || 'Order online and pick up at our store at no extra charge. We also ship across Canada via UPS.'}
                 </p>
               </div>
             </div>
