@@ -187,7 +187,7 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/orders" className="w-full cursor-pointer">
+                    <Link href="/track-order" className="w-full cursor-pointer">
                       <PackageSearch className="w-4 h-4 mr-2 opacity-60" />Track Your Order
                     </Link>
                   </DropdownMenuItem>
@@ -354,7 +354,7 @@ export function Header() {
                 <Mail className="w-4 h-4 opacity-60" />Contact Us
               </Button>
             </Link>
-            <Link href="/orders">
+            <Link href="/track-order">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-2 font-medium">
                 <PackageSearch className="w-4 h-4 opacity-60" />Track Your Order
               </Button>
