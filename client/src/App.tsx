@@ -44,6 +44,7 @@ const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const Shipping = lazy(() => import("@/pages/Shipping"));
 const TrackOrder = lazy(() => import("@/pages/TrackOrder"));
 const WarrantyPolicy = lazy(() => import("@/pages/WarrantyPolicy"));
+const PaymentPolicy = lazy(() => import("@/pages/PaymentPolicy"));
 
 function PageLoader() {
   return (
@@ -92,6 +93,7 @@ function Router() {
         <Route path="/shipping" component={Shipping} />
         <Route path="/track-order" component={TrackOrder} />
         <Route path="/warranty" component={WarrantyPolicy} />
+        <Route path="/payment-policy" component={PaymentPolicy} />
         <Route path="/survey/:id" component={DropoutSurvey} />
         <Route path="/payment-success">
           {() => (
