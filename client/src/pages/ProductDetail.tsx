@@ -8,6 +8,7 @@ import 'react-medium-image-zoom/dist/styles.css';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { MediaThumbnail } from '@/components/media/YouTubeThumbnail';
@@ -478,6 +479,112 @@ export default function ProductDetail() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Policy tabs */}
+          <div className="mb-10">
+            <Tabs defaultValue="description">
+              <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0 h-auto gap-0">
+                <TabsTrigger value="description" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2.5 text-sm font-medium">Description</TabsTrigger>
+                <TabsTrigger value="shipping" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2.5 text-sm font-medium">Shipping</TabsTrigger>
+                <TabsTrigger value="returns" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2.5 text-sm font-medium">Returns</TabsTrigger>
+                <TabsTrigger value="payment" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2.5 text-sm font-medium">Payment</TabsTrigger>
+              </TabsList>
+
+              {/* Description */}
+              <TabsContent value="description" className="pt-5">
+                {(() => {
+                  const points = getDescriptionPoints(product.description);
+                  if (!points.length || (points.length === 1 && !points[0])) {
+                    return <p className="text-muted-foreground text-sm">No description available.</p>;
+                  }
+                  if (points.length === 1) {
+                    return <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: points[0] }} />;
+                  }
+                  return (
+                    <ul className="space-y-2">
+                      {points.map((point, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <span className="text-primary mt-0.5 shrink-0">•</span>
+                          <span dangerouslySetInnerHTML={{ __html: point }} />
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+              </TabsContent>
+
+              {/* Shipping */}
+              <TabsContent value="shipping" className="pt-5">
+                <div className="space-y-5 max-w-2xl text-sm text-muted-foreground">
+                  <div>
+                    <p className="font-semibold text-foreground mb-1">Ships Across Canada via UPS</p>
+                    <ul className="space-y-1">
+                      <li>Flat rate shipping: <strong>${flatRate.toFixed(2)} CAD</strong></li>
+                      <li>Free shipping on orders over <strong>${freeThreshold.toFixed(0)}</strong></li>
+                      <li>Handling time: 1–2 business days after payment</li>
+                      <li>Estimated transit: 3–7 business days</li>
+                      <li>Order cutoff: 2:00 PM EST, Monday–Friday</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground mb-1">Free In-Store Pickup</p>
+                    <p>Pick up your order at no charge at <strong>3176 Walker Rd, Windsor, ON N8W 3R5</strong>. Your order will be ready when you arrive during store hours (Monday–Friday, 10:00 AM – 7:00 PM).</p>
+                  </div>
+                  <p>
+                    <Link href="/shipping" className="text-primary underline hover:no-underline">View full Shipping Policy →</Link>
+                  </p>
+                </div>
+              </TabsContent>
+
+              {/* Returns */}
+              <TabsContent value="returns" className="pt-5">
+                <div className="space-y-4 max-w-2xl text-sm text-muted-foreground">
+                  <div>
+                    <p className="font-semibold text-foreground mb-1">30-Day Return Window</p>
+                    <p>Returns and refund requests must be submitted within 30 days of your order date. Items must be in their original condition and packaging.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground mb-1">How to Request a Return</p>
+                    <ul className="space-y-1">
+                      <li><strong>In-store purchase:</strong> Bring the product and proof of purchase to 3176 Walker Rd, Windsor, ON.</li>
+                      <li><strong>Online order:</strong> Email <a href="mailto:admin@gridmart.ca" className="text-primary underline">admin@gridmart.ca</a> with your order number and reason for return.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground mb-1">Refund Processing</p>
+                    <p>Approved refunds are returned to the original payment method within <strong>5–10 business days</strong>.</p>
+                  </div>
+                  <p>
+                    <Link href="/agreement/refund" className="text-primary underline hover:no-underline">View full Refund Policy →</Link>
+                  </p>
+                </div>
+              </TabsContent>
+
+              {/* Payment */}
+              <TabsContent value="payment" className="pt-5">
+                <div className="space-y-4 max-w-2xl text-sm text-muted-foreground">
+                  <p>All online payments are processed securely through <strong>Stripe</strong> (PCI DSS Level 1). We accept:</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Visa" role="img"><rect width="60" height="38" rx="4" fill="#1A1F71"/><text x="30" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontStyle="italic" fontFamily="Arial, sans-serif">VISA</text></svg>
+                    <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Mastercard" role="img"><rect width="60" height="38" rx="4" fill="#252525"/><circle cx="23" cy="19" r="11" fill="#EB001B"/><circle cx="37" cy="19" r="11" fill="#F79E1B"/><path d="M30 10.5a11 11 0 0 1 0 17 11 11 0 0 1 0-17z" fill="#FF5F00"/></svg>
+                    <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="American Express" role="img"><rect width="60" height="38" rx="4" fill="#2E77BC"/><text x="30" y="17" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">AMERICAN</text><text x="30" y="27" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">EXPRESS</text></svg>
+                    <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Discover" role="img"><rect width="60" height="38" rx="4" fill="white" stroke="#e5e7eb" strokeWidth="1"/><circle cx="40" cy="19" r="12" fill="#F76F20"/><text x="18" y="23" textAnchor="middle" fill="#231F20" fontSize="7" fontWeight="bold" fontFamily="Arial, sans-serif">DISCOVER</text></svg>
+                    <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Apple Pay" role="img"><rect width="60" height="38" rx="4" fill="#000"/><text x="30" y="25" textAnchor="middle" fill="white" fontSize="9" fontWeight="500" fontFamily="Arial, sans-serif">Pay</text></svg>
+                    <svg viewBox="0 0 60 38" className="h-7 w-auto" aria-label="Google Pay" role="img"><rect width="60" height="38" rx="4" fill="white" stroke="#e5e7eb" strokeWidth="1"/><text x="10" y="24" fill="#4285F4" fontSize="12" fontWeight="bold" fontFamily="Arial, sans-serif">G</text><text x="20" y="24" fill="#555" fontSize="10" fontFamily="Arial, sans-serif">Pay</text></svg>
+                  </div>
+                  <ul className="space-y-1">
+                    <li>Visa, Mastercard, American Express, Discover</li>
+                    <li>Apple Pay &amp; Google Pay</li>
+                    <li>All prices in <strong>Canadian dollars (CAD)</strong></li>
+                    <li>No additional payment surcharges</li>
+                  </ul>
+                  <p>
+                    <Link href="/payment-policy" className="text-primary underline hover:no-underline">View full Payment Policy →</Link>
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Related products */}
