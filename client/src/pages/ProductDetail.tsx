@@ -361,7 +361,10 @@ export default function ProductDetail() {
                 </span>
                 <div className="flex items-center gap-2 mt-1.5">
                   {totalStock > 0 ? (
-                    <span className="text-sm font-semibold text-green-600" data-testid="badge-in-stock">In Stock</span>
+                    <>
+                      <span className="text-sm font-semibold text-green-600" data-testid="badge-in-stock">In Stock</span>
+                      <span className="text-xs text-muted-foreground" data-testid="text-stock-count">· {totalStock} available</span>
+                    </>
                   ) : product.comingSoon ? (
                     <Badge className="bg-amber-500 hover:bg-amber-500 text-white" data-testid="badge-coming-soon">Coming Soon</Badge>
                   ) : (

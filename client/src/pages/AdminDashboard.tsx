@@ -13057,42 +13057,31 @@ Check other listings for more products`);
                           </span>
                         </div>
                       </div>
-                      <div className="shrink-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={(product.sheetQuantity || 0) > 0}
-                          onCheckedChange={async (checked) => {
+                      <div className="shrink-0 flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          key={product.sheetQuantity ?? 0}
+                          type="number"
+                          min="0"
+                          defaultValue={product.sheetQuantity ?? 0}
+                          className={`w-14 h-7 text-center text-xs border rounded px-1 font-mono focus:outline-none focus:ring-1 focus:ring-primary ${(product.sheetQuantity || 0) > 0 ? 'text-green-700 border-green-200 bg-green-50' : 'text-muted-foreground border-border bg-background'}`}
+                          onBlur={async (e) => {
+                            const qty = Math.max(0, parseInt(e.target.value) || 0);
                             try {
-                              const res = await fetch(`/api/products/${product.id}/toggle-stock`, {
-                                method: 'POST',
+                              const res = await fetch(`/api/products/${product.id}`, {
+                                method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ inStock: !!checked }),
+                                body: JSON.stringify({ sheetQuantity: qty }),
                               });
-                              if (!res.ok) throw new Error('Failed to toggle stock');
-                              const data = await res.json();
+                              if (!res.ok) throw new Error('Failed to update');
                               queryClient.invalidateQueries({ queryKey: ['products'] });
-                              if (data.sheetSyncWarning) {
-                                toast.warning(data.sheetSyncWarning, { duration: 3000 });
-                              } else {
-                                toast.success(checked ? 'Marked in stock' : 'Marked out of stock', { duration: 1500 });
-                              }
-                            } catch (err) {
-                              toast.error('Failed to update stock status');
+                              toast.success(qty > 0 ? `Stock set to ${qty}` : 'Marked out of stock', { duration: 1500 });
+                            } catch {
+                              toast.error('Failed to update quantity');
                             }
                           }}
-                          title={`${(product.sheetQuantity || 0) > 0 ? 'In Stock' : 'Out of Stock'} (qty: ${product.sheetQuantity || 0})`}
-                          data-testid={`checkbox-stock-${product.id}`}
-                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                          data-testid={`input-stock-qty-${product.id}`}
+                          title="Stock quantity — 0 = Out of Stock"
                         />
-                        {/* Visible stock quantity */}
-                        {(() => {
-                          const invStock = product.inventory?.reduce((s: number, inv: any) => s + inv.quantity, 0) || 0;
-                          const totalStk = invStock > 0 ? invStock : (product.sheetQuantity || 0);
-                          return (
-                            <span className={`text-[10px] font-mono w-6 text-center ${totalStk > 0 ? 'text-green-700' : 'text-muted-foreground'}`} data-testid={`text-stock-qty-${product.id}`}>
-                              {totalStk}
-                            </span>
-                          );
-                        })()}
                         {(() => {
                           const invStock = product.inventory?.reduce((s: number, inv: any) => s + inv.quantity, 0) || 0;
                           const totalStk = invStock > 0 ? invStock : (product.sheetQuantity || 0);
