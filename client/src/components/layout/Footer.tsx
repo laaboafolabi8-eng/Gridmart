@@ -58,6 +58,7 @@ export function Footer() {
               <li><a href="/agreement/refund" className="hover:text-foreground transition-colors">Refund Policy</a></li>
               <li><a href="/warranty" className="hover:text-foreground transition-colors">Warranty Policy</a></li>
               <li><a href="/payment-policy" className="hover:text-foreground transition-colors">Payment Policy</a></li>
+              <li><a href="/disclaimer" className="hover:text-foreground transition-colors">Disclaimer</a></li>
               <li><a href="/shipping" className="hover:text-foreground transition-colors">Shipping Policy</a></li>
               <li><a href="/track-order" className="hover:text-foreground transition-colors">Track Your Order</a></li>
             </ul>
