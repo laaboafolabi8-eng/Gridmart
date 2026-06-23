@@ -9420,9 +9420,10 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
       ];
 
       res.json({ sections });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Generate listing error:", error);
-      res.status(500).json({ error: "Failed to generate listing" });
+      const msg = error?.message || error?.toString() || "Unknown error";
+      res.status(500).json({ error: `Generate listing failed: ${msg}` });
     }
   });
 

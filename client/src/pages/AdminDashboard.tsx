@@ -5541,8 +5541,8 @@ export default function AdminDashboard() {
       setEditingProduct({ ...editingProduct, contentSections: sections });
       setEditSectionsOpen(true);
       toast.success('Listing generated');
-    } catch (err) {
-      toast.error('Failed to generate listing');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate listing');
     } finally {
       setIsGeneratingListing(false);
     }
