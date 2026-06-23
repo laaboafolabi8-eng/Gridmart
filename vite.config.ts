@@ -43,13 +43,43 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Co-locate Rollup's shared CommonJS interop helpers with React
+          // core so the react chunk is a pure sink (imported by everything,
+          // importing nothing). Otherwise the helper lands in another chunk
+          // that vendor-react imports back, creating a circular chunk
+          // dependency and a top-level "Cannot access X before
+          // initialization" TDZ that blanks the production page.
+          if (id.includes('commonjsHelpers') || id.includes('commonjs-helper'))
+            return 'vendor-react';
+          if (!id.includes('node_modules')) return;
           if (id.includes('@stripe')) return 'vendor-stripe';
-          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          // Keep the entire recharts ecosystem (incl. react-smooth + its
+          // throttle/debounce helpers and d3) in one chunk. Splitting
+          // react-smooth into the react chunk creates a circular chunk
+          // dependency that breaks the production bundle with a top-level
+          // "Cannot access 'React' before initialization" TDZ error.
+          if (
+            id.includes('recharts') ||
+            id.includes('react-smooth') ||
+            id.includes('react-transition-group') ||
+            id.includes('victory-vendor') ||
+            id.includes('internmap') ||
+            id.includes('d3-')
+          ) return 'vendor-charts';
           if (id.includes('lucide-react')) return 'vendor-icons';
           if (id.includes('@radix-ui')) return 'vendor-radix';
           if (id.includes('@tanstack')) return 'vendor-query';
-          if (id.includes('react-dom')) return 'vendor-react-dom';
-          if (id.includes('react')) return 'vendor-react';
+          // Match ONLY the exact React core packages (by node_modules path
+          // boundary) so scoped packages like @uppy/react are NOT swept in.
+          // A greedy "react" substring match pulls unrelated libraries (and
+          // their lodash helpers) into this chunk, creating a circular chunk
+          // dependency and a top-level "Cannot access X before initialization"
+          // TDZ error that blanks the production page.
+          if (
+            /[\\/]node_modules[\\/](react|react-dom|react-is|scheduler|use-sync-external-store|object-assign|prop-types)[\\/]/.test(
+              id,
+            )
+          ) return 'vendor-react';
         },
       },
     },

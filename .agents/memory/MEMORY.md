@@ -1,1 +1,2 @@
 - [Vite stale-module crash after git pull](vite-stale-module-after-git-pull.md) — "Failed to fetch dynamically imported module" + "Invalid hook call" after a pull is stale HMR, not a real hook bug; restart the workflow.
+- [Vite manualChunks TDZ blanks production](vite-manualchunks-tdz-blank-prod.md) — blank live site (dev fine) + "Cannot access X before initialization" = circular manual chunk; keep vendor-react a pure sink, pin commonjsHelpers there.
