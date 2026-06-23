@@ -649,7 +649,7 @@ export default function Home() {
               <h3 className="font-display text-lg font-semibold mb-2">No products found</h3>
               <p className="text-muted-foreground">Try adjusting your search or filters</p>
             </div>
-          ) : null))}
+          ))}
         </div>
       </main>
 
