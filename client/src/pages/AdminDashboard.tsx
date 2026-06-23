@@ -21,6 +21,8 @@ const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistributio
 const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
 import { ContentSectionsEditor } from '@/components/admin/ContentSectionsEditor';
 import type { ContentSection } from '@/lib/mockData';
+import { HomepageBuilder } from '@/components/admin/HomepageBuilder';
+import type { HomepageSectionConfig } from '@/lib/homepageSections';
 import { ImageDropZone } from '@/components/admin/ImageDropZone';
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
 const LandingPageEditor = lazy(() => import('@/components/admin/LandingPageEditor'));
@@ -5947,6 +5949,7 @@ Check other listings for more products`);
     subcategoryHeadingColor: '',
   };
   const [storefrontLayout, setStorefrontLayout] = useState(defaultStorefrontLayout);
+  const [homepageSections, setHomepageSections] = useState<HomepageSectionConfig[]>([]);
 
   // Node overlay customization
   interface NodeOverlay {
@@ -6463,6 +6466,9 @@ Check other listings for more products`);
         }
         if (settings.storefrontLayout) {
           try { setStorefrontLayout(prev => ({ ...prev, ...JSON.parse(settings.storefrontLayout) })); } catch {}
+        }
+        if (settings.homepageSections) {
+          try { setHomepageSections(JSON.parse(settings.homepageSections)); } catch {}
         }
       })
       .catch(err => console.error('Failed to fetch site settings:', err));
@@ -21863,6 +21869,40 @@ Check other listings for more products`);
           </TabsContent>
 
           <TabsContent value="design" className="space-y-6">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-1">
+                    <LayoutGrid className="w-5 h-5 text-primary" />
+                    Homepage Layout Builder
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Control which sections appear on your homepage and in what order. Each section shows its impact on page load speed.
+                    Use the generator to cycle through {'{'}12{'}'} curated layout patterns — all sensibly constrained.
+                  </p>
+                </div>
+                <HomepageBuilder value={homepageSections} onChange={setHomepageSections} />
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await fetch('/api/site-settings/homepageSections', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value: JSON.stringify(homepageSections) }),
+                      });
+                      toast.success('Homepage layout saved');
+                    } catch {
+                      toast.error('Failed to save homepage layout');
+                    }
+                  }}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Homepage Layout
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="pt-6 space-y-6">
                 <div>
