@@ -5,6 +5,15 @@ export interface ColorVariation {
 
 export type ProductCondition = 'New' | 'Like New' | 'Good' | 'Fair';
 
+export type ContentSectionType = 'text' | 'bullets' | 'specs';
+export interface SpecRow { key: string; value: string; }
+export interface ContentSection {
+  id: string;
+  name: string;
+  type: ContentSectionType;
+  content: string | string[] | SpecRow[];
+}
+
 export const PRODUCT_CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Good', 'Fair'];
 
 export interface Product {
@@ -35,6 +44,7 @@ export interface Product {
   customHandoffFee?: number | null; // Per-product handoff fee override (e.g., oversized items)
   customerPaysHandoff?: boolean | null; // If true, customer pays the handoff fee for this product
   sortOrder?: number | null; // Order within category for display
+  contentSections?: ContentSection[] | null;
 }
 
 // Helper to convert URLs in text to clickable links

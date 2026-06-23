@@ -13,7 +13,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { MediaThumbnail } from '@/components/media/YouTubeThumbnail';
 import { isYouTubeUrl } from '@/lib/youtube';
-import { formatCurrency, getDescriptionPoints, type Product } from '@/lib/mockData';
+import { formatCurrency, getDescriptionPoints, type Product, type ContentSection, type SpecRow } from '@/lib/mockData';
 import { useCart } from '@/lib/store';
 import { ProductCard, type StorefrontLayoutSettings } from '@/components/products/ProductCard';
 import { productUrl, extractProductIdPrefix, isUuid } from '../../../shared/slugify';
@@ -503,9 +503,44 @@ export default function ProductDetail() {
                 <TabsTrigger value="payment" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2.5 text-sm font-medium">Payment</TabsTrigger>
               </TabsList>
 
-              {/* Description */}
+              {/* Description / Structured Sections */}
               <TabsContent value="description" className="pt-5">
-                {(() => {
+                {product.contentSections?.length ? (
+                  <div className="space-y-7 max-w-2xl">
+                    {(product.contentSections as ContentSection[]).map(section => (
+                      <div key={section.id}>
+                        <h3 className="text-sm font-semibold text-foreground mb-2">{section.name}</h3>
+                        {section.type === 'text' && (section.content as string) && (
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{section.content as string}</p>
+                        )}
+                        {section.type === 'bullets' && (section.content as string[]).filter(Boolean).length > 0 && (
+                          <ul className="space-y-1.5">
+                            {(section.content as string[]).filter(Boolean).map((bullet, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                <span className="text-primary mt-0.5 shrink-0">•</span>
+                                <span dangerouslySetInnerHTML={{ __html: bullet }} />
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {section.type === 'specs' && (section.content as SpecRow[]).length > 0 && (
+                          <div className="border rounded-lg overflow-hidden">
+                            <table className="w-full text-sm">
+                              <tbody>
+                                {(section.content as SpecRow[]).map((row, i) => (
+                                  <tr key={i} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
+                                    <td className="px-4 py-2 font-medium text-foreground w-2/5">{row.key}</td>
+                                    <td className="px-4 py-2 text-muted-foreground">{row.value}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (() => {
                   const points = getDescriptionPoints(product.description);
                   if (!points.length || (points.length === 1 && !points[0])) {
                     return <p className="text-muted-foreground text-sm">No description available.</p>;

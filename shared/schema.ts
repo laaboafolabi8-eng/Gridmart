@@ -65,6 +65,7 @@ export const products = pgTable("products", {
   comingSoon: boolean("coming_soon").default(false), // Show as "Coming Soon" on storefront (only for out-of-stock products)
   inStore: boolean("in_store").default(false), // Product is viewable in-store; shown on product pages but cannot be ordered online
   imageOverlays: jsonb("image_overlays"), // Overlay data per image: [{imageIndex, overlays: [{id, imageUrl, x, y, width, height}]}]
+  contentSections: jsonb("content_sections"), // Structured content sections [{id, name, type, content}]
   createdAt: timestamp("created_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"), // Soft delete timestamp - null means active, set means deleted
 });

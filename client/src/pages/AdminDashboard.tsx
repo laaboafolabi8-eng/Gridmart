@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 const FlyerDistribution = lazy(() => import('@/components/admin/FlyerDistribution'));
 const BrochureBuilder = lazy(() => import('@/components/admin/BrochureBuilder'));
+import { ContentSectionsEditor } from '@/components/admin/ContentSectionsEditor';
+import type { ContentSection } from '@/lib/mockData';
 import { ImageDropZone } from '@/components/admin/ImageDropZone';
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
 const LandingPageEditor = lazy(() => import('@/components/admin/LandingPageEditor'));
@@ -5512,9 +5514,11 @@ export default function AdminDashboard() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [editProductGroupIds, setEditProductGroupIds] = useState<string[]>([]);
+  const [editSectionsOpen, setEditSectionsOpen] = useState(false);
   useEffect(() => {
     if (editingProduct) {
       setEditProductGroupIds(productGroupMemberships[editingProduct.id] || []);
+      setEditSectionsOpen(!!editingProduct.contentSections?.length);
     }
   }, [editingProduct?.id]);
   const [editRewordPrompt, setEditRewordPrompt] = useState('');
@@ -7158,9 +7162,10 @@ Check other listings for more products`);
           parentProductId: editingProduct.parentProductId || null,
           variantName: editingProduct.variantName || null,
           sheetRow: (editingProduct as any).sheetRow || null,
+          contentSections: editingProduct.contentSections ?? null,
         }),
       });
-      
+
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Changes saved');
       
@@ -13752,6 +13757,31 @@ Check other listings for more products`);
                                       }}
                                     />
                                   </div>
+                                </div>
+                                <div className="border rounded-lg overflow-hidden">
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors"
+                                    onClick={() => setEditSectionsOpen(p => !p)}
+                                  >
+                                    <span className="flex items-center gap-2">
+                                      <span>Structured Sections</span>
+                                      <span className="text-xs text-muted-foreground font-normal">Details · Features · Specs</span>
+                                      {editingProduct.contentSections?.length ? (
+                                        <span className="bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded-full">{editingProduct.contentSections.length}</span>
+                                      ) : null}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">{editSectionsOpen ? '▲ collapse' : '▼ expand'}</span>
+                                  </button>
+                                  {editSectionsOpen && (
+                                    <div className="p-3 border-t">
+                                      <ContentSectionsEditor
+                                        value={editingProduct.contentSections}
+                                        initialDescription={getDescriptionString(editingProduct.description)}
+                                        onChange={sections => setEditingProduct({ ...editingProduct, contentSections: sections })}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="grid grid-cols-5 gap-4">
                                   <div>
