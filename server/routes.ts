@@ -9359,7 +9359,78 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
       res.status(500).json({ error: "Failed to reword text" });
     }
   });
-  
+
+  // ===== Generate Structured Product Listing =====
+  app.post("/api/generate-listing", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { name, description, imageUrl } = req.body;
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ error: "Product name is required" });
+      }
+
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const systemPrompt = `You are an AI listing manager for GridMart (gridmart.ca), a Canadian retail store operated by BookBuy Express Inc. Write product listings in GridMart's house style.
+
+Style rules:
+- Tone: friendly but professional, confident, not salesy — like a knowledgeable friend recommending something
+- Canadian spelling (colour, centre, litre, etc.)
+- Grade 8–10 reading level, clear and direct
+- Product Details: 2–4 sentences, lead with the most important benefit (not the brand name), end with a practical use-case sentence
+- Features: 4–7 bullets, each starting with a strong action word (e.g. "Includes", "Built-in", "Compatible with", "Supports", "Designed for")
+- Specifications: factual only — exact numbers and values, no marketing language
+
+Avoid: exclamation marks, vague superlatives (best/amazing/incredible), passive voice, opening with "Meet the..." or "Introducing the...", repeating the product name more than once in the details paragraph.
+
+Return ONLY valid JSON — no markdown, no explanation, no code fences:
+{"productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}`;
+
+      const userMessage = imageUrl
+        ? [
+            { type: "text" as const, text: `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}\n\nWrite a complete GridMart listing for this product.` },
+            { type: "image_url" as const, image_url: { url: imageUrl } },
+          ]
+        : `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}\n\nWrite a complete GridMart listing for this product.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage as any },
+        ],
+        max_tokens: 1000,
+        response_format: { type: "json_object" },
+      });
+
+      const raw = completion.choices[0]?.message?.content || '{}';
+      let data: { productDetails?: string; features?: string[]; specifications?: Array<{ key: string; value: string }> } = {};
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        return res.status(500).json({ error: "AI returned invalid JSON" });
+      }
+
+      const sections = [
+        { id: 'details', name: 'Product Details', type: 'text' as const, content: data.productDetails || '' },
+        { id: 'features', name: 'Features', type: 'bullets' as const, content: Array.isArray(data.features) ? data.features : [] },
+        { id: 'specs', name: 'Specifications', type: 'specs' as const, content: Array.isArray(data.specifications) ? data.specifications : [] },
+      ];
+
+      res.json({ sections });
+    } catch (error) {
+      console.error("Generate listing error:", error);
+      res.status(500).json({ error: "Failed to generate listing" });
+    }
+  });
+
   // Helper: adjust crate assignment quantity overrides when an order is placed or cancelled
   // delta is negative for purchases (decrement), positive for cancellations (restore)
   async function adjustCrateAssignmentQuantities(nodeId: string, productId: string, delta: number) {

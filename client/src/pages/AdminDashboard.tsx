@@ -5515,12 +5515,38 @@ export default function AdminDashboard() {
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [editProductGroupIds, setEditProductGroupIds] = useState<string[]>([]);
   const [editSectionsOpen, setEditSectionsOpen] = useState(false);
+  const [isGeneratingListing, setIsGeneratingListing] = useState(false);
   useEffect(() => {
     if (editingProduct) {
       setEditProductGroupIds(productGroupMemberships[editingProduct.id] || []);
       setEditSectionsOpen(!!editingProduct.contentSections?.length);
     }
   }, [editingProduct?.id]);
+
+  const handleGenerateListing = async () => {
+    if (!editingProduct?.name || isGeneratingListing) return;
+    setIsGeneratingListing(true);
+    try {
+      const res = await fetch('/api/generate-listing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingProduct.name,
+          description: typeof editingProduct.description === 'string' ? editingProduct.description : '',
+          imageUrl: editingProduct.image || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { sections } = await res.json();
+      setEditingProduct({ ...editingProduct, contentSections: sections });
+      setEditSectionsOpen(true);
+      toast.success('Listing generated');
+    } catch (err) {
+      toast.error('Failed to generate listing');
+    } finally {
+      setIsGeneratingListing(false);
+    }
+  };
   const [editRewordPrompt, setEditRewordPrompt] = useState('');
   const [isEditRewording, setIsEditRewording] = useState(false);
   const [isManualRewording, setIsManualRewording] = useState(false);
@@ -13759,20 +13785,31 @@ Check other listings for more products`);
                                   </div>
                                 </div>
                                 <div className="border rounded-lg overflow-hidden">
-                                  <button
-                                    type="button"
-                                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors"
-                                    onClick={() => setEditSectionsOpen(p => !p)}
-                                  >
-                                    <span className="flex items-center gap-2">
+                                  <div className="flex items-center px-3 py-2 bg-muted/10 gap-2">
+                                    <button
+                                      type="button"
+                                      className="flex-1 flex items-center gap-2 text-sm font-medium text-left hover:opacity-70 transition-opacity"
+                                      onClick={() => setEditSectionsOpen(p => !p)}
+                                    >
                                       <span>Structured Sections</span>
                                       <span className="text-xs text-muted-foreground font-normal">Details · Features · Specs</span>
                                       {editingProduct.contentSections?.length ? (
                                         <span className="bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded-full">{editingProduct.contentSections.length}</span>
                                       ) : null}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">{editSectionsOpen ? '▲ collapse' : '▼ expand'}</span>
-                                  </button>
+                                      <span className="text-xs text-muted-foreground ml-auto pr-2">{editSectionsOpen ? '▲' : '▼'}</span>
+                                    </button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs gap-1 shrink-0"
+                                      onClick={handleGenerateListing}
+                                      disabled={isGeneratingListing || !editingProduct.name}
+                                    >
+                                      {isGeneratingListing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                      {isGeneratingListing ? 'Writing…' : 'Write for me'}
+                                    </Button>
+                                  </div>
                                   {editSectionsOpen && (
                                     <div className="p-3 border-t">
                                       <ContentSectionsEditor
