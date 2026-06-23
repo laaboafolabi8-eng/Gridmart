@@ -8,6 +8,11 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type StorefrontLayoutSettings } from '@/components/products/ProductCard';
 import { type Product } from '@/lib/mockData';
 import { useQuery } from '@tanstack/react-query';
+import { TextBlockSection } from '@/components/homepage/TextBlockSection';
+import { PromoBannerSection } from '@/components/homepage/PromoBannerSection';
+import { SlideshowSection } from '@/components/homepage/SlideshowSection';
+import { FeaturedProductsSection } from '@/components/homepage/FeaturedProductsSection';
+import { type HomepageSectionConfig, DEFAULT_HOMEPAGE_SECTIONS } from '@/lib/homepageSections';
 
 function seededRandom(seed: string): number {
   let hash = 0;
@@ -43,6 +48,15 @@ export default function Home() {
     try { return JSON.parse(siteSettings.storefrontLayout) as StorefrontLayoutSettings; }
     catch { return {} as StorefrontLayoutSettings; }
   }, [siteSettings.storefrontLayout]);
+
+  const homepageSections = useMemo((): HomepageSectionConfig[] => {
+    if (!siteSettings.homepageSections) return DEFAULT_HOMEPAGE_SECTIONS;
+    try { return JSON.parse(siteSettings.homepageSections) as HomepageSectionConfig[]; }
+    catch { return DEFAULT_HOMEPAGE_SECTIONS; }
+  }, [siteSettings.homepageSections]);
+
+  const sectionEnabled = (type: string) =>
+    homepageSections.some(s => s.type === type && s.enabled !== false);
 
   const gridGapValue = ({ tight: '4px', normal: '8px', relaxed: '16px', spacious: '24px' } as Record<string, string>)[storefrontLayout?.gridGap || 'normal'] || '8px';
   const gridColsDesktop = parseInt(storefrontLayout?.columnsDesktop || '7') || 7;
@@ -175,12 +189,48 @@ export default function Home() {
     return result;
   }, [displayProducts, categories]);
 
+  const BUILTIN_TYPES = ['hero', 'searchFilter', 'products'];
+
+  const renderCustomSection = (section: HomepageSectionConfig) => {
+    const p = section.props || {};
+    if (section.type === 'textBlock') return <TextBlockSection key={section.id} {...p} />;
+    if (section.type === 'promoBanner') return <PromoBannerSection key={section.id} {...p} />;
+    if (section.type === 'slideshow') return <SlideshowSection key={section.id} {...p} />;
+    if (section.type === 'featuredProducts') {
+      const source = p.source || 'newest';
+      const count = p.count || 4;
+      const featured = source === 'sale'
+        ? products.filter(prod => prod.salePrice && parseFloat(prod.salePrice) < parseFloat(prod.price)).slice(0, count)
+        : [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, count);
+      return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} />;
+    }
+    return null;
+  };
+
+  const sectionsInSlot = (afterType: string, beforeType: string) => {
+    const after = homepageSections.findIndex(s => s.type === afterType);
+    const before = homepageSections.findIndex(s => s.type === beforeType);
+    if (after === -1 && before === -1) return [];
+    const start = after === -1 ? 0 : after + 1;
+    const end = before === -1 ? homepageSections.length : before;
+    return homepageSections.slice(start, end).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+  };
+
+  const postProductsSections = (() => {
+    const idx = homepageSections.reduce((acc, s, i) => s.type === 'products' ? i : acc, -1);
+    if (idx === -1) return homepageSections.filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+    return homepageSections.slice(idx + 1).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+  })();
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
 
+      {/* ── PRE-HERO CUSTOM SECTIONS ── */}
+      {sectionsInSlot('__start__', 'hero').map(renderCustomSection)}
+
       {/* ── STOREFRONT HERO ── */}
-      {(() => {
+      {sectionEnabled('hero') && (() => {
         const fgEnabled = siteSettings.storefrontHeroImageEnabled !== 'false';
         const bgEnabled = siteSettings.storefrontInteriorImageEnabled !== 'false';
         const showFg = fgEnabled && !!siteSettings.storefrontHeroImage;
@@ -289,10 +339,14 @@ export default function Home() {
         );
       })()}
 
+      {/* ── BETWEEN HERO AND SEARCH SECTIONS ── */}
+      {sectionsInSlot('hero', 'searchFilter').map(renderCustomSection)}
+
       <main className="flex-1 py-12" id="products">
         <div className="container mx-auto px-4">
 
-          {/* Search bar */}
+          {/* Search bar + Filters */}
+          {sectionEnabled('searchFilter') && (<>
           <div className="flex flex-col sm:flex-row gap-4 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -366,6 +420,10 @@ export default function Home() {
               ))}
             </div>
           )}
+          </>)}
+
+          {/* ── BETWEEN SEARCH AND PRODUCTS SECTIONS ── */}
+          {sectionsInSlot('searchFilter', 'products').map(renderCustomSection)}
 
           {/* Responsive grid style injection */}
           <style>{`
@@ -405,7 +463,7 @@ export default function Home() {
           )}
 
           {/* Products */}
-          {productsLoading ? (
+          {sectionEnabled('products') && (productsLoading ? (
             <div className="mt-4 sf-product-grid">
               {Array.from({ length: 14 }).map((_, i) => (
                 <div key={i} className="animate-pulse">
@@ -591,9 +649,12 @@ export default function Home() {
               <h3 className="font-display text-lg font-semibold mb-2">No products found</h3>
               <p className="text-muted-foreground">Try adjusting your search or filters</p>
             </div>
-          )}
+          ))}
         </div>
       </main>
+
+      {/* ── POST-PRODUCTS CUSTOM SECTIONS ── */}
+      {postProductsSections.map(renderCustomSection)}
 
       <Footer />
     </div>

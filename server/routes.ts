@@ -9393,24 +9393,19 @@ Avoid: exclamation marks, vague superlatives (best/amazing/incredible), passive 
 Return ONLY valid JSON — no markdown, no explanation, no code fences:
 {"productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}`;
 
-      const userMessage = imageUrl
-        ? [
-            { type: "text" as const, text: `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}\n\nWrite a complete GridMart listing for this product.` },
-            { type: "image_url" as const, image_url: { url: imageUrl } },
-          ]
-        : `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}\n\nWrite a complete GridMart listing for this product.`;
+      const userMessage = `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}\n\nWrite a complete GridMart listing for this product.`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage as any },
+          { role: "user", content: userMessage },
         ],
         max_tokens: 1000,
-        response_format: { type: "json_object" },
       });
 
-      const raw = completion.choices[0]?.message?.content || '{}';
+      let raw = completion.choices[0]?.message?.content || '{}';
+      raw = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
       let data: { productDetails?: string; features?: string[]; specifications?: Array<{ key: string; value: string }> } = {};
       try {
         data = JSON.parse(raw);
@@ -9425,9 +9420,10 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
       ];
 
       res.json({ sections });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Generate listing error:", error);
-      res.status(500).json({ error: "Failed to generate listing" });
+      const msg = error?.message || error?.toString() || "Unknown error";
+      res.status(500).json({ error: `Generate listing failed: ${msg}` });
     }
   });
 
