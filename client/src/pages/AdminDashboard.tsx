@@ -4799,6 +4799,103 @@ function LandingPagesTab({ productList, promoCodeList }: { productList: Product[
   );
 }
 
+function UnderConstructionToggle() {
+  const [enabled, setEnabled] = useState(false);
+  const [message, setMessage] = useState("We're making some improvements. Check back soon.");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/site-settings')
+      .then(r => r.json())
+      .then(s => {
+        setEnabled(s.siteUnderConstruction === 'true');
+        if (s.underConstructionMessage) setMessage(s.underConstructionMessage);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  const save = async (nextEnabled: boolean, nextMessage: string) => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        fetch('/api/site-settings/siteUnderConstruction', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: String(nextEnabled) }),
+        }),
+        fetch('/api/site-settings/underConstructionMessage', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: nextMessage }),
+        }),
+      ]);
+      toast.success(nextEnabled ? 'Site set to Under Construction' : 'Site is now live');
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className={`border rounded-lg p-4 flex flex-col sm:flex-row sm:items-start gap-4 transition-colors ${enabled ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/20' : 'bg-muted/10'}`}>
+      <div className="flex-1 space-y-3">
+        <div className="flex items-center gap-3">
+          <div
+            role="switch"
+            aria-checked={enabled}
+            tabIndex={0}
+            onClick={() => { const next = !enabled; setEnabled(next); save(next, message); }}
+            onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { const next = !enabled; setEnabled(next); save(next, message); } }}
+            className={`relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${enabled ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-none">
+              Under Construction Mode
+              {enabled && <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white uppercase tracking-wide">Active</span>}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {enabled
+                ? 'Visitors see the Under Construction page. You can still access /admin.'
+                : 'Site is live and visible to all visitors.'}
+            </p>
+          </div>
+        </div>
+
+        {enabled && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Message shown to visitors</label>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 h-8 text-sm border rounded-md px-3 bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="We're making some improvements. Check back soon."
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 shrink-0"
+                disabled={saving}
+                onClick={() => save(enabled, message)}
+              >
+                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading, logout, switchRole } = useAuth();
@@ -21869,6 +21966,8 @@ Check other listings for more products`);
           </TabsContent>
 
           <TabsContent value="design" className="space-y-6">
+            <UnderConstructionToggle />
+
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <div>
