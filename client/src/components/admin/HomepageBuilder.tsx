@@ -429,6 +429,15 @@ function SectionPropsEditor({
             />
           </div>
         )}
+        {source === 'manual' && Array.isArray(p.productIds) && p.productIds.length === 1 && (
+          <FeaturedSingleCropEditor
+            productId={String(p.productIds[0])}
+            position={p.featuredImagePosition || '50% 50%'}
+            scale={p.featuredImageScale || 1}
+            onPositionChange={pos => onChange({ featuredImagePosition: pos })}
+            onScaleChange={s => onChange({ featuredImageScale: s })}
+          />
+        )}
       </div>
     );
   }
@@ -821,6 +830,49 @@ function CategoryImageEditor({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Featured single-product crop editor ──────────────────────────────────────
+
+function FeaturedSingleCropEditor({
+  productId,
+  position,
+  scale,
+  onPositionChange,
+  onScaleChange,
+}: {
+  productId: string;
+  position: string;
+  scale: number;
+  onPositionChange: (pos: string) => void;
+  onScaleChange: (s: number) => void;
+}) {
+  const { data: product } = useQuery<{ id: string; name: string; images?: string[] }>({
+    queryKey: ['product-picker', productId],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${productId}`);
+      return res.ok ? res.json() : null;
+    },
+    enabled: !!productId,
+    staleTime: 300000,
+  });
+
+  const imageUrl = product?.images?.[0] || '';
+  if (!imageUrl) return null;
+
+  return (
+    <div className="space-y-1.5 border-t pt-3">
+      <Label className="text-xs font-medium">Banner Image Crop</Label>
+      <p className="text-[10px] text-muted-foreground">Adjust focal point and zoom for the single-product banner layout</p>
+      <FocalPointPicker
+        imageUrl={imageUrl}
+        position={position}
+        scale={scale}
+        onPositionChange={onPositionChange}
+        onScaleChange={onScaleChange}
+      />
     </div>
   );
 }

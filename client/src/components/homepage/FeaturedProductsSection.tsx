@@ -12,9 +12,11 @@ interface FeaturedProductsProps {
   heading?: string;
   products: FeaturedProduct[];
   count?: number;
+  imagePosition?: string;
+  imageScale?: number;
 }
 
-export function FeaturedProductsSection({ heading = 'Featured This Week', products, count = 4 }: FeaturedProductsProps) {
+export function FeaturedProductsSection({ heading = 'Featured This Week', products, count = 4, imagePosition, imageScale }: FeaturedProductsProps) {
   const items = products.slice(0, count);
   if (!items.length) return null;
 
@@ -32,7 +34,12 @@ export function FeaturedProductsSection({ heading = 'Featured This Week', produc
                 <img
                   src={p.image}
                   alt={p.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-cover"
+                  style={{
+                    objectPosition: imagePosition || '50% 50%',
+                    transform: `scale(${imageScale || 1})`,
+                    transformOrigin: imagePosition || '50% 50%',
+                  }}
                 />
                 {onSale && (
                   <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">SALE</span>
