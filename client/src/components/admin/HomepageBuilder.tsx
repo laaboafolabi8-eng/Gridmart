@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronUp, ChevronDown, Trash2, Plus, Shuffle, Zap, Gauge, AlertTriangle, Check } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2, Plus, Shuffle, Zap, Gauge, AlertTriangle, Check, Upload, Loader2 } from 'lucide-react';
 import {
   type HomepageSectionConfig,
   type HomepageSectionType,
@@ -15,10 +16,30 @@ import {
   generateRandomLayout,
   LAYOUT_TEMPLATE_COUNT,
 } from '@/lib/homepageSections';
+import { HeroSectionEditor } from './HeroSectionEditor';
+import { ProductsSectionEditor } from './ProductsSectionEditor';
 
 interface Props {
   value: HomepageSectionConfig[] | null | undefined;
   onChange: (sections: HomepageSectionConfig[]) => void;
+}
+
+async function uploadImageFile(file: File): Promise<string | null> {
+  try {
+    const urlRes = await fetch('/api/uploads/request-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+    if (!urlRes.ok) return null;
+    const { uploadURL, objectPath } = await urlRes.json();
+    const uploadRes = await fetch(uploadURL, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+    if (!uploadRes.ok) return null;
+    return `/api${objectPath}`;
+  } catch {
+    return null;
+  }
 }
 
 function SpeedBadge({ rating, note }: { rating: SpeedRating; note: string }) {
@@ -37,6 +58,9 @@ function SpeedBadge({ rating, note }: { rating: SpeedRating; note: string }) {
 }
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
+
+// Built-in sections that have their own editors even though defaultProps is empty
+const SECTIONS_WITH_SETTINGS = new Set<HomepageSectionType>(['hero', 'products']);
 
 export function HomepageBuilder({ value, onChange }: Props) {
   const sections: HomepageSectionConfig[] = value?.length ? value : DEFAULT_HOMEPAGE_SECTIONS;
@@ -120,7 +144,7 @@ export function HomepageBuilder({ value, onChange }: Props) {
           {sections.map((section, idx) => {
             const def = SECTION_DEFS[section.type];
             const isExpanded = expandedId === section.id;
-            const hasProps = Object.keys(def.defaultProps).length > 0;
+            const hasSettings = Object.keys(def.defaultProps).length > 0 || SECTIONS_WITH_SETTINGS.has(section.type);
             return (
               <div key={section.id} className="border rounded-lg overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2 bg-muted/20">
@@ -134,7 +158,7 @@ export function HomepageBuilder({ value, onChange }: Props) {
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={() => move(section.id, 1)} disabled={idx === sections.length - 1}>
                       <ChevronDown className="w-3 h-3" />
                     </Button>
-                    {hasProps && (
+                    {hasSettings && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -156,7 +180,7 @@ export function HomepageBuilder({ value, onChange }: Props) {
                     </Button>
                   </div>
                 </div>
-                {isExpanded && hasProps && (
+                {isExpanded && hasSettings && (
                   <div className="p-3 border-t bg-background">
                     <SectionPropsEditor section={section} onChange={patch => updateProps(section.id, patch)} />
                   </div>
@@ -214,6 +238,14 @@ function SectionPropsEditor({
 }) {
   const p = section.props;
 
+  if (section.type === 'hero') {
+    return <HeroSectionEditor />;
+  }
+
+  if (section.type === 'products') {
+    return <ProductsSectionEditor />;
+  }
+
   if (section.type === 'textBlock') {
     return (
       <div className="space-y-3">
@@ -260,9 +292,17 @@ function SectionPropsEditor({
     return (
       <div className="space-y-3">
         <div>
-          <Label className="text-xs">Image URL</Label>
-          <Input value={p.imageUrl || ''} onChange={e => onChange({ imageUrl: e.target.value })} className="h-8 text-sm mt-1" placeholder="https://..." />
+          <Label className="text-xs">Banner Image</Label>
+          <div className="flex gap-2 mt-1">
+            <Input value={p.imageUrl || ''} onChange={e => onChange({ imageUrl: e.target.value })} className="h-8 text-sm" placeholder="https://... or upload below" />
+          </div>
+          <ImageUploadButton currentUrl={p.imageUrl || ''} onUploaded={url => onChange({ imageUrl: url })} />
         </div>
+        {p.imageUrl && (
+          <div className="rounded-md overflow-hidden border h-20">
+            <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Heading (optional)</Label>
@@ -334,7 +374,10 @@ function SectionPropsEditor({
                   </Button>
                 )}
               </div>
-              <Input value={slide.imageUrl} onChange={e => updateSlide(i, { imageUrl: e.target.value })} className="h-8 text-xs" placeholder="Image URL (https://...)" />
+              <div className="space-y-1.5">
+                <Input value={slide.imageUrl} onChange={e => updateSlide(i, { imageUrl: e.target.value })} className="h-8 text-xs" placeholder="Image URL (https://...)" />
+                <ImageUploadButton currentUrl={slide.imageUrl} onUploaded={url => updateSlide(i, { imageUrl: url })} />
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 <Input value={slide.caption || ''} onChange={e => updateSlide(i, { caption: e.target.value })} className="h-8 text-xs" placeholder="Caption" />
                 <Input value={slide.ctaLabel || ''} onChange={e => updateSlide(i, { ctaLabel: e.target.value })} className="h-8 text-xs" placeholder="Button text" />
@@ -392,7 +435,7 @@ function SectionPropsEditor({
 
   if (section.type === 'categoriesGrid') {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div>
           <Label className="text-xs">Section Heading</Label>
           <Input value={p.heading || ''} onChange={e => onChange({ heading: e.target.value })} className="h-8 text-sm mt-1" placeholder="Shop by Category" />
@@ -408,16 +451,158 @@ function SectionPropsEditor({
             </SelectContent>
           </Select>
         </div>
+        <div>
+          <Label className="text-xs mb-2 block">Category Images</Label>
+          <p className="text-[10px] text-muted-foreground mb-2 leading-snug">
+            Upload a custom image or pick a product from that category. Leave blank to use the first product image automatically.
+          </p>
+          <CategoryImageEditor
+            categoryImages={p.categoryImages || {}}
+            onChange={imgs => onChange({ categoryImages: imgs })}
+          />
+        </div>
       </div>
     );
   }
 
+  return null;
+}
+
+// ── Image upload inline button ────────────────────────────────────────────────
+
+function ImageUploadButton({ currentUrl, onUploaded }: { currentUrl: string; onUploaded: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
+    setUploading(true);
+    const url = await uploadImageFile(file);
+    if (url) {
+      onUploaded(url);
+      toast.success('Image uploaded');
+    } else {
+      toast.error('Upload failed');
+    }
+    setUploading(false);
+  };
+
   return (
-    <p className="text-xs text-muted-foreground">
-      This section is configured via the Homepage Copy and Storefront Layout settings below.
-    </p>
+    <>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs gap-1.5 mt-1"
+        disabled={uploading}
+        onClick={() => inputRef.current?.click()}
+      >
+        {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+        {uploading ? 'Uploading...' : currentUrl ? 'Replace Image' : 'Upload Image'}
+      </Button>
+    </>
   );
 }
+
+// ── Category image editor ─────────────────────────────────────────────────────
+
+function CategoryImageEditor({
+  categoryImages,
+  onChange,
+}: {
+  categoryImages: Record<string, string>;
+  onChange: (imgs: Record<string, string>) => void;
+}) {
+  const { data: categories = [] } = useQuery<Array<{ id: string; name: string; parentId?: string | null; sortOrder: number }>>({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await fetch('/api/categories');
+      return res.ok ? res.json() : [];
+    },
+    staleTime: 60000,
+  });
+
+  const { data: products = [] } = useQuery<Array<{ id: string; name: string; category: string; images?: string[] }>>({
+    queryKey: ['products', 'live'],
+    queryFn: async () => {
+      const res = await fetch('/api/products?live=true');
+      return res.ok ? res.json() : [];
+    },
+    staleTime: 60000,
+  });
+
+  const topLevel = categories
+    .filter(c => !c.parentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const productsByCategory = products.reduce((map, p) => {
+    if (!map[p.category]) map[p.category] = [];
+    map[p.category].push(p);
+    return map;
+  }, {} as Record<string, typeof products>);
+
+  const activeCategories = topLevel.filter(c => (productsByCategory[c.name]?.length ?? 0) > 0);
+
+  const setImg = (catName: string, url: string) => onChange({ ...categoryImages, [catName]: url });
+
+  if (!activeCategories.length) {
+    return <p className="text-xs text-muted-foreground">No active categories found.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {activeCategories.map(cat => {
+        const currentImg = categoryImages[cat.name] || '';
+        const autoImg = productsByCategory[cat.name]?.find(p => p.images?.length)?.images?.[0] || '';
+        const catProducts = productsByCategory[cat.name] || [];
+
+        return (
+          <div key={cat.id} className="border rounded-md p-2.5 space-y-2 bg-muted/10">
+            <div className="flex items-center gap-2">
+              {(currentImg || autoImg) && (
+                <img src={currentImg || autoImg} alt={cat.name} className="w-8 h-8 rounded object-cover border shrink-0" />
+              )}
+              <span className="text-xs font-semibold flex-1">{cat.name}</span>
+              {currentImg && (
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-muted-foreground" onClick={() => setImg(cat.name, '')}>
+                  Auto
+                </Button>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Select
+                value={currentImg || '__auto__'}
+                onValueChange={v => setImg(cat.name, v === '__auto__' ? '' : v)}
+              >
+                <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Auto (first product image)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__auto__">Auto (first product image)</SelectItem>
+                  {catProducts.filter(p => p.images?.length).map(p => (
+                    <SelectItem key={p.id} value={p.images![0]}>
+                      {p.name.slice(0, 40)}{p.name.length > 40 ? '…' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-1.5">
+                <Input
+                  value={currentImg}
+                  onChange={e => setImg(cat.name, e.target.value)}
+                  className="h-7 text-xs flex-1"
+                  placeholder="Or paste custom image URL..."
+                />
+                <ImageUploadButton currentUrl={currentImg} onUploaded={url => setImg(cat.name, url)} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Manual product picker ─────────────────────────────────────────────────────
 
 function ManualProductPicker({
   selected,

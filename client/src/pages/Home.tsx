@@ -212,7 +212,7 @@ export default function Home() {
       return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} />;
     }
     if (section.type === 'categoriesGrid') {
-      return <CategoriesSection key={section.id} heading={p.heading} columns={p.columns} />;
+      return <CategoriesSection key={section.id} heading={p.heading} columns={p.columns} categoryImages={p.categoryImages} />;
     }
     return null;
   };

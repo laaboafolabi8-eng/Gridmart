@@ -18,6 +18,7 @@ interface Product {
 interface Props {
   heading?: string;
   columns?: number;
+  categoryImages?: Record<string, string>;
 }
 
 const COL_CLASS: Record<number, string> = {
@@ -26,7 +27,7 @@ const COL_CLASS: Record<number, string> = {
   4: 'grid-cols-2 sm:grid-cols-4',
 };
 
-export function CategoriesSection({ heading = 'Shop by Category', columns = 3 }: Props) {
+export function CategoriesSection({ heading = 'Shop by Category', columns = 3, categoryImages = {} }: Props) {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: async () => {
@@ -69,7 +70,7 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3 }:
         )}
         <div className={`grid ${colClass} gap-4`}>
           {activeCategories.map(cat => {
-            const coverImg = productsByCategory[cat.name]?.find(p => p.images?.length)?.images?.[0];
+            const coverImg = categoryImages[cat.name] || productsByCategory[cat.name]?.find(p => p.images?.length)?.images?.[0];
             return (
               <Link key={cat.id} href={`/shop?category=${encodeURIComponent(cat.name)}`}>
                 <div className="group relative rounded-xl overflow-hidden cursor-pointer bg-muted" style={{ aspectRatio: '4/3' }}>
