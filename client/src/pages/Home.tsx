@@ -392,57 +392,6 @@ export default function Home() {
             </Button>
           </div>
 
-          {/* Categories row */}
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
-            <Button
-              variant={selectedCategory === null ? 'default' : 'outline'}
-              size="sm"
-              className="font-display"
-              onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); }}
-              data-testid="button-category-all"
-            >
-              All
-            </Button>
-            {categories.map(cat => (
-              <Button
-                key={cat}
-                variant={selectedCategory === cat ? 'default' : 'outline'}
-                size="sm"
-                className="font-display"
-                onClick={() => { setSelectedCategory(cat); setSelectedSubcategory(null); }}
-                data-testid={`button-category-${cat.toLowerCase()}`}
-              >
-                {cat}
-              </Button>
-            ))}
-          </div>
-
-          {/* Subcategory pills */}
-          {selectedCategory && subcategoriesForSelected.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-4 mb-2">
-              <Button
-                variant={selectedSubcategory === null ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-7 text-xs rounded-full font-display"
-                onClick={() => setSelectedSubcategory(null)}
-                data-testid="button-subcategory-all"
-              >
-                All {selectedCategory}
-              </Button>
-              {subcategoriesForSelected.map(sub => (
-                <Button
-                  key={sub.id}
-                  variant={selectedSubcategory === sub.name ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="h-7 text-xs rounded-full font-display"
-                  onClick={() => setSelectedSubcategory(sub.name)}
-                  data-testid={`button-subcategory-${sub.name.toLowerCase()}`}
-                >
-                  {sub.name}
-                </Button>
-              ))}
-            </div>
-          )}
           </>)}
 
           {/* ── BETWEEN SEARCH AND PRODUCTS SECTIONS ── */}

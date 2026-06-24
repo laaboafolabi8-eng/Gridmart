@@ -417,7 +417,7 @@ function SectionPropsEditor({
           </div>
           <div>
             <Label className="text-xs">Max shown</Label>
-            <Input type="number" min="2" max="8" value={p.count || 4} onChange={e => onChange({ count: parseInt(e.target.value) || 4 })} className="h-8 w-20 text-sm mt-1" />
+            <Input type="number" min="1" max="8" value={p.count || 4} onChange={e => onChange({ count: parseInt(e.target.value) || 1 })} className="h-8 w-20 text-sm mt-1" />
           </div>
         </div>
         {source === 'manual' && (
