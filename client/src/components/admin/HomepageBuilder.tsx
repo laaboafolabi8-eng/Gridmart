@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronUp, ChevronDown, Trash2, Plus, Shuffle, Zap, Gauge, AlertTriangle } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2, Plus, Shuffle, Zap, Gauge, AlertTriangle, Check } from 'lucide-react';
 import {
   type HomepageSectionConfig,
   type HomepageSectionType,
@@ -352,6 +353,7 @@ function SectionPropsEditor({
   }
 
   if (section.type === 'featuredProducts') {
+    const source = p.source || 'newest';
     return (
       <div className="space-y-3">
         <div>
@@ -361,18 +363,50 @@ function SectionPropsEditor({
         <div className="flex gap-3 flex-wrap">
           <div>
             <Label className="text-xs">Source</Label>
-            <Select value={p.source || 'newest'} onValueChange={v => onChange({ source: v })}>
-              <SelectTrigger className="h-8 w-40 text-xs mt-1"><SelectValue /></SelectTrigger>
+            <Select value={source} onValueChange={v => onChange({ source: v, productIds: v !== 'manual' ? [] : (p.productIds || []) })}>
+              <SelectTrigger className="h-8 w-44 text-xs mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest">Newest Products</SelectItem>
                 <SelectItem value="sale">On Sale</SelectItem>
+                <SelectItem value="manual">Hand-pick Products</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Max products shown</Label>
+            <Label className="text-xs">Max shown</Label>
             <Input type="number" min="2" max="8" value={p.count || 4} onChange={e => onChange({ count: parseInt(e.target.value) || 4 })} className="h-8 w-20 text-sm mt-1" />
           </div>
+        </div>
+        {source === 'manual' && (
+          <div>
+            <Label className="text-xs mb-1 block">Select Products</Label>
+            <ManualProductPicker
+              selected={Array.isArray(p.productIds) ? p.productIds : []}
+              onChange={ids => onChange({ productIds: ids })}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (section.type === 'categoriesGrid') {
+    return (
+      <div className="space-y-3">
+        <div>
+          <Label className="text-xs">Section Heading</Label>
+          <Input value={p.heading || ''} onChange={e => onChange({ heading: e.target.value })} className="h-8 text-sm mt-1" placeholder="Shop by Category" />
+        </div>
+        <div>
+          <Label className="text-xs">Columns</Label>
+          <Select value={String(p.columns || 3)} onValueChange={v => onChange({ columns: parseInt(v) })}>
+            <SelectTrigger className="h-8 w-28 text-xs mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2">2 columns</SelectItem>
+              <SelectItem value="3">3 columns</SelectItem>
+              <SelectItem value="4">4 columns</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     );
@@ -382,5 +416,73 @@ function SectionPropsEditor({
     <p className="text-xs text-muted-foreground">
       This section is configured via the Homepage Copy and Storefront Layout settings below.
     </p>
+  );
+}
+
+function ManualProductPicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  const { data: allProducts = [] } = useQuery<Array<{ id: string; name: string; category?: string }>>({
+    queryKey: ['products', 'admin-picker'],
+    queryFn: async () => {
+      const res = await fetch('/api/products');
+      return res.ok ? res.json() : [];
+    },
+    staleTime: 300000,
+  });
+
+  const selectedStrs = selected.map(String);
+
+  const filtered = allProducts
+    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    .slice(0, 60);
+
+  const toggle = (id: string) => {
+    if (selectedStrs.includes(id)) {
+      onChange(selected.filter(s => String(s) !== id));
+    } else if (selected.length < 8) {
+      onChange([...selected, id]);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] text-muted-foreground">{selected.length} selected · max 8</p>
+      <Input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search products..."
+        className="h-7 text-xs"
+      />
+      <div className="border rounded-md max-h-52 overflow-y-auto divide-y divide-border/50">
+        {filtered.map(prod => {
+          const isSelected = selectedStrs.includes(String(prod.id));
+          return (
+            <button
+              key={prod.id}
+              type="button"
+              onClick={() => toggle(String(prod.id))}
+              disabled={!isSelected && selected.length >= 8}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs text-left transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/50'} disabled:opacity-40`}
+            >
+              <div className={`w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+              </div>
+              <span className="flex-1 truncate">{prod.name}</span>
+              {prod.category && <span className="text-muted-foreground/60 shrink-0 text-[10px]">{prod.category}</span>}
+            </button>
+          );
+        })}
+        {filtered.length === 0 && (
+          <p className="p-3 text-xs text-muted-foreground text-center">No products found</p>
+        )}
+      </div>
+    </div>
   );
 }

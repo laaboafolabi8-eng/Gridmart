@@ -5,7 +5,8 @@ export type HomepageSectionType =
   | 'textBlock'
   | 'promoBanner'
   | 'slideshow'
-  | 'featuredProducts';
+  | 'featuredProducts'
+  | 'categoriesGrid';
 
 export type SpeedRating = 'fast' | 'medium' | 'slow';
 
@@ -110,7 +111,7 @@ export const SECTION_DEFS: Record<HomepageSectionType, HomepageSectionDef> = {
   featuredProducts: {
     type: 'featuredProducts',
     label: 'Featured Products',
-    description: 'A spotlight row showing your newest or on-sale products. Picks automatically from your catalogue.',
+    description: 'A spotlight row showing your newest, on-sale, or hand-picked products.',
     speedRating: 'fast',
     speedNote: 'Reuses product data already fetched for the main grid — no extra requests.',
     emoji: '⭐',
@@ -119,6 +120,20 @@ export const SECTION_DEFS: Record<HomepageSectionType, HomepageSectionDef> = {
       heading: 'Featured This Week',
       count: 4,
       source: 'newest',
+      productIds: [],
+    },
+  },
+  categoriesGrid: {
+    type: 'categoriesGrid',
+    label: 'Category Grid',
+    description: 'Visual grid of your product categories. Each tile links to a filtered product view — great for content-first homepages.',
+    speedRating: 'fast',
+    speedNote: 'Reuses already-fetched categories and product images — no extra network requests.',
+    emoji: '🗂️',
+    maxCount: 1,
+    defaultProps: {
+      heading: 'Shop by Category',
+      columns: 3,
     },
   },
 };
@@ -131,18 +146,20 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionConfig[] = [
 
 // Named curated templates — ordered to be sensible, not random
 const LAYOUT_TEMPLATES: Array<{ name: string; sequence: HomepageSectionType[] }> = [
-  { name: 'Classic',     sequence: ['hero', 'searchFilter', 'products'] },
-  { name: 'Marketing',   sequence: ['hero', 'promoBanner', 'searchFilter', 'products'] },
-  { name: 'Showcase',    sequence: ['hero', 'featuredProducts', 'searchFilter', 'products'] },
-  { name: 'Rich',        sequence: ['hero', 'slideshow', 'searchFilter', 'featuredProducts', 'products'] },
-  { name: 'Editorial',   sequence: ['hero', 'textBlock', 'searchFilter', 'products', 'promoBanner'] },
-  { name: 'Minimal',     sequence: ['searchFilter', 'products'] },
-  { name: 'Content-Led', sequence: ['hero', 'textBlock', 'featuredProducts', 'searchFilter', 'products'] },
-  { name: 'Dynamic',     sequence: ['hero', 'slideshow', 'searchFilter', 'products', 'textBlock'] },
-  { name: 'Campaign',    sequence: ['hero', 'promoBanner', 'featuredProducts', 'searchFilter', 'products'] },
-  { name: 'Discovery',   sequence: ['hero', 'slideshow', 'searchFilter', 'products', 'promoBanner'] },
-  { name: 'Soft Focus',  sequence: ['hero', 'featuredProducts', 'textBlock', 'searchFilter', 'products'] },
-  { name: 'Bold Start',  sequence: ['hero', 'promoBanner', 'searchFilter', 'products'] },
+  { name: 'Classic',        sequence: ['hero', 'searchFilter', 'products'] },
+  { name: 'Marketing',      sequence: ['hero', 'promoBanner', 'searchFilter', 'products'] },
+  { name: 'Showcase',       sequence: ['hero', 'featuredProducts', 'searchFilter', 'products'] },
+  { name: 'Rich',           sequence: ['hero', 'slideshow', 'searchFilter', 'featuredProducts', 'products'] },
+  { name: 'Editorial',      sequence: ['hero', 'textBlock', 'searchFilter', 'products', 'promoBanner'] },
+  { name: 'Minimal',        sequence: ['searchFilter', 'products'] },
+  { name: 'Content-Led',    sequence: ['hero', 'textBlock', 'featuredProducts', 'searchFilter', 'products'] },
+  { name: 'Dynamic',        sequence: ['hero', 'slideshow', 'searchFilter', 'products', 'textBlock'] },
+  { name: 'Campaign',       sequence: ['hero', 'promoBanner', 'featuredProducts', 'searchFilter', 'products'] },
+  { name: 'Discovery',      sequence: ['hero', 'slideshow', 'searchFilter', 'products', 'promoBanner'] },
+  { name: 'Soft Focus',     sequence: ['hero', 'featuredProducts', 'textBlock', 'searchFilter', 'products'] },
+  { name: 'Bold Start',     sequence: ['hero', 'promoBanner', 'searchFilter', 'products'] },
+  { name: 'Category-First', sequence: ['hero', 'categoriesGrid', 'searchFilter', 'products'] },
+  { name: 'Browse-Led',     sequence: ['hero', 'textBlock', 'categoriesGrid', 'searchFilter', 'products'] },
 ];
 
 export const LAYOUT_TEMPLATE_COUNT = LAYOUT_TEMPLATES.length;

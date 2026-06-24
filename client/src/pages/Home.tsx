@@ -12,6 +12,7 @@ import { TextBlockSection } from '@/components/homepage/TextBlockSection';
 import { PromoBannerSection } from '@/components/homepage/PromoBannerSection';
 import { SlideshowSection } from '@/components/homepage/SlideshowSection';
 import { FeaturedProductsSection } from '@/components/homepage/FeaturedProductsSection';
+import { CategoriesSection } from '@/components/homepage/CategoriesSection';
 import { type HomepageSectionConfig, DEFAULT_HOMEPAGE_SECTIONS } from '@/lib/homepageSections';
 
 function seededRandom(seed: string): number {
@@ -199,10 +200,19 @@ export default function Home() {
     if (section.type === 'featuredProducts') {
       const source = p.source || 'newest';
       const count = p.count || 4;
-      const featured = source === 'sale'
-        ? products.filter(prod => prod.salePrice && parseFloat(prod.salePrice) < parseFloat(prod.price)).slice(0, count)
-        : [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, count);
+      let featured: Product[];
+      if (source === 'manual' && Array.isArray(p.productIds) && p.productIds.length > 0) {
+        const ids = p.productIds.map(String);
+        featured = products.filter(prod => ids.includes(String(prod.id))).slice(0, count);
+      } else if (source === 'sale') {
+        featured = products.filter((prod: any) => prod.salePrice && parseFloat(prod.salePrice) < parseFloat(prod.price)).slice(0, count);
+      } else {
+        featured = [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, count);
+      }
       return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} />;
+    }
+    if (section.type === 'categoriesGrid') {
+      return <CategoriesSection key={section.id} heading={p.heading} columns={p.columns} />;
     }
     return null;
   };
