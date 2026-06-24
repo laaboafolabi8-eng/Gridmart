@@ -4800,6 +4800,7 @@ function LandingPagesTab({ productList, promoCodeList }: { productList: Product[
 }
 
 function UnderConstructionToggle() {
+  const queryClient = useQueryClient();
   const [enabled, setEnabled] = useState(false);
   const [message, setMessage] = useState("We're making some improvements. Check back soon.");
   const [saving, setSaving] = useState(false);
@@ -4831,6 +4832,7 @@ function UnderConstructionToggle() {
           body: JSON.stringify({ value: nextMessage }),
         }),
       ]);
+      queryClient.invalidateQueries({ queryKey: ['site-settings'] });
       toast.success(nextEnabled ? 'Site set to Under Construction' : 'Site is now live');
     } catch {
       toast.error('Failed to save');
