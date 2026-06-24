@@ -118,6 +118,7 @@ export function HomepageBuilder({ value, onChange }: Props) {
         <div className="space-y-1.5">
           {sections.map((section, idx) => {
             const def = SECTION_DEFS[section.type];
+            if (!def) return null;
             const isExpanded = expandedId === section.id;
             const hasProps = Object.keys(def.defaultProps).length > 0;
             return (
