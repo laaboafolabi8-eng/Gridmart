@@ -154,7 +154,18 @@ function AppGate() {
     return <UnderConstruction />;
   }
 
-  return <Router />;
+  return (
+    <>
+      {isUnderConstruction && isAdmin && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, background: '#f59e0b', color: '#000', textAlign: 'center', padding: '6px 12px', fontSize: '13px', fontWeight: 600 }}>
+          Under Construction mode is ON — visitors see the Under Construction page
+        </div>
+      )}
+      <div style={isUnderConstruction && isAdmin ? { paddingTop: '32px' } : undefined}>
+        <Router />
+      </div>
+    </>
+  );
 }
 
 function App() {
