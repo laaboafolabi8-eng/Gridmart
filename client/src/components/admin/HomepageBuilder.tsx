@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -607,14 +607,30 @@ function FocalPointPicker({
 // ── Category image editor ─────────────────────────────────────────────────────
 
 function CategoryImageEditor({
-  categoryImages,
   onChange,
 }: {
   categoryImages: Record<string, string | CatImgData>;
   onChange: (imgs: Record<string, string | CatImgData>) => void;
 }) {
+  const queryClient = useQueryClient();
   const [catSearch, setCatSearch] = useState<Record<string, string>>({});
   const [editingFocal, setEditingFocal] = useState<string | null>(null);
+
+  // Read category images from site-settings so they survive section deletion
+  const { data: siteSettings = {} } = useQuery<Record<string, string>>({
+    queryKey: ['site-settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/site-settings');
+      return res.ok ? res.json() : {};
+    },
+    staleTime: 60000,
+  });
+
+  const categoryImages: Record<string, string | CatImgData> = (() => {
+    if (!siteSettings.categoryImages) return {};
+    try { return JSON.parse(siteSettings.categoryImages); }
+    catch { return {}; }
+  })();
 
   const { data: categories = [] } = useQuery<Array<{ id: string; name: string; parentId?: string | null; sortOrder: number }>>({
     queryKey: ['categories'],
@@ -646,15 +662,23 @@ function CategoryImageEditor({
 
   const getCatImg = (catName: string): CatImgData => normCatImg(categoryImages[catName]);
 
-  const setImg = (catName: string, patch: Partial<CatImgData>) => {
+  const setImg = async (catName: string, patch: Partial<CatImgData>) => {
     const next = { ...getCatImg(catName), ...patch };
+    let updated: Record<string, string | CatImgData>;
     if (!next.url) {
-      const updated = { ...categoryImages };
+      updated = { ...categoryImages };
       delete updated[catName];
-      onChange(updated);
     } else {
-      onChange({ ...categoryImages, [catName]: next });
+      updated = { ...categoryImages, [catName]: next };
     }
+    onChange(updated); // keep section props in sync
+    // Persist to site-settings independently so images survive section deletion
+    const res = await fetch('/api/site-settings/categoryImages', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: JSON.stringify(updated) }),
+    });
+    if (res.ok) queryClient.invalidateQueries({ queryKey: ['site-settings'] });
   };
 
   if (!activeCategories.length) {

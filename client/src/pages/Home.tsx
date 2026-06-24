@@ -56,6 +56,12 @@ export default function Home() {
     catch { return DEFAULT_HOMEPAGE_SECTIONS; }
   }, [siteSettings.homepageSections]);
 
+  const persistedCategoryImages = useMemo((): Record<string, any> => {
+    if (!siteSettings.categoryImages) return {};
+    try { return JSON.parse(siteSettings.categoryImages); }
+    catch { return {}; }
+  }, [siteSettings.categoryImages]);
+
   const sectionEnabled = (type: string) =>
     homepageSections.some(s => s.type === type && s.enabled !== false);
 
@@ -212,24 +218,31 @@ export default function Home() {
       return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} />;
     }
     if (section.type === 'categoriesGrid') {
-      return <CategoriesSection key={section.id} heading={p.heading} columns={p.columns} categoryImages={p.categoryImages} />;
+      return <CategoriesSection key={section.id} heading={p.heading} columns={p.columns} categoryImages={persistedCategoryImages} />;
     }
     return null;
   };
 
   const sectionsInSlot = (afterType: string, beforeType: string) => {
-    const after = homepageSections.findIndex(s => s.type === afterType);
+    // '__start__' is a sentinel meaning "from the beginning of the array"
+    const after = afterType === '__start__' ? -1 : homepageSections.findIndex(s => s.type === afterType);
     const before = homepageSections.findIndex(s => s.type === beforeType);
-    if (after === -1 && before === -1) return [];
+    // If the "after" anchor doesn't exist (and it's not the special sentinel), skip this slot
+    if (afterType !== '__start__' && after === -1) return [];
+    // If the "before" anchor doesn't exist, skip this slot — postProductsSections will cover these
+    if (before === -1) return [];
     const start = after === -1 ? 0 : after + 1;
-    const end = before === -1 ? homepageSections.length : before;
-    return homepageSections.slice(start, end).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+    return homepageSections.slice(start, before).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
   };
 
   const postProductsSections = (() => {
-    const idx = homepageSections.reduce((acc, s, i) => s.type === 'products' ? i : acc, -1);
-    if (idx === -1) return homepageSections.filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
-    return homepageSections.slice(idx + 1).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+    const productsIdx = homepageSections.reduce((acc, s, i) => s.type === 'products' ? i : acc, -1);
+    if (productsIdx !== -1) {
+      return homepageSections.slice(productsIdx + 1).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+    }
+    // No 'products' builtin: render custom sections that come after the last builtin anchor
+    const lastBuiltinIdx = homepageSections.reduce((acc, s, i) => BUILTIN_TYPES.includes(s.type) ? i : acc, -1);
+    return homepageSections.slice(lastBuiltinIdx + 1).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
   })();
 
   return (
