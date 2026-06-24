@@ -476,6 +476,32 @@ export default function ProductDetail() {
             </div>
           </div>
 
+          {/* Related products */}
+          {relatedProducts.length > 0 && (
+            <section className="mb-8" data-testid="related-products-section">
+              <h2 className="font-display text-xl font-semibold mb-4">More {product.subcategory || product.category}</h2>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
+                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: -300, behavior: 'smooth' }); }}
+                  data-testid="button-related-prev">
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <div id="related-scroll" className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 flex-1" style={{ scrollSnapType: 'x mandatory' }}>
+                  {relatedProducts.map(p => (
+                    <div key={p.id} className="shrink-0 w-36 sm:w-40 lg:w-44" style={{ scrollSnapAlign: 'start' }}>
+                      <ProductCard product={p} layout={storefrontLayout} hideImageNav />
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
+                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: 300, behavior: 'smooth' }); }}
+                  data-testid="button-related-next">
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+            </section>
+          )}
+
           {/* Policy tabs */}
           <div className="mb-10">
             <Tabs defaultValue="description">
@@ -616,32 +642,6 @@ export default function ProductDetail() {
               </TabsContent>
             </Tabs>
           </div>
-
-          {/* Related products */}
-          {relatedProducts.length > 0 && (
-            <section data-testid="related-products-section">
-              <h2 className="font-display text-xl font-semibold mb-4">More {product.subcategory || product.category}</h2>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
-                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: -300, behavior: 'smooth' }); }}
-                  data-testid="button-related-prev">
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                <div id="related-scroll" className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 flex-1" style={{ scrollSnapType: 'x mandatory' }}>
-                  {relatedProducts.map(p => (
-                    <div key={p.id} className="shrink-0 w-36 sm:w-40 lg:w-44" style={{ scrollSnapAlign: 'start' }}>
-                      <ProductCard product={p} layout={storefrontLayout} hideImageNav />
-                    </div>
-                  ))}
-                </div>
-                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
-                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: 300, behavior: 'smooth' }); }}
-                  data-testid="button-related-next">
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              </div>
-            </section>
-          )}
 
         </div>
       </main>

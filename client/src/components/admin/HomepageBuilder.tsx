@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -468,6 +468,16 @@ function SectionPropsEditor({
   return null;
 }
 
+// ── Category image types ──────────────────────────────────────────────────────
+
+type CatImgData = { url: string; position?: string; scale?: number };
+
+function normCatImg(val: string | CatImgData | undefined): CatImgData {
+  if (!val) return { url: '' };
+  if (typeof val === 'string') return { url: val };
+  return val;
+}
+
 // ── Image upload inline button ────────────────────────────────────────────────
 
 function ImageUploadButton({ currentUrl, onUploaded }: { currentUrl: string; onUploaded: (url: string) => void }) {
@@ -505,15 +515,107 @@ function ImageUploadButton({ currentUrl, onUploaded }: { currentUrl: string; onU
   );
 }
 
+// ── Focal point picker ────────────────────────────────────────────────────────
+
+function FocalPointPicker({
+  imageUrl,
+  position,
+  scale,
+  onPositionChange,
+  onScaleChange,
+}: {
+  imageUrl: string;
+  position: string;
+  scale: number;
+  onPositionChange: (pos: string) => void;
+  onScaleChange: (s: number) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    const onUp = () => setIsDragging(false);
+    window.addEventListener('mouseup', onUp);
+    return () => window.removeEventListener('mouseup', onUp);
+  }, []);
+
+  const parts = (position || '50% 50%').split(' ');
+  const px = parseFloat(parts[0]) || 50;
+  const py = parseFloat(parts[1]) || 50;
+
+  const updatePos = (clientX: number, clientY: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, Math.round(((clientX - rect.left) / rect.width) * 100)));
+    const y = Math.max(0, Math.min(100, Math.round(((clientY - rect.top) / rect.height) * 100)));
+    onPositionChange(`${x}% ${y}%`);
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] text-muted-foreground">Click or drag to set the focal point — the image will be cropped around this spot</p>
+      <div
+        ref={containerRef}
+        className="relative rounded-lg overflow-hidden border cursor-crosshair select-none"
+        style={{ aspectRatio: '1/1' }}
+        onMouseDown={e => { setIsDragging(true); updatePos(e.clientX, e.clientY); }}
+        onMouseMove={e => { if (isDragging) updatePos(e.clientX, e.clientY); }}
+        onMouseUp={() => setIsDragging(false)}
+      >
+        <img
+          src={imageUrl}
+          alt=""
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style={{
+            objectPosition: position || '50% 50%',
+            transform: `scale(${scale || 1})`,
+            transformOrigin: position || '50% 50%',
+          }}
+        />
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 bottom-0 w-px bg-white/50" style={{ left: `${px}%` }} />
+          <div className="absolute left-0 right-0 h-px bg-white/50" style={{ top: `${py}%` }} />
+          <div
+            className="absolute w-4 h-4 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${px}%`, top: `${py}%`, boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.4)' }}
+          />
+        </div>
+        <div className="absolute bottom-1.5 left-1.5 text-[9px] text-white bg-black/40 rounded px-1.5 py-0.5 pointer-events-none">
+          {px}% · {py}%
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Label className="text-[10px] text-muted-foreground shrink-0">Zoom — {Math.round((scale || 1) * 100)}%</Label>
+        <input
+          type="range"
+          min="100"
+          max="200"
+          step="5"
+          value={Math.round((scale || 1) * 100)}
+          onChange={e => onScaleChange(parseInt(e.target.value) / 100)}
+          className="flex-1 accent-primary"
+        />
+        {(scale || 1) > 1 && (
+          <button type="button" className="text-[10px] text-primary shrink-0" onClick={() => onScaleChange(1)}>Reset</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Category image editor ─────────────────────────────────────────────────────
 
 function CategoryImageEditor({
   categoryImages,
   onChange,
 }: {
-  categoryImages: Record<string, string>;
-  onChange: (imgs: Record<string, string>) => void;
+  categoryImages: Record<string, string | CatImgData>;
+  onChange: (imgs: Record<string, string | CatImgData>) => void;
 }) {
+  const [catSearch, setCatSearch] = useState<Record<string, string>>({});
+  const [editingFocal, setEditingFocal] = useState<string | null>(null);
+
   const { data: categories = [] } = useQuery<Array<{ id: string; name: string; parentId?: string | null; sortOrder: number }>>({
     queryKey: ['categories'],
     queryFn: async () => {
@@ -532,9 +634,7 @@ function CategoryImageEditor({
     staleTime: 60000,
   });
 
-  const topLevel = categories
-    .filter(c => !c.parentId)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const topLevel = categories.filter(c => !c.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
 
   const productsByCategory = products.reduce((map, p) => {
     if (!map[p.category]) map[p.category] = [];
@@ -544,7 +644,18 @@ function CategoryImageEditor({
 
   const activeCategories = topLevel.filter(c => (productsByCategory[c.name]?.length ?? 0) > 0);
 
-  const setImg = (catName: string, url: string) => onChange({ ...categoryImages, [catName]: url });
+  const getCatImg = (catName: string): CatImgData => normCatImg(categoryImages[catName]);
+
+  const setImg = (catName: string, patch: Partial<CatImgData>) => {
+    const next = { ...getCatImg(catName), ...patch };
+    if (!next.url) {
+      const updated = { ...categoryImages };
+      delete updated[catName];
+      onChange(updated);
+    } else {
+      onChange({ ...categoryImages, [catName]: next });
+    }
+  };
 
   if (!activeCategories.length) {
     return <p className="text-xs text-muted-foreground">No active categories found.</p>;
@@ -553,47 +664,135 @@ function CategoryImageEditor({
   return (
     <div className="space-y-2">
       {activeCategories.map(cat => {
-        const currentImg = categoryImages[cat.name] || '';
+        const data = getCatImg(cat.name);
         const autoImg = productsByCategory[cat.name]?.find(p => p.images?.length)?.images?.[0] || '';
-        const catProducts = productsByCategory[cat.name] || [];
+        const displayUrl = data.url || autoImg;
+        const catProds = productsByCategory[cat.name] || [];
+        const search = catSearch[cat.name] || '';
+        const filteredProds = catProds.filter(p =>
+          p.images?.length && p.name.toLowerCase().includes(search.toLowerCase())
+        );
+        const isFocalOpen = editingFocal === cat.name;
 
         return (
           <div key={cat.id} className="border rounded-md p-2.5 space-y-2 bg-muted/10">
+            {/* Header */}
             <div className="flex items-center gap-2">
-              {(currentImg || autoImg) && (
-                <img src={currentImg || autoImg} alt={cat.name} className="w-8 h-8 rounded object-cover border shrink-0" />
+              {displayUrl && (
+                <div className="w-10 h-10 rounded overflow-hidden border shrink-0">
+                  <img
+                    src={displayUrl}
+                    alt={cat.name}
+                    className="w-full h-full object-cover"
+                    style={{
+                      objectPosition: data.position || '50% 50%',
+                      transform: `scale(${data.scale || 1})`,
+                      transformOrigin: data.position || '50% 50%',
+                    }}
+                  />
+                </div>
               )}
               <span className="text-xs font-semibold flex-1">{cat.name}</span>
-              {currentImg && (
-                <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-muted-foreground" onClick={() => setImg(cat.name, '')}>
-                  Auto
-                </Button>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Select
-                value={currentImg || '__auto__'}
-                onValueChange={v => setImg(cat.name, v === '__auto__' ? '' : v)}
-              >
-                <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Auto (first product image)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__auto__">Auto (first product image)</SelectItem>
-                  {catProducts.filter(p => p.images?.length).map(p => (
-                    <SelectItem key={p.id} value={p.images![0]}>
-                      {p.name.slice(0, 40)}{p.name.length > 40 ? '…' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex gap-1.5">
-                <Input
-                  value={currentImg}
-                  onChange={e => setImg(cat.name, e.target.value)}
-                  className="h-7 text-xs flex-1"
-                  placeholder="Or paste custom image URL..."
-                />
-                <ImageUploadButton currentUrl={currentImg} onUploaded={url => setImg(cat.name, url)} />
+              <div className="flex items-center gap-1">
+                {displayUrl && (
+                  <Button
+                    type="button"
+                    variant={isFocalOpen ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px]"
+                    onClick={() => setEditingFocal(isFocalOpen ? null : cat.name)}
+                  >
+                    {isFocalOpen ? 'Done' : 'Adjust'}
+                  </Button>
+                )}
+                {data.url && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px] text-muted-foreground"
+                    onClick={() => { setImg(cat.name, { url: '' }); setEditingFocal(null); }}
+                  >
+                    Auto
+                  </Button>
+                )}
               </div>
+            </div>
+
+            {/* Focal point / crop editor */}
+            {isFocalOpen && displayUrl && (
+              <FocalPointPicker
+                imageUrl={displayUrl}
+                position={data.position || '50% 50%'}
+                scale={data.scale || 1}
+                onPositionChange={pos => setImg(cat.name, { position: pos })}
+                onScaleChange={s => setImg(cat.name, { scale: s })}
+              />
+            )}
+
+            {/* Searchable product picker */}
+            <div className="space-y-1">
+              <Input
+                value={search}
+                onChange={e => setCatSearch(prev => ({ ...prev, [cat.name]: e.target.value }))}
+                className="h-7 text-xs"
+                placeholder={`Search ${cat.name} products…`}
+              />
+              <div className="border rounded-md max-h-40 overflow-y-auto divide-y divide-border/30">
+                <button
+                  type="button"
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs text-left transition-colors ${!data.url ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
+                  onClick={() => { setImg(cat.name, { url: '' }); setEditingFocal(null); }}
+                >
+                  <div className={`w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center ${!data.url ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                    {!data.url && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                  </div>
+                  <span className={!data.url ? 'font-medium' : 'text-muted-foreground italic'}>Auto (first product image)</span>
+                  {autoImg && (
+                    <div className="ml-auto w-7 h-7 rounded overflow-hidden shrink-0">
+                      <img src={autoImg} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </button>
+                {filteredProds.map(p => {
+                  const isSelected = data.url === p.images![0];
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs text-left transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
+                      onClick={() => { setImg(cat.name, { url: p.images![0] }); setEditingFocal(cat.name); }}
+                    >
+                      <div className={`w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                        {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                      </div>
+                      <div className="w-7 h-7 rounded overflow-hidden shrink-0">
+                        <img src={p.images![0]} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <span className="flex-1 truncate">{p.name}</span>
+                    </button>
+                  );
+                })}
+                {filteredProds.length === 0 && (
+                  <p className="p-2 text-[10px] text-muted-foreground text-center">
+                    {search ? `No products match "${search}"` : 'No products with images'}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Custom URL + upload */}
+            <div className="flex gap-1.5">
+              <Input
+                value={data.url}
+                onChange={e => setImg(cat.name, { url: e.target.value })}
+                className="h-7 text-xs flex-1"
+                placeholder="Or paste custom image URL…"
+              />
+              <ImageUploadButton
+                currentUrl={data.url}
+                onUploaded={url => { setImg(cat.name, { url }); setEditingFocal(cat.name); }}
+              />
             </div>
           </div>
         );

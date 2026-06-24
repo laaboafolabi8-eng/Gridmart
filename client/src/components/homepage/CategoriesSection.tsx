@@ -15,10 +15,12 @@ interface Product {
   images: string[];
 }
 
+type CatImgData = { url: string; position?: string; scale?: number };
+
 interface Props {
   heading?: string;
   columns?: number;
-  categoryImages?: Record<string, string>;
+  categoryImages?: Record<string, string | CatImgData>;
 }
 
 const COL_CLASS: Record<number, string> = {
@@ -26,6 +28,12 @@ const COL_CLASS: Record<number, string> = {
   3: 'grid-cols-2 sm:grid-cols-3',
   4: 'grid-cols-2 sm:grid-cols-4',
 };
+
+function resolveCatImg(val: string | CatImgData | undefined): CatImgData {
+  if (!val) return { url: '' };
+  if (typeof val === 'string') return { url: val };
+  return val;
+}
 
 export function CategoriesSection({ heading = 'Shop by Category', columns = 3, categoryImages = {} }: Props) {
   const { data: categories = [] } = useQuery<Category[]>({
@@ -70,15 +78,24 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
         )}
         <div className={`grid ${colClass} gap-4`}>
           {activeCategories.map(cat => {
-            const coverImg = categoryImages[cat.name] || productsByCategory[cat.name]?.find(p => p.images?.length)?.images?.[0];
+            const imgData = resolveCatImg(categoryImages[cat.name]);
+            const autoImg = productsByCategory[cat.name]?.find(p => p.images?.length)?.images?.[0] || '';
+            const coverUrl = imgData.url || autoImg;
+            const coverPosition = imgData.position || '50% 50%';
+            const coverScale = imgData.scale || 1;
             return (
               <Link key={cat.id} href={`/shop?category=${encodeURIComponent(cat.name)}`}>
-                <div className="group relative rounded-xl overflow-hidden cursor-pointer bg-muted" style={{ aspectRatio: '4/3' }}>
-                  {coverImg ? (
+                <div className="group relative rounded-xl overflow-hidden cursor-pointer bg-muted" style={{ aspectRatio: '1/1' }}>
+                  {coverUrl ? (
                     <img
-                      src={coverImg}
+                      src={coverUrl}
                       alt={cat.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500"
+                      style={{
+                        objectPosition: coverPosition,
+                        transform: `scale(${coverScale})`,
+                        transformOrigin: coverPosition,
+                      }}
                     />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
