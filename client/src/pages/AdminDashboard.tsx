@@ -13967,12 +13967,47 @@ Check other listings for more products`);
                                     </Button>
                                   </div>
                                   {editSectionsOpen && (
-                                    <div className="p-3 border-t">
+                                    <div className="p-3 border-t space-y-4">
                                       <ContentSectionsEditor
                                         value={editingProduct.contentSections}
                                         initialDescription={getDescriptionString(editingProduct.description)}
                                         onChange={sections => setEditingProduct({ ...editingProduct, contentSections: sections })}
                                       />
+                                      {editingProduct.contentSections?.length ? (
+                                        <div className="border rounded-lg p-4 bg-muted/20 space-y-4">
+                                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+                                          {editingProduct.contentSections.map((section: any) => (
+                                            <div key={section.id}>
+                                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{section.name}</p>
+                                              {section.type === 'text' && (
+                                                <p className="text-sm leading-relaxed">{section.content}</p>
+                                              )}
+                                              {section.type === 'bullets' && Array.isArray(section.content) && (section.content as string[]).filter(Boolean).length > 0 && (
+                                                <ul className="space-y-1">
+                                                  {(section.content as string[]).filter(Boolean).map((item: string, i: number) => (
+                                                    <li key={i} className="flex items-start gap-2 text-sm">
+                                                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                                                      <span>{item}</span>
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              )}
+                                              {section.type === 'specs' && Array.isArray(section.content) && (section.content as { key: string; value: string }[]).filter(r => r.key).length > 0 && (
+                                                <table className="w-full text-sm border-collapse">
+                                                  <tbody>
+                                                    {(section.content as { key: string; value: string }[]).filter(r => r.key).map((row, i) => (
+                                                      <tr key={i} className={i % 2 === 0 ? 'bg-muted/40' : ''}>
+                                                        <td className="py-1 px-2 font-medium text-muted-foreground w-2/5">{row.key}</td>
+                                                        <td className="py-1 px-2">{row.value}</td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : null}
                                     </div>
                                   )}
                                 </div>
