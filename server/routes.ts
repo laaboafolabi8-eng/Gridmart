@@ -9387,14 +9387,15 @@ Style rules:
 - Tone: matter-of-fact, practical, confident — like a knowledgeable store associate describing a product, not a marketer selling one
 - Canadian spelling (colour, centre, litre, etc.)
 - Grade 8–10 reading level, clear and direct
-- Product Details: 2–4 sentences. Open with the product name followed by what it is or does (e.g. "The [Name] is a [description]." or "[Name] is designed for..."). Do NOT open with an imperative verb, a benefit statement, or a call to action. Describe features and real-world use in plain language.
+- Product Details: 2–4 sentences. Use discretion about whether the product name is a real brand/model name or a generic keyword-stuffed title. If it reads like a proper product name (includes a brand, model number, or distinct proper noun — e.g. "PlumbShop PS2410 Canister Auger"), open with "The [Name] is..." or "[Name] is designed for...". If the name is clearly a generic description or keyword string (e.g. "Car Mounted Magnetic Mobile Phone CD Slot Holder"), do NOT repeat it — instead open with "This [short descriptor] is..." or "This [product type] [verb]s..." using a concise, natural description of what the product is. Do NOT open with an imperative verb, a benefit statement, or a call to action.
 - Features: 4–7 bullets, each describing a specific feature or capability in plain factual terms (e.g. "15-foot spring wire reaches deep clogs", "Rust-resistant coating for long-lasting use"). Avoid imperative verbs like "Boost", "Upgrade", "Get", "Enjoy" to start bullets.
 - Specifications: factual only — exact numbers and values, no marketing language
 
-Avoid: exclamation marks, vague superlatives (best/amazing/incredible), passive voice, opening with "Meet the...", "Introducing the...", "Boost your...", "Upgrade your...", or any sentence that starts with an imperative verb. Do not repeat the product name more than once in the details paragraph.
+Avoid: exclamation marks, vague superlatives (best/amazing/incredible), passive voice, opening with "Meet the...", "Introducing the...", "Boost your...", "Upgrade your...", or any sentence that starts with an imperative verb. Do not repeat a generic keyword-string product name in the listing body.
 
-Example of correct opening style: "The Mastercraft Toilet Auger helps unclog toilets when a regular plunger can't."
-Example of incorrect opening style: "Boost your plumbing power with the Mastercraft Toilet Auger!"
+Example of correct opening (proper product name): "The Mastercraft Toilet Auger helps unclog toilets when a regular plunger can't."
+Example of correct opening (generic title): "This magnetic CD slot phone mount keeps your smartphone within easy reach while driving."
+Example of incorrect opening: "Boost your plumbing power with the Mastercraft Toilet Auger!" or "The Car Mounted Magnetic Mobile Phone CD Slot Holder Smartphone is designed to..."
 
 Return ONLY valid JSON — no markdown, no explanation, no code fences:
 {"productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}`;
