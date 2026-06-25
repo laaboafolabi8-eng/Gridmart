@@ -25796,7 +25796,41 @@ Check other listings for more products`);
                   </div>
                 )}
                 
-                <div className="text-lg text-muted-foreground mb-6">
+                {previewProduct.contentSections?.length ? (
+                  <div className="mb-6 space-y-4">
+                    {previewProduct.contentSections.map((section: any) => (
+                      <div key={section.id}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{section.name}</p>
+                        {section.type === 'text' && (
+                          <p className="text-sm text-foreground leading-relaxed">{section.content}</p>
+                        )}
+                        {section.type === 'bullets' && Array.isArray(section.content) && (
+                          <ul className="space-y-1">
+                            {(section.content as string[]).map((item: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-sm">
+                                <span className="text-primary mt-0.5">•</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {section.type === 'specs' && Array.isArray(section.content) && (
+                          <table className="w-full text-sm border-collapse">
+                            <tbody>
+                              {(section.content as { key: string; value: string }[]).map((row, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-muted/40' : ''}>
+                                  <td className="py-1 px-2 font-medium text-muted-foreground w-2/5">{row.key}</td>
+                                  <td className="py-1 px-2">{row.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                <div className="text-sm text-muted-foreground mb-6">
                   <ul className="space-y-2">
                     {getDescriptionString(previewProduct.description).split('\n').filter(line => line.trim()).slice(0, 6).map((point, idx) => (
                       <li key={idx} className="flex items-start gap-2">
@@ -25806,7 +25840,8 @@ Check other listings for more products`);
                     ))}
                   </ul>
                 </div>
-                
+                )}
+
                 <div className="flex items-center gap-4 mb-6">
                   <span className="font-display text-4xl font-bold">
                     {formatCurrency(previewProduct.price)}
