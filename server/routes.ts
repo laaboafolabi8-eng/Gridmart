@@ -9367,9 +9367,12 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { name, description, imageUrl } = req.body;
+      const { name, description, imageUrl, mode = 'listing' } = req.body;
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ error: "Product name is required" });
+      }
+      if (!['listing', 'title', 'both'].includes(mode)) {
+        return res.status(400).json({ error: "mode must be listing, title, or both" });
       }
 
       const OpenAI = (await import('openai')).default;
@@ -9378,7 +9381,7 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
         baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       });
 
-      const systemPrompt = `You are an AI listing manager for GridMart (gridmart.ca), a Canadian retail store operated by BookBuy Express Inc. Write product listings in GridMart's house style.
+      const listingSystemPrompt = `You are an AI listing manager for GridMart (gridmart.ca), a Canadian retail store operated by BookBuy Express Inc. Write product listings in GridMart's house style.
 
 Style rules:
 - Tone: matter-of-fact, practical, confident — like a knowledgeable store associate describing a product, not a marketer selling one
@@ -9396,7 +9399,39 @@ Example of incorrect opening style: "Boost your plumbing power with the Mastercr
 Return ONLY valid JSON — no markdown, no explanation, no code fences:
 {"productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}`;
 
-      const userMessage = `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}\n\nWrite a complete GridMart listing for this product.`;
+      const titleSystemPrompt = `You are a Google Shopping feed specialist. Generate an optimised Google Shopping title for a Canadian retail product.
+
+Google Shopping title rules:
+- Format: Brand + Product Type + Key Attributes (colour, size, material, quantity, model)
+- 70–150 characters (aim for 70–100 so it displays fully)
+- Front-load the most important differentiating attributes
+- Include specific details that match real search queries (dimensions, capacity, compatibility, count)
+- Canadian spelling (colour, centre, litre, etc.)
+- No promotional language ("sale", "best", "free", "cheap", "#1")
+- No ALL CAPS words
+- No exclamation marks or special characters
+- Do not truncate mid-word
+
+Examples:
+- "Mastercraft 15 ft Steel Spring Wire Toilet Auger"
+- "PlumbShop PS2410 15 ft Canister Drain Auger with Spring Wire"
+- "Dependable Plumbing 1/2–1 in. PEX Crimp Ring Removal Tool"
+
+Return ONLY valid JSON — no markdown, no explanation, no code fences:
+{"googleTitle":"..."}`;
+
+      const bothSystemPrompt = listingSystemPrompt.replace(
+        'Return ONLY valid JSON — no markdown, no explanation, no code fences:\n{"productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}',
+        `Also generate a Google Shopping optimised title following these rules:
+- Format: Brand + Product Type + Key Attributes (colour, size, material, quantity, model)
+- 70–150 characters, front-load key attributes, no promotional language, no ALL CAPS, Canadian spelling
+
+Return ONLY valid JSON — no markdown, no explanation, no code fences:
+{"googleTitle":"...","productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}`
+      );
+
+      const systemPrompt = mode === 'listing' ? listingSystemPrompt : mode === 'title' ? titleSystemPrompt : bothSystemPrompt;
+      const userMessage = `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -9404,25 +9439,32 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        max_tokens: 1000,
+        max_tokens: mode === 'title' ? 100 : 1200,
       });
 
       let raw = completion.choices[0]?.message?.content || '{}';
       raw = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-      let data: { productDetails?: string; features?: string[]; specifications?: Array<{ key: string; value: string }> } = {};
+      let data: { productDetails?: string; features?: string[]; specifications?: Array<{ key: string; value: string }>; googleTitle?: string } = {};
       try {
         data = JSON.parse(raw);
       } catch {
         return res.status(500).json({ error: "AI returned invalid JSON" });
       }
 
-      const sections = [
-        { id: 'details', name: 'Product Details', type: 'text' as const, content: data.productDetails || '' },
-        { id: 'features', name: 'Features', type: 'bullets' as const, content: Array.isArray(data.features) ? data.features : [] },
-        { id: 'specs', name: 'Specifications', type: 'specs' as const, content: Array.isArray(data.specifications) ? data.specifications : [] },
-      ];
+      const result: any = {};
 
-      res.json({ sections });
+      if (mode === 'listing' || mode === 'both') {
+        result.sections = [
+          { id: 'details', name: 'Product Details', type: 'text' as const, content: data.productDetails || '' },
+          { id: 'features', name: 'Features', type: 'bullets' as const, content: Array.isArray(data.features) ? data.features : [] },
+          { id: 'specs', name: 'Specifications', type: 'specs' as const, content: Array.isArray(data.specifications) ? data.specifications : [] },
+        ];
+      }
+      if (mode === 'title' || mode === 'both') {
+        result.googleTitle = data.googleTitle || '';
+      }
+
+      res.json(result);
     } catch (error: any) {
       console.error("Generate listing error:", error);
       const msg = error?.message || error?.toString() || "Unknown error";

@@ -5624,7 +5624,7 @@ export default function AdminDashboard() {
     }
   }, [editingProduct?.id]);
 
-  const handleGenerateListing = async () => {
+  const handleGenerateListing = async (mode: 'listing' | 'title' | 'both' = 'listing') => {
     if (!editingProduct?.name || isGeneratingListing) return;
     setIsGeneratingListing(true);
     try {
@@ -5635,13 +5635,16 @@ export default function AdminDashboard() {
           name: editingProduct.name,
           description: typeof editingProduct.description === 'string' ? editingProduct.description : '',
           imageUrl: editingProduct.image || undefined,
+          mode,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const { sections } = await res.json();
-      setEditingProduct({ ...editingProduct, contentSections: sections });
-      setEditSectionsOpen(true);
-      toast.success('Listing generated');
+      const data = await res.json();
+      const updates: any = {};
+      if (data.sections) { updates.contentSections = data.sections; setEditSectionsOpen(true); }
+      if (data.googleTitle !== undefined) updates.googleTitle = data.googleTitle;
+      setEditingProduct({ ...editingProduct, ...updates });
+      toast.success(mode === 'title' ? 'Google title generated' : mode === 'both' ? 'Listing and Google title generated' : 'Listing generated');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate listing');
     } finally {
@@ -13611,6 +13614,23 @@ Check other listings for more products`);
                                     </Button>
                                   </div>
                                 </div>
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Tag className="w-3.5 h-3.5 text-muted-foreground" />
+                                    <Label className="text-sm">Google Shopping Title</Label>
+                                    {(editingProduct as any).googleTitle && (
+                                      <span className={`text-[10px] ml-auto ${(editingProduct as any).googleTitle.length > 150 ? 'text-red-500' : (editingProduct as any).googleTitle.length > 100 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                                        {(editingProduct as any).googleTitle.length} / 150
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Input
+                                    value={(editingProduct as any).googleTitle || ''}
+                                    onChange={(e) => setEditingProduct({ ...editingProduct, googleTitle: e.target.value } as any)}
+                                    placeholder="Brand + Product Type + Key Attributes"
+                                    maxLength={150}
+                                  />
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <Label>Brand</Label>
@@ -13954,17 +13974,37 @@ Check other listings for more products`);
                                       ) : null}
                                       <span className="text-xs text-muted-foreground ml-auto pr-2">{editSectionsOpen ? '▲' : '▼'}</span>
                                     </button>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs gap-1 shrink-0"
-                                      onClick={handleGenerateListing}
-                                      disabled={isGeneratingListing || !editingProduct.name}
-                                    >
-                                      {isGeneratingListing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                      {isGeneratingListing ? 'Writing…' : 'Write for me'}
-                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs gap-1 shrink-0"
+                                          disabled={isGeneratingListing || !editingProduct.name}
+                                        >
+                                          {isGeneratingListing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                          {isGeneratingListing ? 'Writing…' : 'Write for me'}
+                                          <ChevronDown className="w-3 h-3 ml-0.5" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="text-sm">
+                                        <DropdownMenuItem onClick={() => handleGenerateListing('listing')}>
+                                          <FileText className="w-3.5 h-3.5 mr-2" />
+                                          Generate Listing
+                                          <span className="ml-2 text-[10px] text-muted-foreground">Details · Features · Specs</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleGenerateListing('title')}>
+                                          <Tag className="w-3.5 h-3.5 mr-2" />
+                                          Generate Google Title
+                                          <span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleGenerateListing('both')}>
+                                          <Sparkles className="w-3.5 h-3.5 mr-2" />
+                                          Generate Both
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                   {editSectionsOpen && (
                                     <div className="p-3 border-t space-y-4">
@@ -25792,7 +25832,16 @@ Check other listings for more products`);
                 {previewProduct.variantName && (
                   <div className="text-sm text-primary font-medium mb-1">{previewProduct.variantName}</div>
                 )}
-                <h1 className="font-display text-2xl font-bold mb-16">{previewProduct.name}</h1>
+                <h1 className="font-display text-2xl font-bold mb-3">{previewProduct.name}</h1>
+                {(previewProduct as any).googleTitle && (
+                  <div className="flex items-start gap-2 mb-4 p-2 rounded-md bg-muted/40 border">
+                    <Tag className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Google Shopping Title</p>
+                      <p className="text-sm">{(previewProduct as any).googleTitle}</p>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Variant Selection */}
                 {hasVariants && (
