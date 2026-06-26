@@ -13132,7 +13132,16 @@ Check other listings for more products`);
                           </div>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-                          <span className="line-clamp-1">{getDescriptionPoints(product.description).slice(0, 2).join(' • ')}</span>
+                          <span className="line-clamp-1">{(() => {
+                            if ((product as any).contentSections?.length) {
+                              const cs = (product as any).contentSections as any[];
+                              const text = cs.find(s => s.type === 'text' && s.content);
+                              if (text) return text.content;
+                              const bullets = cs.find(s => s.type === 'bullets' && Array.isArray(s.content) && s.content[0]);
+                              if (bullets) return (bullets.content as string[]).slice(0, 2).join(' • ');
+                            }
+                            return getDescriptionPoints(product.description).slice(0, 2).join(' • ');
+                          })()}</span>
                           {!product.sheetRow && product.sku && (
                             <span className="font-mono text-xs shrink-0">SKU: {product.sku}</span>
                           )}
