@@ -5642,9 +5642,9 @@ export default function AdminDashboard() {
       const data = await res.json();
       const updates: any = {};
       if (data.sections) { updates.contentSections = data.sections; setEditSectionsOpen(true); }
-      if (data.googleTitle !== undefined) updates.googleTitle = data.googleTitle;
+      if (data.googleTitle !== undefined) updates.name = data.googleTitle;
       setEditingProduct({ ...editingProduct, ...updates });
-      toast.success(mode === 'title' ? 'Google title generated' : mode === 'both' ? 'Listing and Google title generated' : 'Listing generated');
+      toast.success(mode === 'title' ? 'Title updated' : mode === 'both' ? 'Title and listing generated' : 'Listing generated');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate listing');
     } finally {
@@ -10072,7 +10072,7 @@ Check other listings for more products`);
                               const data = await res.json();
                               const patch: any = {};
                               if (data.sections) patch.contentSections = data.sections;
-                              if (data.googleTitle !== undefined) patch.googleTitle = data.googleTitle;
+                              if (data.googleTitle !== undefined) patch.name = data.googleTitle;
                               await fetch(`/api/products/${productId}`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
@@ -10086,12 +10086,12 @@ Check other listings for more products`);
                           queryClient.invalidateQueries({ queryKey: ['products'] });
                           setIsBatchGeneratingListing(false);
                           setBatchGenerateProgress({ current: 0, total: 0 });
-                          const label = mode === 'title' ? 'Google titles' : mode === 'both' ? 'listings and Google titles' : 'listings';
+                          const label = mode === 'title' ? 'titles' : mode === 'both' ? 'titles and listings' : 'listings';
                           if (successCount > 0) toast.success(`Generated ${label} for ${successCount} product${successCount !== 1 ? 's' : ''}`);
                           if (failCount > 0) toast.error(`Failed for ${failCount} product${failCount !== 1 ? 's' : ''}`);
                         }}>
                           {mode === 'listing' && <><FileText className="w-3.5 h-3.5 mr-2" />Generate Listing<span className="ml-2 text-[10px] text-muted-foreground">Details · Features · Specs</span></>}
-                          {mode === 'title' && <><Tag className="w-3.5 h-3.5 mr-2" />Generate Google Title<span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span></>}
+                          {mode === 'title' && <><Tag className="w-3.5 h-3.5 mr-2" />Generate Title<span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span></>}
                           {mode === 'both' && <><Sparkles className="w-3.5 h-3.5 mr-2" />Generate Both</>}
                         </DropdownMenuItem>
                       ))}
@@ -13631,23 +13631,6 @@ Check other listings for more products`);
                                     </Button>
                                   </div>
                                 </div>
-                                <div>
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <Tag className="w-3.5 h-3.5 text-muted-foreground" />
-                                    <Label className="text-sm">Google Shopping Title</Label>
-                                    {(editingProduct as any).googleTitle && (
-                                      <span className={`text-[10px] ml-auto ${(editingProduct as any).googleTitle.length > 150 ? 'text-red-500' : (editingProduct as any).googleTitle.length > 100 ? 'text-amber-500' : 'text-muted-foreground'}`}>
-                                        {(editingProduct as any).googleTitle.length} / 150
-                                      </span>
-                                    )}
-                                  </div>
-                                  <Input
-                                    value={(editingProduct as any).googleTitle || ''}
-                                    onChange={(e) => setEditingProduct({ ...editingProduct, googleTitle: e.target.value } as any)}
-                                    placeholder="Brand + Product Type + Key Attributes"
-                                    maxLength={150}
-                                  />
-                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <Label>Brand</Label>
@@ -14013,7 +13996,7 @@ Check other listings for more products`);
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => handleGenerateListing('title')}>
                                           <Tag className="w-3.5 h-3.5 mr-2" />
-                                          Generate Google Title
+                                          Generate Title
                                           <span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => handleGenerateListing('both')}>
@@ -25850,15 +25833,6 @@ Check other listings for more products`);
                   <div className="text-sm text-primary font-medium mb-1">{previewProduct.variantName}</div>
                 )}
                 <h1 className="font-display text-2xl font-bold mb-3">{previewProduct.name}</h1>
-                {(previewProduct as any).googleTitle && (
-                  <div className="flex items-start gap-2 mb-4 p-2 rounded-md bg-muted/40 border">
-                    <Tag className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Google Shopping Title</p>
-                      <p className="text-sm">{(previewProduct as any).googleTitle}</p>
-                    </div>
-                  </div>
-                )}
                 
                 {/* Variant Selection */}
                 {hasVariants && (
