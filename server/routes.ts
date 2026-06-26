@@ -18,6 +18,7 @@ import { generateLabelPdfs } from "./services/labelPdf";
 import { generatePriceTagPdfs } from "./services/priceTagPdf";
 import { processExpiredOrders } from "./services/orderExpiration";
 import { googleMerchantService } from "./services/googleMerchant";
+import { checkEligibility } from "./services/spapi";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { objectStorageClient } from "./replit_integrations/object_storage/objectStorage";
 import { randomUUID } from "crypto";
@@ -11973,7 +11974,6 @@ ${items.join('\n')}
       if (asins.length > 20) {
         return res.status(400).json({ error: 'Maximum 20 ASINs per request' });
       }
-      const { checkEligibility } = await import('./services/spapi');
       const results = await Promise.all(asins.map(asin => checkEligibility(asin.trim().toUpperCase())));
       res.json({ results });
     } catch (error: any) {
