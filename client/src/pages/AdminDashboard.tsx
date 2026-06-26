@@ -5053,8 +5053,11 @@ export default function AdminDashboard() {
   const [socialBatchSaving, setSocialBatchSaving] = useState(false);
 
   // Tab ordering state with server persistence (syncs across devices)
-  const defaultTabOrder = ['products', 'categories', 'crates', 'nodes', 'cities', 'deals', 'analytics', 'sales', 'payments', 'applications', 'agreements', 'feedback', 'sms', 'accounts', 'design', 'social', 'notifications', 'landing-pages', 'flyers', 'qr-codes'];
+  const defaultTabOrder = ['products', 'categories', 'crates', 'nodes', 'cities', 'deals', 'analytics', 'sales', 'payments', 'applications', 'agreements', 'feedback', 'sms', 'accounts', 'design', 'social', 'notifications', 'landing-pages', 'flyers', 'qr-codes', 'sourcing'];
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('gridmart_admin_tab') || 'products');
+  const [sourcingInput, setSourcingInput] = useState('');
+  const [sourcingResults, setSourcingResults] = useState<Array<{ asin: string; eligible: boolean; reasons: string[]; error?: string }>>([]);
+  const [sourcingLoading, setSourcingLoading] = useState(false);
   const handleSetActiveTab = (tab: string) => {
     setActiveTab(tab);
     localStorage.setItem('gridmart_admin_tab', tab);
@@ -9028,6 +9031,10 @@ Check other listings for more products`);
                   'qr-codes': {
                     label: 'QR Codes',
                     icon: <QrCode className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+                  },
+                  sourcing: {
+                    label: 'Sourcing',
+                    icon: <Search className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                   }
                 };
                 
@@ -24594,6 +24601,87 @@ Check other listings for more products`);
             <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
               <QrCodeGenerator />
             </Suspense>
+          </TabsContent>
+
+          <TabsContent value="sourcing" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="w-5 h-5" />
+                  Amazon FBA Eligibility Checker
+                </CardTitle>
+                <CardDescription>Check if ASINs are gated for FBA inbound in the Canada marketplace. Enter up to 20 ASINs, one per line or comma-separated.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-3 items-start">
+                  <textarea
+                    className="flex-1 min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    placeholder={"B08N5WRWNW\nB07XJ8C8F5\nB0C1234ABC"}
+                    value={sourcingInput}
+                    onChange={e => setSourcingInput(e.target.value)}
+                  />
+                  <Button
+                    disabled={sourcingLoading || !sourcingInput.trim()}
+                    onClick={async () => {
+                      const raw = sourcingInput.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+                      const asins = [...new Set(raw)].slice(0, 20);
+                      setSourcingLoading(true);
+                      setSourcingResults([]);
+                      try {
+                        const res = await fetch('/api/sourcing/eligibility', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ asins }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Request failed');
+                        setSourcingResults(data.results);
+                      } catch (err: any) {
+                        toast.error(err.message);
+                      } finally {
+                        setSourcingLoading(false);
+                      }
+                    }}
+                  >
+                    {sourcingLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+                    {sourcingLoading ? 'Checking…' : 'Check'}
+                  </Button>
+                </div>
+
+                {sourcingResults.length > 0 && (
+                  <div className="rounded-md border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">ASIN</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sourcingResults.map((r, i) => (
+                          <tr key={r.asin} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                            <td className="px-4 py-2 font-mono font-medium">{r.asin}</td>
+                            <td className="px-4 py-2">
+                              {r.error ? (
+                                <span className="inline-flex items-center gap-1.5 text-amber-600 font-medium"><AlertTriangle className="w-3.5 h-3.5" />Error</span>
+                              ) : r.eligible ? (
+                                <span className="inline-flex items-center gap-1.5 text-green-600 font-medium"><Check className="w-3.5 h-3.5" />Eligible</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-red-600 font-medium"><X className="w-3.5 h-3.5" />Gated</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-muted-foreground">
+                              {r.error || r.reasons.join(', ') || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

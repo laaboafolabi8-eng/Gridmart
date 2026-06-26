@@ -11962,5 +11962,24 @@ ${items.join('\n')}
     }
   });
 
+  // ===== Amazon SP-API Sourcing =====
+  app.post('/api/sourcing/eligibility', async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { asins } = req.body as { asins: string[] };
+      if (!Array.isArray(asins) || asins.length === 0) {
+        return res.status(400).json({ error: 'asins array required' });
+      }
+      if (asins.length > 20) {
+        return res.status(400).json({ error: 'Maximum 20 ASINs per request' });
+      }
+      const { checkEligibility } = await import('./services/spapi');
+      const results = await Promise.all(asins.map(asin => checkEligibility(asin.trim().toUpperCase())));
+      res.json({ results });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to check eligibility' });
+    }
+  });
+
   return httpServer;
 }
