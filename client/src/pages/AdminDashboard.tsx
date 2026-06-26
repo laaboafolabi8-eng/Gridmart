@@ -10032,54 +10032,71 @@ Check other listings for more products`);
                     </PopoverContent>
                   </Popover>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBatchGeneratingListing}
-                    data-testid="button-batch-write-for-me"
-                    onClick={async () => {
-                      setIsBatchGeneratingListing(true);
-                      setBatchGenerateProgress({ current: 0, total: selectedProducts.length });
-                      let successCount = 0;
-                      let failCount = 0;
-                      for (let i = 0; i < selectedProducts.length; i++) {
-                        const productId = selectedProducts[i];
-                        setBatchGenerateProgress({ current: i + 1, total: selectedProducts.length });
-                        const product = productList.find(p => p.id === productId);
-                        if (!product?.name) { failCount++; continue; }
-                        try {
-                          const res = await fetch('/api/generate-listing', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              name: product.name,
-                              description: typeof product.description === 'string' ? product.description : '',
-                              imageUrl: product.images?.[0] || undefined,
-                            }),
-                          });
-                          if (!res.ok) { failCount++; continue; }
-                          const { sections } = await res.json();
-                          await fetch(`/api/products/${productId}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ contentSections: sections }),
-                          });
-                          successCount++;
-                        } catch {
-                          failCount++;
-                        }
-                      }
-                      queryClient.invalidateQueries({ queryKey: ['products'] });
-                      setIsBatchGeneratingListing(false);
-                      setBatchGenerateProgress({ current: 0, total: 0 });
-                      if (successCount > 0) toast.success(`Generated listings for ${successCount} product${successCount !== 1 ? 's' : ''}`);
-                      if (failCount > 0) toast.error(`Failed for ${failCount} product${failCount !== 1 ? 's' : ''}`);
-                    }}
-                  >
-                    {isBatchGeneratingListing
-                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{batchGenerateProgress.current}/{batchGenerateProgress.total}</>
-                      : <><Sparkles className="w-4 h-4 mr-2" />Write for me</>}
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isBatchGeneratingListing}
+                        data-testid="button-batch-write-for-me"
+                      >
+                        {isBatchGeneratingListing
+                          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{batchGenerateProgress.current}/{batchGenerateProgress.total}</>
+                          : <><Sparkles className="w-4 h-4 mr-2" />Write for me<ChevronDown className="w-3 h-3 ml-1" /></>}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="text-sm">
+                      {(['listing', 'title', 'both'] as const).map(mode => (
+                        <DropdownMenuItem key={mode} onClick={async () => {
+                          setIsBatchGeneratingListing(true);
+                          setBatchGenerateProgress({ current: 0, total: selectedProducts.length });
+                          let successCount = 0;
+                          let failCount = 0;
+                          for (let i = 0; i < selectedProducts.length; i++) {
+                            const productId = selectedProducts[i];
+                            setBatchGenerateProgress({ current: i + 1, total: selectedProducts.length });
+                            const product = productList.find(p => p.id === productId);
+                            if (!product?.name) { failCount++; continue; }
+                            try {
+                              const res = await fetch('/api/generate-listing', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  name: product.name,
+                                  description: typeof product.description === 'string' ? product.description : '',
+                                  imageUrl: product.images?.[0] || undefined,
+                                  mode,
+                                }),
+                              });
+                              if (!res.ok) { failCount++; continue; }
+                              const data = await res.json();
+                              const patch: any = {};
+                              if (data.sections) patch.contentSections = data.sections;
+                              if (data.googleTitle !== undefined) patch.googleTitle = data.googleTitle;
+                              await fetch(`/api/products/${productId}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(patch),
+                              });
+                              successCount++;
+                            } catch {
+                              failCount++;
+                            }
+                          }
+                          queryClient.invalidateQueries({ queryKey: ['products'] });
+                          setIsBatchGeneratingListing(false);
+                          setBatchGenerateProgress({ current: 0, total: 0 });
+                          const label = mode === 'title' ? 'Google titles' : mode === 'both' ? 'listings and Google titles' : 'listings';
+                          if (successCount > 0) toast.success(`Generated ${label} for ${successCount} product${successCount !== 1 ? 's' : ''}`);
+                          if (failCount > 0) toast.error(`Failed for ${failCount} product${failCount !== 1 ? 's' : ''}`);
+                        }}>
+                          {mode === 'listing' && <><FileText className="w-3.5 h-3.5 mr-2" />Generate Listing<span className="ml-2 text-[10px] text-muted-foreground">Details · Features · Specs</span></>}
+                          {mode === 'title' && <><Tag className="w-3.5 h-3.5 mr-2" />Generate Google Title<span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span></>}
+                          {mode === 'both' && <><Sparkles className="w-3.5 h-3.5 mr-2" />Generate Both</>}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   <Popover open={showBulkSheetSync} onOpenChange={setShowBulkSheetSync}>
                     <PopoverTrigger asChild>
