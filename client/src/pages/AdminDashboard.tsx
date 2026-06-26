@@ -5645,8 +5645,8 @@ export default function AdminDashboard() {
       const data = await res.json();
       const updates: any = {};
       if (data.sections) { updates.contentSections = data.sections; setEditSectionsOpen(true); }
-      if (data.googleTitle !== undefined) updates.name = data.googleTitle;
-      setEditingProduct({ ...editingProduct, ...updates });
+      if (data.googleTitle) updates.name = data.googleTitle;
+      setEditingProduct(prev => ({ ...prev, ...updates }));
       toast.success(mode === 'title' ? 'Title updated' : mode === 'both' ? 'Title and listing generated' : 'Listing generated');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate listing');
@@ -10079,7 +10079,7 @@ Check other listings for more products`);
                               const data = await res.json();
                               const patch: any = {};
                               if (data.sections) patch.contentSections = data.sections;
-                              if (data.googleTitle !== undefined) patch.name = data.googleTitle;
+                              if (data.googleTitle) patch.name = data.googleTitle;
                               await fetch(`/api/products/${productId}`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },

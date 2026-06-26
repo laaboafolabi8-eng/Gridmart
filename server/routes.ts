@@ -9461,8 +9461,8 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
           { id: 'specs', name: 'Specifications', type: 'specs' as const, content: Array.isArray(data.specifications) ? data.specifications : [] },
         ];
       }
-      if (mode === 'title' || mode === 'both') {
-        result.googleTitle = data.googleTitle || '';
+      if ((mode === 'title' || mode === 'both') && data.googleTitle) {
+        result.googleTitle = data.googleTitle;
       }
 
       res.json(result);
