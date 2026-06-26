@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import { createHmac, createHash } from 'crypto';
 
 const MARKETPLACE_ID = 'A2EUQ1WTGCTBG2'; // Canada
 const SP_API_HOST = 'sellingpartnerapi-na.amazon.com';
@@ -38,11 +38,11 @@ async function getLWAAccessToken(): Promise<string> {
 }
 
 function hmacSha256(key: Buffer | string, data: string): Buffer {
-  return crypto.createHmac('sha256', key).update(data, 'utf8').digest();
+  return createHmac('sha256', key).update(data, 'utf8').digest();
 }
 
 function sha256Hash(data: string): string {
-  return crypto.createHash('sha256').update(data, 'utf8').digest('hex');
+  return createHash('sha256').update(data, 'utf8').digest('hex');
 }
 
 function getSigningKey(secretKey: string, dateStamp: string): Buffer {
