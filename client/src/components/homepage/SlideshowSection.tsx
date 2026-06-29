@@ -51,6 +51,9 @@ export function SlideshowSection({ slides = [], autoplayMs = 4000, showDots = tr
           src={s.imageUrl}
           alt=""
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === current ? 'opacity-100' : 'opacity-0'}`}
+          loading={i === 0 ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority={i === 0 ? 'low' : undefined}
         />
       ))}
       <div className="absolute inset-0 bg-black/30" />

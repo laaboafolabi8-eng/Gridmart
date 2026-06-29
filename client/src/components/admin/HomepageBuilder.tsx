@@ -277,12 +277,64 @@ function SectionPropsEditor({
             </div>
           </div>
           <div>
-            <Label className="text-xs">Text colour</Label>
+            <Label className="text-xs">Title colour</Label>
             <div className="flex items-center gap-1.5 mt-1">
-              <Input type="color" value={p.textColor || '#000000'} onChange={e => onChange({ textColor: e.target.value })} className="h-8 w-10 p-1 cursor-pointer" />
-              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs px-2 text-muted-foreground" onClick={() => onChange({ textColor: '' })}>Clear</Button>
+              <Input type="color" value={p.headingColor || '#000000'} onChange={e => onChange({ headingColor: e.target.value })} className="h-8 w-10 p-1 cursor-pointer" />
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs px-2 text-muted-foreground" onClick={() => onChange({ headingColor: '' })}>Clear</Button>
             </div>
           </div>
+          <div>
+            <Label className="text-xs">Body colour</Label>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Input type="color" value={p.bodyColor || '#000000'} onChange={e => onChange({ bodyColor: e.target.value })} className="h-8 w-10 p-1 cursor-pointer" />
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs px-2 text-muted-foreground" onClick={() => onChange({ bodyColor: '' })}>Clear</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (section.type === 'imageBlock') {
+    return (
+      <div className="space-y-3">
+        <div>
+          <Label className="text-xs">Image</Label>
+          <div className="flex gap-2 mt-1">
+            <Input value={p.imageUrl || ''} onChange={e => onChange({ imageUrl: e.target.value })} className="h-8 text-sm" placeholder="https://... or upload below" />
+          </div>
+          <ImageUploadButton currentUrl={p.imageUrl || ''} onUploaded={url => onChange({ imageUrl: url })} />
+        </div>
+        {p.imageUrl && (
+          <div className="rounded-md overflow-hidden border h-24">
+            <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Height (px)</Label>
+            <Input type="number" value={p.height || '400'} onChange={e => onChange({ height: e.target.value })} className="h-8 text-sm mt-1" placeholder="400" />
+          </div>
+          <div>
+            <Label className="text-xs">Object Fit</Label>
+            <Select value={p.objectFit || 'cover'} onValueChange={v => onChange({ objectFit: v })}>
+              <SelectTrigger className="h-8 text-sm mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cover">Cover (crop to fill)</SelectItem>
+                <SelectItem value="contain">Contain (show full image)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" checked={p.fullBleed !== false} onChange={e => onChange({ fullBleed: e.target.checked })} className="rounded" />
+            Full bleed (edge to edge)
+          </label>
+        </div>
+        <div>
+          <Label className="text-xs">Caption (optional)</Label>
+          <Input value={p.caption || ''} onChange={e => onChange({ caption: e.target.value })} className="h-8 text-sm mt-1" placeholder="e.g. Our Windsor store at 3176 Walker Rd" />
         </div>
       </div>
     );

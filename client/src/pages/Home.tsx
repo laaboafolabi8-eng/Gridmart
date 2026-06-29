@@ -10,6 +10,7 @@ import { type Product } from '@/lib/mockData';
 import { useQuery } from '@tanstack/react-query';
 import { TextBlockSection } from '@/components/homepage/TextBlockSection';
 import { PromoBannerSection } from '@/components/homepage/PromoBannerSection';
+import { ImageBlockSection } from '@/components/homepage/ImageBlockSection';
 import { SlideshowSection } from '@/components/homepage/SlideshowSection';
 import { FeaturedProductsSection } from '@/components/homepage/FeaturedProductsSection';
 import { CategoriesSection } from '@/components/homepage/CategoriesSection';
@@ -101,6 +102,7 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to fetch products');
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: categoriesFromApi = [] } = useQuery<{ id: string; name: string; parentId?: string | null; sortOrder: number }[]>({
@@ -110,6 +112,7 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to fetch categories');
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const productCategories = new Set(products.map(p => p.category));
@@ -202,6 +205,7 @@ export default function Home() {
     const p = section.props || {};
     if (section.type === 'textBlock') return <TextBlockSection key={section.id} {...p} />;
     if (section.type === 'promoBanner') return <PromoBannerSection key={section.id} {...p} />;
+    if (section.type === 'imageBlock') return <ImageBlockSection key={section.id} {...p} />;
     if (section.type === 'slideshow') return <SlideshowSection key={section.id} {...p} />;
     if (section.type === 'featuredProducts') {
       const source = p.source || 'newest';
@@ -268,7 +272,7 @@ export default function Home() {
           <section className="relative overflow-hidden flex items-center min-h-[500px] md:min-h-[560px]">
             {showFg ? (
               <>
-                <img src={siteSettings.storefrontHeroImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: fgPosition }} />
+                <img src={siteSettings.storefrontHeroImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: fgPosition }} fetchPriority="high" loading="eager" decoding="async" />
                 <div className="absolute inset-0 bg-black" style={{ opacity: overlayPct / 100 }} />
               </>
             ) : (
@@ -342,7 +346,7 @@ export default function Home() {
                 {/* Right – interior photo */}
                 {showBg && (
                   <div className={`rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 ${bgSizeClass}`} style={{ aspectRatio: bgAspect }}>
-                    <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" />
+                    <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" loading="eager" decoding="async" />
                   </div>
                 )}
 

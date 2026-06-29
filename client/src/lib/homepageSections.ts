@@ -4,6 +4,7 @@ export type HomepageSectionType =
   | 'products'
   | 'textBlock'
   | 'promoBanner'
+  | 'imageBlock'
   | 'slideshow'
   | 'featuredProducts'
   | 'categoriesGrid';
@@ -72,7 +73,24 @@ export const SECTION_DEFS: Record<HomepageSectionType, HomepageSectionDef> = {
       body: 'Your local source for electronics, tools, health and beauty, and more.',
       align: 'center',
       bg: '',
-      textColor: '',
+      headingColor: '',
+      bodyColor: '',
+    },
+  },
+  imageBlock: {
+    type: 'imageBlock',
+    label: 'Image Block',
+    description: 'A clean full-width or contained image — ideal for store photos, lifestyle shots, or visual breaks between sections.',
+    speedRating: 'fast',
+    speedNote: 'One image request. Use a compressed image under 300 KB for best results.',
+    emoji: '📷',
+    maxCount: 5,
+    defaultProps: {
+      imageUrl: '',
+      caption: '',
+      height: '400',
+      fullBleed: true,
+      objectFit: 'cover',
     },
   },
   promoBanner: {
