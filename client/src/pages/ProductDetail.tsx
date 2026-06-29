@@ -455,7 +455,7 @@ export default function ProductDetail() {
                 <div className="p-4 flex items-center gap-3" data-testid="fulfillment-ship">
                   <Truck className="w-5 h-5 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">Ships to Canada</p>
+                    <p className="font-semibold text-sm">Home Delivery</p>
                     <p className="text-xs text-muted-foreground">{shippingText}</p>
                   </div>
                   <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50 shrink-0">Available</Badge>
@@ -574,7 +574,7 @@ export default function ProductDetail() {
               <TabsContent value="shipping" className="pt-5">
                 <div className="space-y-5 max-w-2xl text-sm text-muted-foreground">
                   <div>
-                    <p className="font-semibold text-foreground mb-1">Ships Across Canada via UPS</p>
+                    <p className="font-semibold text-foreground mb-1">Shipped via UPS</p>
                     <ul className="space-y-1">
                       <li>Flat rate shipping: <strong>${flatRate.toFixed(2)} CAD</strong></li>
                       <li>Free shipping on orders over <strong>${freeThreshold.toFixed(0)}</strong></li>

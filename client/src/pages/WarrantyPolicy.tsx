@@ -25,7 +25,7 @@ export default function WarrantyPolicy() {
               <h2 className="font-display text-xl font-semibold mb-3">In-Store Purchases</h2>
               <p className="text-muted-foreground">
                 If you purchased a product in-store and believe it is defective, bring the product
-                and proof of purchase to the store for inspection.
+                and proof of purchase to the store within <strong>30 days</strong> of purchase for inspection.
               </p>
             </section>
 
@@ -36,7 +36,7 @@ export default function WarrantyPolicy() {
                 <a href={`mailto:${email}`} className="text-primary hover:underline">
                   {email}
                 </a>{' '}
-                with your order number, a description of the issue, and photos where applicable.
+                within <strong>30 days</strong> of delivery with your order number, a description of the issue, and photos where applicable.
               </p>
             </section>
 

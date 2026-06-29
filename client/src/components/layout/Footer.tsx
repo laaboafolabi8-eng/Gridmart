@@ -30,8 +30,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           <div className="md:col-span-2">
             <div className="flex items-end gap-2 mb-4">
-              <img src={logoIcon} alt="GridMart" className="w-8 h-8 object-contain" />
-              <img src={logoText} alt="GridMart" className="h-5 object-contain mb-0.5" />
+              <img src={logoIcon} alt="GridMart" className="w-8 h-8 object-contain" width="32" height="32" />
+              <img src={logoText} alt="" aria-hidden="true" className="h-5 object-contain mb-0.5" width="82" height="20" />
             </div>
             <p className="text-muted-foreground max-w-md" data-testid="text-footer-tagline">
               {footerTagline}
@@ -39,7 +39,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="font-display font-semibold mb-4">Quick Links</h4>
+            <h3 className="font-display font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2 text-muted-foreground">
               <li><a href="/" className="hover:text-foreground transition-colors">Shop Products</a></li>
               <li><a href="/about" className="hover:text-foreground transition-colors">About Us</a></li>
@@ -50,7 +50,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="font-display font-semibold mb-4">Support</h4>
+            <h3 className="font-display font-semibold mb-4">Support</h4>
             <ul className="space-y-2 text-muted-foreground">
               <li><a href="/contact" className="hover:text-foreground transition-colors">Contact Us</a></li>
               <li><a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
@@ -65,7 +65,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="font-display font-semibold mb-4">Contact Us</h4>
+            <h3 className="font-display font-semibold mb-4">Contact Us</h4>
             <address className="not-italic space-y-3 text-sm">
               <div className="flex items-start gap-2 text-muted-foreground">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-primary" />

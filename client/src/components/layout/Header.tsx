@@ -132,8 +132,8 @@ export function Header() {
             {/* Logo */}
             <Link href="/" data-testid="link-home">
               <div className="flex items-end gap-2 cursor-pointer">
-                <img src={logoIcon} alt="GridMart" className="w-10 h-10 object-contain" />
-                <img src={logoText} alt="GridMart" className="h-6 object-contain hidden sm:block mb-0.5" />
+                <img src={logoIcon} alt="GridMart" className="w-10 h-10 object-contain" width="40" height="40" />
+                <img src={logoText} alt="" aria-hidden="true" className="h-6 object-contain hidden sm:block mb-0.5" width="98" height="24" />
               </div>
             </Link>
 
@@ -246,8 +246,8 @@ export function Header() {
               )}
 
               {/* Cart */}
-              <Link href="/cart">
-                <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">
+              <Link href="/cart" aria-label="Cart">
+                <Button variant="ghost" size="icon" className="relative" data-testid="button-cart" aria-label="Cart">
                   <ShoppingCart className="w-5 h-5" />
                   {cartCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-accent text-accent-foreground" data-testid="badge-cart-count">
@@ -260,7 +260,7 @@ export function Header() {
               {/* Social */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" data-testid="button-social-media">
+                  <Button variant="ghost" size="icon" data-testid="button-social-media" aria-label="Follow us on social media">
                     <AtSign className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -288,8 +288,8 @@ export function Header() {
               {/* Mobile: user icon */}
               <div className="lg:hidden">
                 {!isAuthenticated ? (
-                  <Link href="/login">
-                    <Button variant="ghost" size="icon" data-testid="nav-sign-in-mobile">
+                  <Link href="/login" aria-label="Sign in">
+                    <Button variant="ghost" size="icon" data-testid="nav-sign-in-mobile" aria-label="Sign in">
                       <User className="w-5 h-5" />
                     </Button>
                   </Link>
