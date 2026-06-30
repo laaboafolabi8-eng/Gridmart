@@ -11288,15 +11288,15 @@ ${entries.join('\n')}
     const shortId = product.id.slice(0, 8);
     const productLink = `${baseUrl}/product/${slug}-${shortId}`;
 
-    const images = product.images && product.images.length > 0
+    const allImages = product.images && product.images.length > 0
       ? product.images
       : product.image ? [product.image] : [];
-    const imageLink = images.length > 0
-      ? (images[0].startsWith('http') ? images[0] : `${baseUrl}${images[0]}`)
-      : '';
-    const additionalImages = images.slice(1, 6).map((img: string) =>
-      img.startsWith('http') ? img : `${baseUrl}${img}`
+    const images = allImages.filter((img: string) =>
+      img && !img.startsWith('data:') && img.length <= 2000
     );
+    const toAbsolute = (img: string) => img.startsWith('http') ? img : `${baseUrl}${img}`;
+    const imageLink = images.length > 0 ? toAbsolute(images[0]) : '';
+    const additionalImages = images.slice(1, 6).map(toAbsolute);
 
     const descriptionRaw = Array.isArray(product.description)
       ? product.description.join(' ')
