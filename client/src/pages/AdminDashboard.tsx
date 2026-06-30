@@ -10186,6 +10186,43 @@ Check other listings for more products`);
                         >
                           Sync Now
                         </Button>
+                        <div className="border-t pt-3">
+                          <Label className="text-sm font-medium">Pull stock — all products</Label>
+                          <p className="text-xs text-muted-foreground mt-1 mb-2">Re-read column C from every product's source sheet and update quantities in the store</p>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full"
+                            disabled={isBulkSyncing}
+                            onClick={async () => {
+                              setIsBulkSyncing(true);
+                              setShowBulkSheetSync(false);
+                              try {
+                                const res = await fetch('/api/sheet-sync/pull-all-stock', {
+                                  method: 'POST',
+                                  credentials: 'include',
+                                });
+                                const result = await res.json();
+                                if (res.ok) {
+                                  queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  if (result.failed > 0) {
+                                    toast.warning(`Updated ${result.updated} products. ${result.failed} failed.`);
+                                  } else {
+                                    toast.success(`Stock synced for ${result.updated} products`);
+                                  }
+                                } else {
+                                  toast.error('Failed: ' + (result.error || 'Unknown error'));
+                                }
+                              } catch (error: any) {
+                                toast.error('Failed: ' + error.message);
+                              }
+                              setIsBulkSyncing(false);
+                            }}
+                          >
+                            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                            Pull All Stock
+                          </Button>
+                        </div>
                       </div>
                     </PopoverContent>
                   </Popover>

@@ -8747,6 +8747,64 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
     }
   });
   
+  // Pull stock counts from sheet for ALL sheet-linked products
+  app.post("/api/sheet-sync/pull-all-stock", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { getSpreadsheetData, getSpreadsheetMetadata } = await import('./services/googleSheets');
+
+      const allProducts = await storage.getAllProducts();
+      const linked = allProducts.filter(p => p.sheetSource && p.sheetRow);
+
+      if (linked.length === 0) {
+        return res.json({ updated: 0, failed: 0, message: "No products have sheet references" });
+      }
+
+      // Group by spreadsheet to minimise API calls
+      const bySheet: Record<string, typeof linked> = {};
+      for (const p of linked) {
+        const sid = p.sheetSource!;
+        if (!bySheet[sid]) bySheet[sid] = [];
+        bySheet[sid].push(p);
+      }
+
+      let updated = 0;
+      let failed = 0;
+
+      for (const [sheetId, products] of Object.entries(bySheet)) {
+        try {
+          const metadata = await getSpreadsheetMetadata(sheetId);
+          const sheetName = metadata.sheets?.[0]?.title || 'Sheet1';
+          const rows = await getSpreadsheetData(sheetId, sheetName);
+
+          for (const product of products) {
+            try {
+              const rowIndex = (product.sheetRow || 1) - 1;
+              const row = rows[rowIndex];
+              if (!row) { failed++; continue; }
+              const quantity = row[2] ? parseInt(row[2].toString(), 10) || 0 : 0;
+              await storage.updateProduct(product.id, { sheetQuantity: quantity });
+              updated++;
+            } catch {
+              failed++;
+            }
+          }
+        } catch (sheetErr: any) {
+          console.error(`[pull-all-stock] Failed to read sheet ${sheetId}:`, sheetErr.message);
+          failed += products.length;
+        }
+      }
+
+      res.json({ updated, failed, total: linked.length });
+    } catch (error: any) {
+      console.error("pull-all-stock error:", error);
+      res.status(500).json({ error: error.message || "Failed to pull stock from sheet" });
+    }
+  });
+
   // Transfer product codes to spreadsheet
   app.post("/api/spreadsheet-sync/export-codes", async (req, res) => {
     try {
