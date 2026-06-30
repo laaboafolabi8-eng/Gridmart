@@ -11294,14 +11294,14 @@ ${entries.join('\n')}
     const imageLink = images.length > 0
       ? (images[0].startsWith('http') ? images[0] : `${baseUrl}${images[0]}`)
       : '';
-    const additionalImages = images.slice(1).map((img: string) =>
+    const additionalImages = images.slice(1, 6).map((img: string) =>
       img.startsWith('http') ? img : `${baseUrl}${img}`
     );
 
     const descriptionRaw = Array.isArray(product.description)
-      ? product.description.join('\n')
+      ? product.description.join(' ')
       : (product.description || product.name);
-    const description = descriptionRaw.replace(/<[^>]*>/g, '').slice(0, 5000);
+    const description = descriptionRaw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000);
 
     const condition = (product.condition || 'new').toLowerCase() === 'new' ? 'new'
       : (product.condition || '').toLowerCase().includes('refurbished') ? 'refurbished'
