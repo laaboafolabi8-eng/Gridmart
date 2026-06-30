@@ -270,6 +270,18 @@ function SectionPropsEditor({
             </Select>
           </div>
           <div>
+            <Label className="text-xs">Width</Label>
+            <Select value={p.maxWidth || 'medium'} onValueChange={v => onChange({ maxWidth: v })}>
+              <SelectTrigger className="h-8 w-28 text-xs mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="narrow">Narrow</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="wide">Wide</SelectItem>
+                <SelectItem value="full">Full</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label className="text-xs">Background</Label>
             <div className="flex items-center gap-1.5 mt-1">
               <Input type="color" value={p.bg || '#ffffff'} onChange={e => onChange({ bg: e.target.value })} className="h-8 w-10 p-1 cursor-pointer" />

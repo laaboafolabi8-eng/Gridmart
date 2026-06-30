@@ -75,6 +75,7 @@ export const SECTION_DEFS: Record<HomepageSectionType, HomepageSectionDef> = {
       bg: '',
       headingColor: '',
       bodyColor: '',
+      maxWidth: 'medium',
     },
   },
   imageBlock: {
