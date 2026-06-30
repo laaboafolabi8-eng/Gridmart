@@ -1533,9 +1533,10 @@ export async function registerRoutes(
 
           return hasStock && isInActiveCrate;
         });
-        return res.json(liveProducts);
+        const slimProducts = liveProducts.map(({ contentSections, sourceUrl, purchaseDate, costPrice, sheetSource, sheetRow, sku, deletedAt, ...rest }: any) => rest);
+        return res.json(slimProducts);
       }
-      
+
       res.json(productsWithInventory);
     } catch (error) {
       console.error("Get products error:", error);
@@ -11236,67 +11237,40 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
 
     const allProducts = await storage.getAllProducts();
     const productsWithCode = allProducts.filter((p: any) => !!p.productCode && !p.deletedAt);
-    const allNodes = await storage.getAllNodes();
-    const activeNodes = allNodes.filter((n: any) => n.status === 'active');
-    const nodeMap = new Map(activeNodes.map(n => [n.id, n]));
 
-    const allAssignments = await storage.getAllCrateAssignments();
-    const activeAssignments = allAssignments.filter(a => a.status === 'active');
-
-    const productNodeMap = new Map<string, Set<string>>();
-    for (const assignment of activeAssignments) {
-      const crateItems = await storage.getCrateItems(assignment.crateId);
-      for (const item of crateItems) {
-        if (!productNodeMap.has(item.productId)) {
-          productNodeMap.set(item.productId, new Set());
-        }
-        productNodeMap.get(item.productId)!.add(assignment.nodeId);
-      }
-    }
-
-    const nodeCountSet = new Set<string>();
     let totalRows = 0;
     const entries: string[] = [];
+    const escXmlLocal = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     for (const product of productsWithCode) {
-      const assignedNodeIds = productNodeMap.get(product.id);
-      if (!assignedNodeIds || assignedNodeIds.size === 0) continue;
-
       const inventoryRows = await storage.getInventoryByProduct(product.id);
+      const totalQty = inventoryRows.length > 0
+        ? inventoryRows.reduce((sum, i) => sum + parseInt(i.quantity.toString()), 0)
+        : (product.sheetQuantity || 0);
 
-      for (const nodeId of assignedNodeIds) {
-        const node = nodeMap.get(nodeId);
-        if (!node) continue;
-        nodeCountSet.add(nodeId);
+      const availability = totalQty > 0 ? 'in stock' : 'out of stock';
+      const price = `${parseFloat(product.price).toFixed(2)} CAD`;
 
-        const inv = inventoryRows.find(i => i.nodeId === nodeId);
-        const qty = inv ? inv.quantity : (product.sheetQuantity || 0);
-        const availability = qty > 0 ? 'in stock' : 'out of stock';
-        const price = `${product.price} CAD`;
-
-        const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-        entries.push(`  <entry>
-    <g:id>${escXml(product.productCode!)}</g:id>
-    <g:store_code>${escXml(globalStoreCode)}</g:store_code>
+      entries.push(`  <entry>
+    <g:id>${escXmlLocal(product.productCode!)}</g:id>
+    <g:store_code>${escXmlLocal(globalStoreCode)}</g:store_code>
     <g:availability>${availability}</g:availability>
-    <g:price>${escXml(price)}</g:price>
-    <g:quantity>${qty}</g:quantity>
+    <g:price>${escXmlLocal(price)}</g:price>
+    <g:quantity>${totalQty}</g:quantity>
+    <g:pickup_method>buy</g:pickup_method>
     <g:pickup_sla>same day</g:pickup_sla>
-    <g:instore_product_location>${escXml(node.name)}</g:instore_product_location>
   </entry>`);
-        totalRows++;
-      }
+      totalRows++;
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:g="http://base.google.com/ns/1.0">
-  <title>Local Inventory</title>
+  <title>GridMart Local Inventory</title>
   <updated>${new Date().toISOString()}</updated>
 ${entries.join('\n')}
 </feed>`;
 
-    return { xml, totalRows, productCount: productsWithCode.length, nodeCount: nodeCountSet.size };
+    return { xml, totalRows, productCount: productsWithCode.length, nodeCount: 1 };
   }
 
   function inferBrand(product: any): string {
@@ -11363,7 +11337,7 @@ ${entries.join('\n')}
         const inventoryRows = await storage.getInventoryByProduct(product.id);
         const totalQty = inventoryRows.reduce((sum, i) => sum + i.quantity, 0);
         const availability = totalQty > 0 ? 'in stock' : 'out of stock';
-        const price = `${product.price} CAD`;
+        const price = `${parseFloat(product.price).toFixed(2)} CAD`;
         const { productLink, imageLink, additionalImages, description, condition } = getProductFeedData(product, baseUrl, slugify);
         const brand = inferBrand(product);
 
@@ -11371,21 +11345,21 @@ ${entries.join('\n')}
     <g:id>${escXml(product.productCode!)}</g:id>
     <g:title>${escXml(product.name.slice(0, 150))}</g:title>
     <g:description>${escXml(description)}</g:description>
-    <g:availability>${availability}</g:availability>
-    <g:condition>${condition}</g:condition>
-    <g:price>${escXml(price)}</g:price>
     <g:link>${escXml(productLink)}</g:link>
     <g:image_link>${escXml(imageLink)}</g:image_link>${additionalImages.map((img: string) => `
-    <g:additional_image_link>${escXml(img)}</g:additional_image_link>`).join('')}${brand ? `
-    <g:brand>${escXml(brand)}</g:brand>` : ''}
-    <g:quantity>${totalQty}</g:quantity>${product.category ? `
+    <g:additional_image_link>${escXml(img)}</g:additional_image_link>`).join('')}
+    <g:condition>${condition}</g:condition>
+    <g:availability>${availability}</g:availability>
+    <g:price>${escXml(price)}</g:price>${brand ? `
+    <g:brand>${escXml(brand)}</g:brand>` : ''}${product.category ? `
     <g:product_type>${escXml(product.category)}</g:product_type>` : ''}
   </entry>`);
       }
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:g="http://base.google.com/ns/1.0">
-  <title>Product Inventory</title>
+  <title>GridMart Product Feed</title>
+  <link rel="self" href="${baseUrl}/api/inventory.xml" />
   <updated>${new Date().toISOString()}</updated>
 ${entries.join('\n')}
 </feed>`;
@@ -11409,7 +11383,7 @@ ${entries.join('\n')}
         const inventoryRows = await storage.getInventoryByProduct(product.id);
         const totalQty = inventoryRows.reduce((sum, i) => sum + i.quantity, 0);
         const availability = totalQty > 0 ? 'in stock' : 'out of stock';
-        const price = `${product.price} CAD`;
+        const price = `${parseFloat(product.price).toFixed(2)} CAD`;
         const { productLink, imageLink, additionalImages, description, condition } = getProductFeedData(product, baseUrl, slugify);
         const brand = inferBrand(product);
 
