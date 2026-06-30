@@ -19,6 +19,16 @@ import { sql } from 'drizzle-orm';
 import { applicationStatuses } from '../shared/schema';
 import { storage } from './storage';
 
+async function migrateGoogleTitle() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS google_title text
+    `);
+  } catch (error) {
+    console.error('Failed to migrate google_title column:', error);
+  }
+}
+
 async function migrateShippingColumns() {
   try {
     await db.execute(sql`
@@ -347,6 +357,7 @@ app.use((req, res, next) => {
       migrateStoreAddress();
       migrateRefundPolicy();
       migrateShippingColumns();
+      migrateGoogleTitle();
       startOrderExpirationJob(1);
       startOrderReminderJob(5); // Check for reminders every 5 minutes
       startOrderNotificationQueue(); // Check for queued order notifications every 60s

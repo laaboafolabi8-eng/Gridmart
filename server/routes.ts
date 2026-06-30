@@ -18,6 +18,7 @@ import { generateLabelPdfs } from "./services/labelPdf";
 import { generatePriceTagPdfs } from "./services/priceTagPdf";
 import { processExpiredOrders } from "./services/orderExpiration";
 import { googleMerchantService } from "./services/googleMerchant";
+import { checkEligibility } from "./services/spapi";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { objectStorageClient } from "./replit_integrations/object_storage/objectStorage";
 import { randomUUID } from "crypto";
@@ -9367,9 +9368,12 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { name, description, imageUrl } = req.body;
+      const { name, description, imageUrl, mode = 'listing' } = req.body;
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ error: "Product name is required" });
+      }
+      if (!['listing', 'title', 'both'].includes(mode)) {
+        return res.status(400).json({ error: "mode must be listing, title, or both" });
       }
 
       const OpenAI = (await import('openai')).default;
@@ -9378,22 +9382,58 @@ Return ONLY a JSON array of exactly ${requestedTagCount} lowercase tags, no expl
         baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       });
 
-      const systemPrompt = `You are an AI listing manager for GridMart (gridmart.ca), a Canadian retail store operated by BookBuy Express Inc. Write product listings in GridMart's house style.
+      const listingSystemPrompt = `You are an AI listing manager for GridMart (gridmart.ca), a Canadian retail store operated by BookBuy Express Inc. Write product listings in GridMart's house style.
 
 Style rules:
-- Tone: friendly but professional, confident, not salesy — like a knowledgeable friend recommending something
+- Tone: matter-of-fact, practical, confident — like a knowledgeable store associate describing a product, not a marketer selling one
 - Canadian spelling (colour, centre, litre, etc.)
 - Grade 8–10 reading level, clear and direct
-- Product Details: 2–4 sentences, lead with the most important benefit (not the brand name), end with a practical use-case sentence
-- Features: 4–7 bullets, each starting with a strong action word (e.g. "Includes", "Built-in", "Compatible with", "Supports", "Designed for")
+- Product Details: 2–4 sentences. Use discretion about whether the product name is a real brand/model name or a generic keyword-stuffed title. If it reads like a proper product name (includes a brand, model number, or distinct proper noun — e.g. "PlumbShop PS2410 Canister Auger"), open with "The [Name] is..." or "[Name] is designed for...". If the name is clearly a generic description or keyword string (e.g. "Car Mounted Magnetic Mobile Phone CD Slot Holder"), do NOT repeat it — instead use one of these active-voice openings: "This [short descriptor] [verb]s..." (use this 60% of the time), or one of the following equally for the remaining 40%: "A [short descriptor] that [verb]s...", "With [key feature], this [descriptor]...", "For [use case], this [descriptor]...". Do NOT open with an imperative verb, a benefit statement, or a call to action.
+- Features: 4–7 bullets, each describing a specific feature or capability in plain factual terms (e.g. "15-foot spring wire reaches deep clogs", "Rust-resistant coating for long-lasting use"). Avoid imperative verbs like "Boost", "Upgrade", "Get", "Enjoy" to start bullets.
 - Specifications: factual only — exact numbers and values, no marketing language
 
-Avoid: exclamation marks, vague superlatives (best/amazing/incredible), passive voice, opening with "Meet the..." or "Introducing the...", repeating the product name more than once in the details paragraph.
+Avoid: exclamation marks, vague superlatives (best/amazing/incredible), passive voice, opening with "Meet the...", "Introducing the...", "Boost your...", "Upgrade your...", or any sentence that starts with an imperative verb. Do not repeat a generic keyword-string product name in the listing body.
+
+Example of correct opening (proper product name): "The Mastercraft Toilet Auger helps unclog toilets when a regular plunger can't."
+Example of correct opening (generic title): "This magnetic CD slot phone mount keeps your smartphone within easy reach while driving."
+Example of incorrect opening: "Boost your plumbing power with the Mastercraft Toilet Auger!" or "The Car Mounted Magnetic Mobile Phone CD Slot Holder Smartphone is designed to..."
 
 Return ONLY valid JSON — no markdown, no explanation, no code fences:
 {"productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}`;
 
-      const userMessage = `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}\n\nWrite a complete GridMart listing for this product.`;
+      const titleSystemPrompt = `You are a Google Shopping feed specialist. Generate an optimised Google Shopping title for a Canadian retail product.
+
+Google Shopping title rules:
+- Format: Brand + Product Type + Key Attributes (colour, size, material, quantity, model)
+- 70–150 characters (aim for 70–100 so it displays fully)
+- Front-load the most important differentiating attributes
+- Include specific details that match real search queries (dimensions, capacity, compatibility, count)
+- Canadian spelling (colour, centre, litre, etc.)
+- No promotional language ("sale", "best", "free", "cheap", "#1")
+- No ALL CAPS words
+- No exclamation marks or special characters
+- Do not truncate mid-word
+
+Examples:
+- "Mastercraft 15 ft Steel Spring Wire Toilet Auger"
+- "PlumbShop PS2410 15 ft Canister Drain Auger with Spring Wire"
+- "Dependable Plumbing 1/2–1 in. PEX Crimp Ring Removal Tool"
+
+Return ONLY valid JSON — no markdown, no explanation, no code fences:
+{"googleTitle":"..."}`;
+
+      const bothSystemPrompt = listingSystemPrompt.replace(
+        'Return ONLY valid JSON — no markdown, no explanation, no code fences:\n{"productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}',
+        `Also generate a Google Shopping optimised title following these rules:
+- Format: Brand + Product Type + Key Attributes (colour, size, material, quantity, model)
+- 70–150 characters, front-load key attributes, no promotional language, no ALL CAPS, Canadian spelling
+
+Return ONLY valid JSON — no markdown, no explanation, no code fences:
+{"googleTitle":"...","productDetails":"...","features":["...","...","..."],"specifications":[{"key":"...","value":"..."}]}`
+      );
+
+      const systemPrompt = mode === 'listing' ? listingSystemPrompt : mode === 'title' ? titleSystemPrompt : bothSystemPrompt;
+      const userMessage = `Product name: ${name}${description ? `\nExisting description: ${description}` : ''}`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -9401,25 +9441,32 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        max_tokens: 1000,
+        max_tokens: mode === 'title' ? 100 : 1200,
       });
 
       let raw = completion.choices[0]?.message?.content || '{}';
       raw = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-      let data: { productDetails?: string; features?: string[]; specifications?: Array<{ key: string; value: string }> } = {};
+      let data: { productDetails?: string; features?: string[]; specifications?: Array<{ key: string; value: string }>; googleTitle?: string } = {};
       try {
         data = JSON.parse(raw);
       } catch {
         return res.status(500).json({ error: "AI returned invalid JSON" });
       }
 
-      const sections = [
-        { id: 'details', name: 'Product Details', type: 'text' as const, content: data.productDetails || '' },
-        { id: 'features', name: 'Features', type: 'bullets' as const, content: Array.isArray(data.features) ? data.features : [] },
-        { id: 'specs', name: 'Specifications', type: 'specs' as const, content: Array.isArray(data.specifications) ? data.specifications : [] },
-      ];
+      const result: any = {};
 
-      res.json({ sections });
+      if (mode === 'listing' || mode === 'both') {
+        result.sections = [
+          { id: 'details', name: 'Product Details', type: 'text' as const, content: data.productDetails || '' },
+          { id: 'features', name: 'Features', type: 'bullets' as const, content: Array.isArray(data.features) ? data.features : [] },
+          { id: 'specs', name: 'Specifications', type: 'specs' as const, content: Array.isArray(data.specifications) ? data.specifications : [] },
+        ];
+      }
+      if ((mode === 'title' || mode === 'both') && data.googleTitle) {
+        result.googleTitle = data.googleTitle;
+      }
+
+      res.json(result);
     } catch (error: any) {
       console.error("Generate listing error:", error);
       const msg = error?.message || error?.toString() || "Unknown error";
@@ -11913,6 +11960,24 @@ ${items.join('\n')}
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to delete social post' });
+    }
+  });
+
+  // ===== Amazon SP-API Sourcing =====
+  app.post('/api/sourcing/eligibility', async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { asins } = req.body as { asins: string[] };
+      if (!Array.isArray(asins) || asins.length === 0) {
+        return res.status(400).json({ error: 'asins array required' });
+      }
+      if (asins.length > 20) {
+        return res.status(400).json({ error: 'Maximum 20 ASINs per request' });
+      }
+      const results = await Promise.all(asins.map(asin => checkEligibility(asin.trim().toUpperCase())));
+      res.json({ results });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to check eligibility' });
     }
   });
 

@@ -10,8 +10,10 @@ import { type Product } from '@/lib/mockData';
 import { useQuery } from '@tanstack/react-query';
 import { TextBlockSection } from '@/components/homepage/TextBlockSection';
 import { PromoBannerSection } from '@/components/homepage/PromoBannerSection';
+import { ImageBlockSection } from '@/components/homepage/ImageBlockSection';
 import { SlideshowSection } from '@/components/homepage/SlideshowSection';
 import { FeaturedProductsSection } from '@/components/homepage/FeaturedProductsSection';
+import { CategoriesSection } from '@/components/homepage/CategoriesSection';
 import { type HomepageSectionConfig, DEFAULT_HOMEPAGE_SECTIONS } from '@/lib/homepageSections';
 
 function seededRandom(seed: string): number {
@@ -55,6 +57,12 @@ export default function Home() {
     catch { return DEFAULT_HOMEPAGE_SECTIONS; }
   }, [siteSettings.homepageSections]);
 
+  const persistedCategoryImages = useMemo((): Record<string, any> => {
+    if (!siteSettings.categoryImages) return {};
+    try { return JSON.parse(siteSettings.categoryImages); }
+    catch { return {}; }
+  }, [siteSettings.categoryImages]);
+
   const sectionEnabled = (type: string) =>
     homepageSections.some(s => s.type === type && s.enabled !== false);
 
@@ -94,6 +102,7 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to fetch products');
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: categoriesFromApi = [] } = useQuery<{ id: string; name: string; parentId?: string | null; sortOrder: number }[]>({
@@ -103,6 +112,7 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to fetch categories');
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const productCategories = new Set(products.map(p => p.category));
@@ -195,31 +205,48 @@ export default function Home() {
     const p = section.props || {};
     if (section.type === 'textBlock') return <TextBlockSection key={section.id} {...p} />;
     if (section.type === 'promoBanner') return <PromoBannerSection key={section.id} {...p} />;
+    if (section.type === 'imageBlock') return <ImageBlockSection key={section.id} {...p} />;
     if (section.type === 'slideshow') return <SlideshowSection key={section.id} {...p} />;
     if (section.type === 'featuredProducts') {
       const source = p.source || 'newest';
       const count = p.count || 4;
-      const featured = source === 'sale'
-        ? products.filter(prod => prod.salePrice && parseFloat(prod.salePrice) < parseFloat(prod.price)).slice(0, count)
-        : [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, count);
-      return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} />;
+      let featured: Product[];
+      if (source === 'manual' && Array.isArray(p.productIds) && p.productIds.length > 0) {
+        const ids = p.productIds.map(String);
+        featured = products.filter(prod => ids.includes(String(prod.id))).slice(0, count);
+      } else if (source === 'sale') {
+        featured = products.filter((prod: any) => prod.salePrice && parseFloat(prod.salePrice) < parseFloat(prod.price)).slice(0, count);
+      } else {
+        featured = [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, count);
+      }
+      return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} imagePosition={p.featuredImagePosition} imageScale={p.featuredImageScale} />;
+    }
+    if (section.type === 'categoriesGrid') {
+      return <CategoriesSection key={section.id} heading={p.heading} columns={p.columns} categoryImages={persistedCategoryImages} />;
     }
     return null;
   };
 
   const sectionsInSlot = (afterType: string, beforeType: string) => {
-    const after = homepageSections.findIndex(s => s.type === afterType);
+    // '__start__' is a sentinel meaning "from the beginning of the array"
+    const after = afterType === '__start__' ? -1 : homepageSections.findIndex(s => s.type === afterType);
     const before = homepageSections.findIndex(s => s.type === beforeType);
-    if (after === -1 && before === -1) return [];
+    // If the "after" anchor doesn't exist (and it's not the special sentinel), skip this slot
+    if (afterType !== '__start__' && after === -1) return [];
+    // If the "before" anchor doesn't exist, skip this slot — postProductsSections will cover these
+    if (before === -1) return [];
     const start = after === -1 ? 0 : after + 1;
-    const end = before === -1 ? homepageSections.length : before;
-    return homepageSections.slice(start, end).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+    return homepageSections.slice(start, before).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
   };
 
   const postProductsSections = (() => {
-    const idx = homepageSections.reduce((acc, s, i) => s.type === 'products' ? i : acc, -1);
-    if (idx === -1) return homepageSections.filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
-    return homepageSections.slice(idx + 1).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+    const productsIdx = homepageSections.reduce((acc, s, i) => s.type === 'products' ? i : acc, -1);
+    if (productsIdx !== -1) {
+      return homepageSections.slice(productsIdx + 1).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
+    }
+    // No 'products' builtin: render custom sections that come after the last builtin anchor
+    const lastBuiltinIdx = homepageSections.reduce((acc, s, i) => BUILTIN_TYPES.includes(s.type) ? i : acc, -1);
+    return homepageSections.slice(lastBuiltinIdx + 1).filter(s => !BUILTIN_TYPES.includes(s.type) && s.enabled !== false);
   })();
 
   return (
@@ -245,7 +272,7 @@ export default function Home() {
           <section className="relative overflow-hidden flex items-center min-h-[500px] md:min-h-[560px]">
             {showFg ? (
               <>
-                <img src={siteSettings.storefrontHeroImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: fgPosition }} />
+                <img src={siteSettings.storefrontHeroImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: fgPosition }} fetchPriority="high" loading="eager" decoding="async" />
                 <div className="absolute inset-0 bg-black" style={{ opacity: overlayPct / 100 }} />
               </>
             ) : (
@@ -319,7 +346,7 @@ export default function Home() {
                 {/* Right – interior photo */}
                 {showBg && (
                   <div className={`rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 ${bgSizeClass}`} style={{ aspectRatio: bgAspect }}>
-                    <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" />
+                    <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" loading="eager" decoding="async" />
                   </div>
                 )}
 
@@ -369,57 +396,6 @@ export default function Home() {
             </Button>
           </div>
 
-          {/* Categories row */}
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
-            <Button
-              variant={selectedCategory === null ? 'default' : 'outline'}
-              size="sm"
-              className="font-display"
-              onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); }}
-              data-testid="button-category-all"
-            >
-              All
-            </Button>
-            {categories.map(cat => (
-              <Button
-                key={cat}
-                variant={selectedCategory === cat ? 'default' : 'outline'}
-                size="sm"
-                className="font-display"
-                onClick={() => { setSelectedCategory(cat); setSelectedSubcategory(null); }}
-                data-testid={`button-category-${cat.toLowerCase()}`}
-              >
-                {cat}
-              </Button>
-            ))}
-          </div>
-
-          {/* Subcategory pills */}
-          {selectedCategory && subcategoriesForSelected.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-4 mb-2">
-              <Button
-                variant={selectedSubcategory === null ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-7 text-xs rounded-full font-display"
-                onClick={() => setSelectedSubcategory(null)}
-                data-testid="button-subcategory-all"
-              >
-                All {selectedCategory}
-              </Button>
-              {subcategoriesForSelected.map(sub => (
-                <Button
-                  key={sub.id}
-                  variant={selectedSubcategory === sub.name ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="h-7 text-xs rounded-full font-display"
-                  onClick={() => setSelectedSubcategory(sub.name)}
-                  data-testid={`button-subcategory-${sub.name.toLowerCase()}`}
-                >
-                  {sub.name}
-                </Button>
-              ))}
-            </div>
-          )}
           </>)}
 
           {/* ── BETWEEN SEARCH AND PRODUCTS SECTIONS ── */}

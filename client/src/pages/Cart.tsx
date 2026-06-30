@@ -193,13 +193,9 @@ export default function Cart() {
                     <>
                       <Link href="/checkout">
                         <Button className="w-full" size="lg" data-testid="button-checkout">
-                          Choose Pickup Location
+                          Proceed to Checkout
                         </Button>
                       </Link>
-
-                      <p className="text-xs text-center text-muted-foreground">
-                        Select your pickup node and time slot on the next page
-                      </p>
                     </>
                   )}
                 </CardContent>

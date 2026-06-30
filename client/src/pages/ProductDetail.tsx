@@ -24,7 +24,6 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const { addToCart, cart } = useCart();
 
@@ -337,32 +336,6 @@ export default function ProductDetail() {
 
               <h1 className="font-display text-2xl font-bold mb-3" data-testid="text-product-name">{product.name}</h1>
 
-              <div className="text-sm text-muted-foreground mb-4">
-                {(() => {
-                  const points = getDescriptionPoints(product.description);
-                  if (points.length <= 1) return <p dangerouslySetInnerHTML={{ __html: points[0] || '' }} />;
-                  const visiblePoints = descriptionExpanded ? points : points.slice(0, 3);
-                  return (
-                    <>
-                      <ul className="space-y-1">
-                        {visiblePoints.map((point, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-primary mt-0.5">•</span>
-                            <span className="text-sm" dangerouslySetInnerHTML={{ __html: point }} />
-                          </li>
-                        ))}
-                      </ul>
-                      {points.length > 3 && (
-                        <button onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-                          className="text-primary text-sm font-medium mt-1 hover:underline" data-testid="button-read-more">
-                          {descriptionExpanded ? 'Show less' : 'Read more'}
-                        </button>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-
               {/* Price + availability */}
               <div className="mb-4">
                 <span className="font-display text-3xl font-bold" data-testid="text-product-price">
@@ -458,21 +431,31 @@ export default function ProductDetail() {
                 })()}
               </div>
 
-              <Button
-                className="w-full h-12 gap-2 text-base mb-4"
-                disabled={totalStock === 0 && !product.comingSoon}
-                onClick={handleAddToCart}
-                data-testid="button-add-to-cart">
-                <ShoppingCart className="w-5 h-5" />
-                {product.comingSoon && totalStock === 0 ? 'Coming Soon' : 'Add to Cart'}
-              </Button>
+              <div className="flex gap-2 mb-4">
+                <Button
+                  className="flex-1 h-12 gap-2 text-base"
+                  disabled={totalStock === 0 && !product.comingSoon}
+                  onClick={() => { handleAddToCart(); navigate('/checkout'); }}
+                  data-testid="button-buy-now">
+                  {product.comingSoon && totalStock === 0 ? 'Coming Soon' : 'Buy Now'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 gap-2 text-base"
+                  disabled={totalStock === 0 && !product.comingSoon}
+                  onClick={handleAddToCart}
+                  data-testid="button-add-to-cart">
+                  <ShoppingCart className="w-5 h-5" />
+                  Add to Cart
+                </Button>
+              </div>
 
               {/* Fulfillment options — Home Depot style */}
               <div className="border rounded-xl overflow-hidden divide-y">
                 <div className="p-4 flex items-center gap-3" data-testid="fulfillment-ship">
                   <Truck className="w-5 h-5 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">Ships to Canada</p>
+                    <p className="font-semibold text-sm">Home Delivery</p>
                     <p className="text-xs text-muted-foreground">{shippingText}</p>
                   </div>
                   <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50 shrink-0">Available</Badge>
@@ -492,6 +475,32 @@ export default function ProductDetail() {
               </div>
             </div>
           </div>
+
+          {/* Related products */}
+          {relatedProducts.length > 0 && (
+            <section className="mb-8" data-testid="related-products-section">
+              <h2 className="font-display text-xl font-semibold mb-4">More {product.subcategory || product.category}</h2>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
+                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: -300, behavior: 'smooth' }); }}
+                  data-testid="button-related-prev">
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <div id="related-scroll" className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 flex-1" style={{ scrollSnapType: 'x mandatory' }}>
+                  {relatedProducts.map(p => (
+                    <div key={p.id} className="shrink-0 w-36 sm:w-40 lg:w-44" style={{ scrollSnapAlign: 'start' }}>
+                      <ProductCard product={p} layout={storefrontLayout} hideImageNav />
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
+                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: 300, behavior: 'smooth' }); }}
+                  data-testid="button-related-next">
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+            </section>
+          )}
 
           {/* Policy tabs */}
           <div className="mb-10">
@@ -565,7 +574,7 @@ export default function ProductDetail() {
               <TabsContent value="shipping" className="pt-5">
                 <div className="space-y-5 max-w-2xl text-sm text-muted-foreground">
                   <div>
-                    <p className="font-semibold text-foreground mb-1">Ships Across Canada via UPS</p>
+                    <p className="font-semibold text-foreground mb-1">Shipped via UPS</p>
                     <ul className="space-y-1">
                       <li>Flat rate shipping: <strong>${flatRate.toFixed(2)} CAD</strong></li>
                       <li>Free shipping on orders over <strong>${freeThreshold.toFixed(0)}</strong></li>
@@ -633,32 +642,6 @@ export default function ProductDetail() {
               </TabsContent>
             </Tabs>
           </div>
-
-          {/* Related products */}
-          {relatedProducts.length > 0 && (
-            <section data-testid="related-products-section">
-              <h2 className="font-display text-xl font-semibold mb-4">More {product.subcategory || product.category}</h2>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
-                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: -300, behavior: 'smooth' }); }}
-                  data-testid="button-related-prev">
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                <div id="related-scroll" className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 flex-1" style={{ scrollSnapType: 'x mandatory' }}>
-                  {relatedProducts.map(p => (
-                    <div key={p.id} className="shrink-0 w-36 sm:w-40 lg:w-44" style={{ scrollSnapAlign: 'start' }}>
-                      <ProductCard product={p} layout={storefrontLayout} hideImageNav />
-                    </div>
-                  ))}
-                </div>
-                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full"
-                  onClick={() => { const el = document.getElementById('related-scroll'); if (el) el.scrollBy({ left: 300, behavior: 'smooth' }); }}
-                  data-testid="button-related-next">
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              </div>
-            </section>
-          )}
 
         </div>
       </main>

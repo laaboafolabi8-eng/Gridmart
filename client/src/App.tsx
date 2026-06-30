@@ -1,14 +1,15 @@
 import { useEffect, lazy, Suspense } from "react";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { initConsent } from "@/lib/cookieConsent";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "./lib/auth";
 import NotFound from "@/pages/not-found";
+import UnderConstruction from "@/pages/UnderConstruction";
 
 const Home = lazy(() => import("@/pages/Home"));
 const ProductDetail = lazy(() => import("@/pages/ProductDetail"));
@@ -46,6 +47,9 @@ const TrackOrder = lazy(() => import("@/pages/TrackOrder"));
 const WarrantyPolicy = lazy(() => import("@/pages/WarrantyPolicy"));
 const PaymentPolicy = lazy(() => import("@/pages/PaymentPolicy"));
 const Disclaimer = lazy(() => import("@/pages/Disclaimer"));
+
+// Paths that always work even in under-construction mode
+const BYPASS_PATHS = ['/admin', '/admin/login'];
 
 function PageLoader() {
   return (
@@ -129,6 +133,41 @@ function Router() {
   );
 }
 
+function AppGate() {
+  const { user } = useAuth();
+  const [location] = useLocation();
+
+  const { data: settings = {} } = useQuery<Record<string, string>>({
+    queryKey: ['site-settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/site-settings');
+      return res.ok ? res.json() : {};
+    },
+    staleTime: 5000,
+  });
+
+  const isUnderConstruction = settings.siteUnderConstruction === 'true';
+  const isAdmin = user?.type === 'admin';
+  const isBypassPath = BYPASS_PATHS.some(p => location.startsWith(p));
+
+  if (isUnderConstruction && !isAdmin && !isBypassPath) {
+    return <UnderConstruction />;
+  }
+
+  return (
+    <>
+      {isUnderConstruction && isAdmin && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, background: '#f59e0b', color: '#000', textAlign: 'center', padding: '6px 12px', fontSize: '13px', fontWeight: 600 }}>
+          Under Construction mode is ON — visitors see the Under Construction page
+        </div>
+      )}
+      <div style={isUnderConstruction && isAdmin ? { paddingTop: '32px' } : undefined}>
+        <Router />
+      </div>
+    </>
+  );
+}
+
 function App() {
   const { checkSession } = useAuth();
 
@@ -142,7 +181,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <SonnerToaster position="top-right" richColors />
-        <Router />
+        <AppGate />
         <CookieConsentBanner />
       </TooltipProvider>
     </QueryClientProvider>

@@ -435,7 +435,7 @@ export default function Checkout() {
                         </div>
                         <Truck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold">Ship to Canada</p>
+                          <p className="font-semibold">Home Delivery</p>
                           <p className="text-sm text-muted-foreground">
                             {shippingCost === 0 && fulfillmentType === 'ship'
                               ? 'Free shipping on this order'

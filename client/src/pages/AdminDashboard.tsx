@@ -4799,6 +4799,105 @@ function LandingPagesTab({ productList, promoCodeList }: { productList: Product[
   );
 }
 
+function UnderConstructionToggle() {
+  const queryClient = useQueryClient();
+  const [enabled, setEnabled] = useState(false);
+  const [message, setMessage] = useState("We're making some improvements. Check back soon.");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/site-settings')
+      .then(r => r.json())
+      .then(s => {
+        setEnabled(s.siteUnderConstruction === 'true');
+        if (s.underConstructionMessage) setMessage(s.underConstructionMessage);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  const save = async (nextEnabled: boolean, nextMessage: string) => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        fetch('/api/site-settings/siteUnderConstruction', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: String(nextEnabled) }),
+        }),
+        fetch('/api/site-settings/underConstructionMessage', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: nextMessage }),
+        }),
+      ]);
+      queryClient.invalidateQueries({ queryKey: ['site-settings'] });
+      toast.success(nextEnabled ? 'Site set to Under Construction' : 'Site is now live');
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className={`border rounded-lg p-4 flex flex-col sm:flex-row sm:items-start gap-4 transition-colors ${enabled ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/20' : 'bg-muted/10'}`}>
+      <div className="flex-1 space-y-3">
+        <div className="flex items-center gap-3">
+          <div
+            role="switch"
+            aria-checked={enabled}
+            tabIndex={0}
+            onClick={() => { const next = !enabled; setEnabled(next); save(next, message); }}
+            onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { const next = !enabled; setEnabled(next); save(next, message); } }}
+            className={`relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${enabled ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-none">
+              Under Construction Mode
+              {enabled && <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white uppercase tracking-wide">Active</span>}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {enabled
+                ? 'Visitors see the Under Construction page. You can still access /admin.'
+                : 'Site is live and visible to all visitors.'}
+            </p>
+          </div>
+        </div>
+
+        {enabled && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Message shown to visitors</label>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 h-8 text-sm border rounded-md px-3 bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="We're making some improvements. Check back soon."
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 shrink-0"
+                disabled={saving}
+                onClick={() => save(enabled, message)}
+              >
+                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading, logout, switchRole } = useAuth();
@@ -4954,8 +5053,11 @@ export default function AdminDashboard() {
   const [socialBatchSaving, setSocialBatchSaving] = useState(false);
 
   // Tab ordering state with server persistence (syncs across devices)
-  const defaultTabOrder = ['products', 'categories', 'crates', 'nodes', 'cities', 'deals', 'analytics', 'sales', 'payments', 'applications', 'agreements', 'feedback', 'sms', 'accounts', 'design', 'social', 'notifications', 'landing-pages', 'flyers', 'qr-codes'];
+  const defaultTabOrder = ['products', 'categories', 'crates', 'nodes', 'cities', 'deals', 'analytics', 'sales', 'payments', 'applications', 'agreements', 'feedback', 'sms', 'accounts', 'design', 'social', 'notifications', 'landing-pages', 'flyers', 'qr-codes', 'sourcing'];
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('gridmart_admin_tab') || 'products');
+  const [sourcingInput, setSourcingInput] = useState('');
+  const [sourcingResults, setSourcingResults] = useState<Array<{ asin: string; eligible: boolean; reasons: string[]; error?: string }>>([]);
+  const [sourcingLoading, setSourcingLoading] = useState(false);
   const handleSetActiveTab = (tab: string) => {
     setActiveTab(tab);
     localStorage.setItem('gridmart_admin_tab', tab);
@@ -5525,7 +5627,7 @@ export default function AdminDashboard() {
     }
   }, [editingProduct?.id]);
 
-  const handleGenerateListing = async () => {
+  const handleGenerateListing = async (mode: 'listing' | 'title' | 'both' = 'listing') => {
     if (!editingProduct?.name || isGeneratingListing) return;
     setIsGeneratingListing(true);
     try {
@@ -5536,13 +5638,16 @@ export default function AdminDashboard() {
           name: editingProduct.name,
           description: typeof editingProduct.description === 'string' ? editingProduct.description : '',
           imageUrl: editingProduct.image || undefined,
+          mode,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const { sections } = await res.json();
-      setEditingProduct({ ...editingProduct, contentSections: sections });
-      setEditSectionsOpen(true);
-      toast.success('Listing generated');
+      const data = await res.json();
+      const updates: any = {};
+      if (data.sections) { updates.contentSections = data.sections; setEditSectionsOpen(true); }
+      if (data.googleTitle) updates.name = data.googleTitle;
+      setEditingProduct(prev => ({ ...prev, ...updates }));
+      toast.success(mode === 'title' ? 'Title updated' : mode === 'both' ? 'Title and listing generated' : 'Listing generated');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate listing');
     } finally {
@@ -5761,6 +5866,8 @@ export default function AdminDashboard() {
   const [isBatchRewording, setIsBatchRewording] = useState(false);
   const [batchRewordPrompt, setBatchRewordPrompt] = useState('');
   const [showBatchRewordPrompt, setShowBatchRewordPrompt] = useState(false);
+  const [isBatchGeneratingListing, setIsBatchGeneratingListing] = useState(false);
+  const [batchGenerateProgress, setBatchGenerateProgress] = useState({ current: 0, total: 0 });
   const [showBulkSheetSync, setShowBulkSheetSync] = useState(false);
   const [bulkSyncColumn, setBulkSyncColumn] = useState<'quantity' | 'costPrice' | 'price' | 'name' | 'images' | 'description' | 'code'>('quantity');
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
@@ -8924,6 +9031,10 @@ Check other listings for more products`);
                   'qr-codes': {
                     label: 'QR Codes',
                     icon: <QrCode className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+                  },
+                  sourcing: {
+                    label: 'Sourcing',
+                    icon: <Search className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                   }
                 };
                 
@@ -9928,6 +10039,72 @@ Check other listings for more products`);
                     </PopoverContent>
                   </Popover>
                   
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isBatchGeneratingListing}
+                        data-testid="button-batch-write-for-me"
+                      >
+                        {isBatchGeneratingListing
+                          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{batchGenerateProgress.current}/{batchGenerateProgress.total}</>
+                          : <><Sparkles className="w-4 h-4 mr-2" />Write for me<ChevronDown className="w-3 h-3 ml-1" /></>}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="text-sm">
+                      {(['listing', 'title', 'both'] as const).map(mode => (
+                        <DropdownMenuItem key={mode} onClick={async () => {
+                          setIsBatchGeneratingListing(true);
+                          setBatchGenerateProgress({ current: 0, total: selectedProducts.length });
+                          let successCount = 0;
+                          let failCount = 0;
+                          for (let i = 0; i < selectedProducts.length; i++) {
+                            const productId = selectedProducts[i];
+                            setBatchGenerateProgress({ current: i + 1, total: selectedProducts.length });
+                            const product = productList.find(p => p.id === productId);
+                            if (!product?.name) { failCount++; continue; }
+                            try {
+                              const res = await fetch('/api/generate-listing', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  name: product.name,
+                                  description: typeof product.description === 'string' ? product.description : '',
+                                  imageUrl: product.images?.[0] || undefined,
+                                  mode,
+                                }),
+                              });
+                              if (!res.ok) { failCount++; continue; }
+                              const data = await res.json();
+                              const patch: any = {};
+                              if (data.sections) patch.contentSections = data.sections;
+                              if (data.googleTitle) patch.name = data.googleTitle;
+                              await fetch(`/api/products/${productId}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(patch),
+                              });
+                              successCount++;
+                            } catch {
+                              failCount++;
+                            }
+                          }
+                          queryClient.invalidateQueries({ queryKey: ['products'] });
+                          setIsBatchGeneratingListing(false);
+                          setBatchGenerateProgress({ current: 0, total: 0 });
+                          const label = mode === 'title' ? 'titles' : mode === 'both' ? 'titles and listings' : 'listings';
+                          if (successCount > 0) toast.success(`Generated ${label} for ${successCount} product${successCount !== 1 ? 's' : ''}`);
+                          if (failCount > 0) toast.error(`Failed for ${failCount} product${failCount !== 1 ? 's' : ''}`);
+                        }}>
+                          {mode === 'listing' && <><FileText className="w-3.5 h-3.5 mr-2" />Generate Listing<span className="ml-2 text-[10px] text-muted-foreground">Details · Features · Specs</span></>}
+                          {mode === 'title' && <><Tag className="w-3.5 h-3.5 mr-2" />Generate Title<span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span></>}
+                          {mode === 'both' && <><Sparkles className="w-3.5 h-3.5 mr-2" />Generate Both</>}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   <Popover open={showBulkSheetSync} onOpenChange={setShowBulkSheetSync}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" disabled={isBulkSyncing} data-testid="button-sheet-sync-sticky">
@@ -12955,7 +13132,16 @@ Check other listings for more products`);
                           </div>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-                          <span className="line-clamp-1">{getDescriptionPoints(product.description).slice(0, 2).join(' • ')}</span>
+                          <span className="line-clamp-1">{(() => {
+                            if ((product as any).contentSections?.length) {
+                              const cs = (product as any).contentSections as any[];
+                              const text = cs.find(s => s.type === 'text' && s.content);
+                              if (text) return text.content;
+                              const bullets = cs.find(s => s.type === 'bullets' && Array.isArray(s.content) && s.content[0]);
+                              if (bullets) return (bullets.content as string[]).slice(0, 2).join(' • ');
+                            }
+                            return getDescriptionPoints(product.description).slice(0, 2).join(' • ');
+                          })()}</span>
                           {!product.sheetRow && product.sku && (
                             <span className="font-mono text-xs shrink-0">SKU: {product.sku}</span>
                           )}
@@ -13804,25 +13990,80 @@ Check other listings for more products`);
                                       ) : null}
                                       <span className="text-xs text-muted-foreground ml-auto pr-2">{editSectionsOpen ? '▲' : '▼'}</span>
                                     </button>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs gap-1 shrink-0"
-                                      onClick={handleGenerateListing}
-                                      disabled={isGeneratingListing || !editingProduct.name}
-                                    >
-                                      {isGeneratingListing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                      {isGeneratingListing ? 'Writing…' : 'Write for me'}
-                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs gap-1 shrink-0"
+                                          disabled={isGeneratingListing || !editingProduct.name}
+                                        >
+                                          {isGeneratingListing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                          {isGeneratingListing ? 'Writing…' : 'Write for me'}
+                                          <ChevronDown className="w-3 h-3 ml-0.5" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="text-sm">
+                                        <DropdownMenuItem onClick={() => handleGenerateListing('listing')}>
+                                          <FileText className="w-3.5 h-3.5 mr-2" />
+                                          Generate Listing
+                                          <span className="ml-2 text-[10px] text-muted-foreground">Details · Features · Specs</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleGenerateListing('title')}>
+                                          <Tag className="w-3.5 h-3.5 mr-2" />
+                                          Generate Title
+                                          <span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleGenerateListing('both')}>
+                                          <Sparkles className="w-3.5 h-3.5 mr-2" />
+                                          Generate Both
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                   {editSectionsOpen && (
-                                    <div className="p-3 border-t">
+                                    <div className="p-3 border-t space-y-4">
                                       <ContentSectionsEditor
                                         value={editingProduct.contentSections}
                                         initialDescription={getDescriptionString(editingProduct.description)}
                                         onChange={sections => setEditingProduct({ ...editingProduct, contentSections: sections })}
                                       />
+                                      {editingProduct.contentSections?.length ? (
+                                        <div className="border rounded-lg p-4 bg-muted/20 space-y-4">
+                                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+                                          {editingProduct.contentSections.map((section: any) => (
+                                            <div key={section.id}>
+                                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{section.name}</p>
+                                              {section.type === 'text' && (
+                                                <p className="text-sm leading-relaxed">{section.content}</p>
+                                              )}
+                                              {section.type === 'bullets' && Array.isArray(section.content) && (section.content as string[]).filter(Boolean).length > 0 && (
+                                                <ul className="space-y-1">
+                                                  {(section.content as string[]).filter(Boolean).map((item: string, i: number) => (
+                                                    <li key={i} className="flex items-start gap-2 text-sm">
+                                                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                                                      <span>{item}</span>
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              )}
+                                              {section.type === 'specs' && Array.isArray(section.content) && (section.content as { key: string; value: string }[]).filter(r => r.key).length > 0 && (
+                                                <table className="w-full text-sm border-collapse">
+                                                  <tbody>
+                                                    {(section.content as { key: string; value: string }[]).filter(r => r.key).map((row, i) => (
+                                                      <tr key={i} className={i % 2 === 0 ? 'bg-muted/40' : ''}>
+                                                        <td className="py-1 px-2 font-medium text-muted-foreground w-2/5">{row.key}</td>
+                                                        <td className="py-1 px-2">{row.value}</td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : null}
                                     </div>
                                   )}
                                 </div>
@@ -21869,6 +22110,8 @@ Check other listings for more products`);
           </TabsContent>
 
           <TabsContent value="design" className="space-y-6">
+            <UnderConstructionToggle />
+
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <div>
@@ -21900,1110 +22143,6 @@ Check other listings for more products`);
                   <Save className="w-4 h-4 mr-2" />
                   Save Homepage Layout
                 </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6 space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-1">
-                    <Type className="w-5 h-5 text-primary" />
-                    Homepage Copy
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Edit the text that appears on the homepage hero section and feature cards. Leave blank to use defaults.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-sm font-medium">Hero Line 1</Label>
-                      <Input
-                        placeholder="Shop Local."
-                        value={homepageCopy.heroLine1}
-                        onChange={e => setHomepageCopy(prev => ({ ...prev, heroLine1: e.target.value }))}
-                        data-testid="input-hero-line1"
-                      />
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <Select value={homepageCopy.heroLine1FontSize || ''} onValueChange={v => setHomepageCopy(p => ({ ...p, heroLine1FontSize: v }))}>
-                          <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-hero-line1-font-size"><SelectValue placeholder="Size" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text-2xl">Small</SelectItem>
-                            <SelectItem value="text-3xl">Medium</SelectItem>
-                            <SelectItem value="text-4xl md:text-5xl lg:text-6xl">Large (default)</SelectItem>
-                            <SelectItem value="text-5xl md:text-6xl lg:text-7xl">X-Large</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={homepageCopy.heroLine1Weight || ''} onValueChange={v => setHomepageCopy(p => ({ ...p, heroLine1Weight: v }))}>
-                          <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-hero-line1-weight"><SelectValue placeholder="Weight" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="semibold">Semibold</SelectItem>
-                            <SelectItem value="bold">Bold (default)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <div className="flex items-center gap-1">
-                          <Input type="color" value={homepageCopy.heroLine1Color || '#000000'} onChange={e => setHomepageCopy(p => ({ ...p, heroLine1Color: e.target.value }))} className="w-8 h-8 p-0.5" data-testid="input-hero-line1-color" />
-                          {homepageCopy.heroLine1Color && <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => setHomepageCopy(p => ({ ...p, heroLine1Color: '' }))}>X</Button>}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">Hero Line 2 (highlighted)</Label>
-                      <Input
-                        placeholder="In-Store & Online."
-                        value={homepageCopy.heroLine2}
-                        onChange={e => setHomepageCopy(prev => ({ ...prev, heroLine2: e.target.value }))}
-                        data-testid="input-hero-line2"
-                      />
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <Select value={homepageCopy.heroLine2FontSize || ''} onValueChange={v => setHomepageCopy(p => ({ ...p, heroLine2FontSize: v }))}>
-                          <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-hero-line2-font-size"><SelectValue placeholder="Size" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text-2xl">Small</SelectItem>
-                            <SelectItem value="text-3xl">Medium</SelectItem>
-                            <SelectItem value="text-4xl md:text-5xl lg:text-6xl">Large (default)</SelectItem>
-                            <SelectItem value="text-5xl md:text-6xl lg:text-7xl">X-Large</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={homepageCopy.heroLine2Weight || ''} onValueChange={v => setHomepageCopy(p => ({ ...p, heroLine2Weight: v }))}>
-                          <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-hero-line2-weight"><SelectValue placeholder="Weight" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="semibold">Semibold</SelectItem>
-                            <SelectItem value="bold">Bold (default)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <div className="flex items-center gap-1">
-                          <Input type="color" value={homepageCopy.heroLine2Color || '#14b8a6'} onChange={e => setHomepageCopy(p => ({ ...p, heroLine2Color: e.target.value }))} className="w-8 h-8 p-0.5" data-testid="input-hero-line2-color" />
-                          {homepageCopy.heroLine2Color && <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => setHomepageCopy(p => ({ ...p, heroLine2Color: '' }))}>X</Button>}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">Hero Subtitle</Label>
-                      <Textarea
-                        placeholder="Browse our curated selection in person, or order online for local pickup."
-                        value={homepageCopy.heroSubtitle}
-                        onChange={e => setHomepageCopy(prev => ({ ...prev, heroSubtitle: e.target.value }))}
-                        rows={2}
-                        data-testid="input-hero-subtitle"
-                      />
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <Select value={homepageCopy.heroSubtitleFontSize || ''} onValueChange={v => setHomepageCopy(p => ({ ...p, heroSubtitleFontSize: v }))}>
-                          <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-hero-subtitle-font-size"><SelectValue placeholder="Size" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text-sm">Small</SelectItem>
-                            <SelectItem value="text-base">Medium</SelectItem>
-                            <SelectItem value="text-lg md:text-xl">Large (default)</SelectItem>
-                            <SelectItem value="text-xl md:text-2xl">X-Large</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={homepageCopy.heroSubtitleWeight || ''} onValueChange={v => setHomepageCopy(p => ({ ...p, heroSubtitleWeight: v }))}>
-                          <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-hero-subtitle-weight"><SelectValue placeholder="Weight" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="light">Light</SelectItem>
-                            <SelectItem value="normal">Normal (default)</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="semibold">Semibold</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <div className="flex items-center gap-1">
-                          <Input type="color" value={homepageCopy.heroSubtitleColor || '#666666'} onChange={e => setHomepageCopy(p => ({ ...p, heroSubtitleColor: e.target.value }))} className="w-8 h-8 p-0.5" data-testid="input-hero-subtitle-color" />
-                          {homepageCopy.heroSubtitleColor && <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => setHomepageCopy(p => ({ ...p, heroSubtitleColor: '' }))}>X</Button>}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">Text Alignment</Label>
-                      <Select value={homepageCopy.heroAlign || ''} onValueChange={v => setHomepageCopy(p => ({ ...p, heroAlign: v }))}>
-                        <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-hero-align"><SelectValue placeholder="Alignment" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="left">Left</SelectItem>
-                          <SelectItem value="center">Center (default)</SelectItem>
-                          <SelectItem value="right">Right</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">Title Vertical Position</Label>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-xs text-muted-foreground w-6">{homepageCopy.heroTitleOffset}px</span>
-                        <input
-                          type="range"
-                          min="-100"
-                          max="100"
-                          step="1"
-                          value={homepageCopy.heroTitleOffset || '0'}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, heroTitleOffset: e.target.value }))}
-                          className="flex-1 accent-primary"
-                          data-testid="input-hero-title-offset"
-                        />
-                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setHomepageCopy(prev => ({ ...prev, heroTitleOffset: '0' }))}>
-                          Reset
-                        </Button>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Negative = up, Positive = down</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Subtitle Vertical Position</Label>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-xs text-muted-foreground w-6">{homepageCopy.heroSubtitleOffset}px</span>
-                        <input
-                          type="range"
-                          min="-100"
-                          max="100"
-                          step="1"
-                          value={homepageCopy.heroSubtitleOffset || '0'}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, heroSubtitleOffset: e.target.value }))}
-                          className="flex-1 accent-primary"
-                          data-testid="input-hero-subtitle-offset"
-                        />
-                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setHomepageCopy(prev => ({ ...prev, heroSubtitleOffset: '0' }))}>
-                          Reset
-                        </Button>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Negative = up, Positive = down</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">Map Label</Label>
-                      <Input
-                        placeholder="Pickup Zones"
-                        value={homepageCopy.mapLabel}
-                        onChange={e => setHomepageCopy(prev => ({ ...prev, mapLabel: e.target.value }))}
-                        data-testid="input-map-label"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Map Hint Text</Label>
-                      <Input
-                        placeholder="Each circle contains a pickup node. Click one to view available pickup times."
-                        value={homepageCopy.mapHint}
-                        onChange={e => setHomepageCopy(prev => ({ ...prev, mapHint: e.target.value }))}
-                        data-testid="input-map-hint"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Node Circle Size (meters)</Label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="range"
-                        min="100"
-                        max="2000"
-                        step="50"
-                        value={homepageCopy.nodeCircleSize || '500'}
-                        onChange={e => setHomepageCopy(prev => ({ ...prev, nodeCircleSize: e.target.value }))}
-                        className="flex-1"
-                        data-testid="input-node-circle-size"
-                      />
-                      <span className="text-sm text-muted-foreground w-16 text-right">{homepageCopy.nodeCircleSize || '500'}m</span>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <Label className="text-sm font-medium text-muted-foreground mb-3 block">Feature Cards</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Same-Day Pickup"
-                          value={homepageCopy.feature1Title}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, feature1Title: e.target.value }))}
-                          data-testid="input-feature1-title"
-                        />
-                        <Textarea
-                          placeholder="Choose your time slot and pick up when it's convenient for you."
-                          value={homepageCopy.feature1Desc}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, feature1Desc: e.target.value }))}
-                          rows={2}
-                          data-testid="input-feature1-desc"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Neighborhood Nodes"
-                          value={homepageCopy.feature2Title}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, feature2Title: e.target.value }))}
-                          data-testid="input-feature2-title"
-                        />
-                        <Textarea
-                          placeholder="Pick up orders from node hosts who store inventory in their homes."
-                          value={homepageCopy.feature2Desc}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, feature2Desc: e.target.value }))}
-                          rows={2}
-                          data-testid="input-feature2-desc"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Free In-Store Pickup"
-                          value={homepageCopy.feature3Title}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, feature3Title: e.target.value }))}
-                          data-testid="input-feature3-title"
-                        />
-                        <Textarea
-                          placeholder="Order online and pick up at our store at no extra charge. We also ship across Canada via UPS."
-                          value={homepageCopy.feature3Desc}
-                          onChange={e => setHomepageCopy(prev => ({ ...prev, feature3Desc: e.target.value }))}
-                          rows={2}
-                          data-testid="input-feature3-desc"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 space-y-3">
-                  <h4 className="text-sm font-semibold mb-1">Storefront Photos & Info</h4>
-                  <p className="text-xs text-muted-foreground mb-3">Shown in the hero section on the homepage.</p>
-                  <div className="border rounded-lg p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Foreground Photo</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Show</span>
-                        <Switch
-                          checked={(homepageCopy as any).storefrontHeroImageEnabled !== 'false'}
-                          onCheckedChange={(checked) => setHomepageCopy(prev => ({ ...prev, storefrontHeroImageEnabled: checked ? 'true' : 'false' } as any))}
-                          data-testid="switch-foreground-enabled"
-                        />
-                      </div>
-                    </div>
-                    <ImageDropZone
-                      label=""
-                      value={(homepageCopy as any).storefrontHeroImage || ''}
-                      onChange={url => setHomepageCopy(prev => ({ ...prev, storefrontHeroImage: url } as any))}
-                      onUpload={handleImageUpload}
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">Image Position</Label>
-                        <Select
-                          value={(homepageCopy as any).storefrontHeroImagePosition || 'center'}
-                          onValueChange={(v) => setHomepageCopy(prev => ({ ...prev, storefrontHeroImagePosition: v } as any))}
-                        >
-                          <SelectTrigger className="h-8 text-xs" data-testid="select-foreground-position">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="center top">Top</SelectItem>
-                            <SelectItem value="center">Center</SelectItem>
-                            <SelectItem value="center bottom">Bottom</SelectItem>
-                            <SelectItem value="left center">Left</SelectItem>
-                            <SelectItem value="right center">Right</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Overlay Darkness (%)</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          className="h-8 text-xs"
-                          placeholder="55"
-                          value={(homepageCopy as any).storefrontHeroImageOverlay ?? ''}
-                          onChange={(e) => setHomepageCopy(prev => ({ ...prev, storefrontHeroImageOverlay: e.target.value } as any))}
-                          data-testid="input-foreground-overlay"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border rounded-lg p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Background Photo</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Show</span>
-                        <Switch
-                          checked={(homepageCopy as any).storefrontInteriorImageEnabled !== 'false'}
-                          onCheckedChange={(checked) => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImageEnabled: checked ? 'true' : 'false' } as any))}
-                          data-testid="switch-background-enabled"
-                        />
-                      </div>
-                    </div>
-                    <ImageDropZone
-                      label=""
-                      hint="Optional — shown as a card alongside the foreground."
-                      value={(homepageCopy as any).storefrontInteriorImage || ''}
-                      onChange={url => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImage: url } as any))}
-                      onUpload={handleImageUpload}
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">Aspect Ratio</Label>
-                        <Select
-                          value={(homepageCopy as any).storefrontInteriorImageAspect || '4/3'}
-                          onValueChange={(v) => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImageAspect: v } as any))}
-                        >
-                          <SelectTrigger className="h-8 text-xs" data-testid="select-background-aspect">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="4/3">Landscape (4:3)</SelectItem>
-                            <SelectItem value="16/9">Wide (16:9)</SelectItem>
-                            <SelectItem value="1/1">Square (1:1)</SelectItem>
-                            <SelectItem value="3/4">Portrait (3:4)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Size</Label>
-                        <Select
-                          value={(homepageCopy as any).storefrontInteriorImageSize || 'md'}
-                          onValueChange={(v) => setHomepageCopy(prev => ({ ...prev, storefrontInteriorImageSize: v } as any))}
-                        >
-                          <SelectTrigger className="h-8 text-xs" data-testid="select-background-size">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="sm">Small</SelectItem>
-                            <SelectItem value="md">Medium</SelectItem>
-                            <SelectItem value="lg">Large</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Store Address</Label>
-                    <Input
-                      placeholder="123 Main St, Windsor, ON"
-                      value={(homepageCopy as any).storefrontAddress || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontAddress: e.target.value } as any))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Store Hours</Label>
-                    <Input
-                      placeholder="Mon–Fri 10am–6pm, Sat 10am–4pm"
-                      value={(homepageCopy as any).storefrontHours || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, storefrontHours: e.target.value } as any))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Pickup Section Title</Label>
-                    <Input
-                      placeholder="Community Pickup Locations"
-                      value={(homepageCopy as any).pickupSectionTitle || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, pickupSectionTitle: e.target.value } as any))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Pickup Section Subtitle</Label>
-                    <Input
-                      placeholder="Can't make it to the store? Order online and pick up at a convenient community location near you."
-                      value={(homepageCopy as any).pickupSectionSubtitle || ''}
-                      onChange={e => setHomepageCopy(prev => ({ ...prev, pickupSectionSubtitle: e.target.value } as any))}
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold mb-2">Footer Tagline</h4>
-                  <p className="text-xs text-muted-foreground mb-2">The text that appears below the logo in the website footer. Leave blank for the default.</p>
-                  <Input
-                    placeholder="Community-powered local pickup. Shop from local producers and pick up from neighborhood Nodes. Fresh, fast, and friendly."
-                    value={homepageCopy.footerTagline}
-                    onChange={e => setHomepageCopy(prev => ({ ...prev, footerTagline: e.target.value }))}
-                    data-testid="input-footer-tagline"
-                  />
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold mb-2">About Us Page</h4>
-                  <p className="text-xs text-muted-foreground mb-2">The text displayed on the About Us page (/about). Linked in the footer under Quick Links.</p>
-                  <Textarea
-                    placeholder="Tell your story — who you are, what GridMart is about, and why you started..."
-                    value={homepageCopy.aboutUsText}
-                    onChange={e => setHomepageCopy(prev => ({ ...prev, aboutUsText: e.target.value }))}
-                    rows={8}
-                    data-testid="input-about-us-text"
-                  />
-                </div>
-
-                <Button
-                  onClick={async () => {
-                    try {
-                      const entries = Object.entries(homepageCopy).filter(([, v]) => v.trim() !== '');
-                      await Promise.all(
-                        entries.map(([key, value]) =>
-                          fetch(`/api/site-settings/${key}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ value }),
-                          })
-                        )
-                      );
-                      const emptyKeys = Object.entries(homepageCopy).filter(([, v]) => v.trim() === '').map(([k]) => k);
-                      await Promise.all(
-                        emptyKeys.map(key =>
-                          fetch(`/api/site-settings/${key}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ value: '' }),
-                          })
-                        )
-                      );
-                      toast.success('Homepage copy saved');
-                    } catch {
-                      toast.error('Failed to save homepage copy');
-                    }
-                  }}
-                  data-testid="btn-save-homepage-copy"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Homepage Copy
-                </Button>
-              </CardContent>
-            </Card>
-
-
-            {/* Storefront Layout */}
-            <Card>
-              <CardContent className="pt-6 space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-1">
-                    <LayoutGrid className="w-5 h-5 text-primary" />
-                    Storefront Product Layout
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Control how products appear on the storefront. Changes apply to all visitors.
-                  </p>
-                </div>
-
-                {/* Grid & Layout */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Grid & Layout</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm">Columns (Desktop)</Label>
-                      <Select value={storefrontLayout.columnsDesktop} onValueChange={v => setStorefrontLayout(p => ({ ...p, columnsDesktop: v }))}>
-                        <SelectTrigger data-testid="select-columns-desktop"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {['2','3','4','5','6','7','8','9','10','11','12'].map(n => <SelectItem key={n} value={n}>{n} columns</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Columns (Tablet)</Label>
-                      <Select value={storefrontLayout.columnsTablet} onValueChange={v => setStorefrontLayout(p => ({ ...p, columnsTablet: v }))}>
-                        <SelectTrigger data-testid="select-columns-tablet"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {['2','3','4','5','6','7','8','9','10'].map(n => <SelectItem key={n} value={n}>{n} columns</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Columns (Mobile)</Label>
-                      <Select value={storefrontLayout.columnsMobile} onValueChange={v => setStorefrontLayout(p => ({ ...p, columnsMobile: v }))}>
-                        <SelectTrigger data-testid="select-columns-mobile"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {['1','2','3','4','5','6','7','8'].map(n => <SelectItem key={n} value={n}>{n} columns</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm">Card Size</Label>
-                      <Select value={storefrontLayout.cardSize} onValueChange={v => setStorefrontLayout(p => ({ ...p, cardSize: v }))}>
-                        <SelectTrigger data-testid="select-card-size"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="compact">Compact</SelectItem>
-                          <SelectItem value="standard">Standard</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Grid Gap</Label>
-                      <Select value={storefrontLayout.gridGap} onValueChange={v => setStorefrontLayout(p => ({ ...p, gridGap: v }))}>
-                        <SelectTrigger data-testid="select-grid-gap"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tight">Tight (4px)</SelectItem>
-                          <SelectItem value="normal">Normal (8px)</SelectItem>
-                          <SelectItem value="relaxed">Relaxed (16px)</SelectItem>
-                          <SelectItem value="spacious">Spacious (24px)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                {/* Card Content Visibility */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Card Content</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {([
-                      ['showName', 'Product Name'],
-                      ['showPrice', 'Price'],
-                      ['showDescription', 'Description'],
-                      ['showCondition', 'Condition Badge'],
-                      ['showBrand', 'Brand'],
-                      ['showProductCode', 'Product Code'],
-                    ] as const).map(([key, label]) => (
-                      <label key={key} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={storefrontLayout[key] as boolean}
-                          onChange={e => setStorefrontLayout(p => ({ ...p, [key]: e.target.checked }))}
-                          className="rounded border-input accent-primary"
-                          data-testid={`checkbox-${key}`}
-                        />
-                        <span className="text-sm">{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                    <div>
-                      <Label className="text-sm">Image Aspect Ratio</Label>
-                      <Select value={storefrontLayout.imageAspect} onValueChange={v => setStorefrontLayout(p => ({ ...p, imageAspect: v }))}>
-                        <SelectTrigger data-testid="select-image-aspect"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="square">Square (1:1)</SelectItem>
-                          <SelectItem value="4:3">Landscape (4:3)</SelectItem>
-                          <SelectItem value="3:4">Portrait (3:4)</SelectItem>
-                          <SelectItem value="16:9">Wide (16:9)</SelectItem>
-                          <SelectItem value="auto">Auto (original)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Image Fit</Label>
-                      <Select value={storefrontLayout.imageFit} onValueChange={v => setStorefrontLayout(p => ({ ...p, imageFit: v }))}>
-                        <SelectTrigger data-testid="select-image-fit"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cover">Cover (fills frame, may crop)</SelectItem>
-                          <SelectItem value="contain">Contain (full image, may letterbox)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm">Name Max Lines</Label>
-                      <Select value={storefrontLayout.nameMaxLines} onValueChange={v => setStorefrontLayout(p => ({ ...p, nameMaxLines: v }))}>
-                        <SelectTrigger data-testid="select-name-max-lines"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {['1','2','3','4','none'].map(n => <SelectItem key={n} value={n}>{n === 'none' ? 'No limit' : `${n} line${n === '1' ? '' : 's'}`}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Description Max Lines</Label>
-                      <Select value={storefrontLayout.descMaxLines} onValueChange={v => setStorefrontLayout(p => ({ ...p, descMaxLines: v }))}>
-                        <SelectTrigger data-testid="select-desc-max-lines"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {['1','2','3','4','none'].map(n => <SelectItem key={n} value={n}>{n === 'none' ? 'No limit' : `${n} line${n === '1' ? '' : 's'}`}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                {/* Typography & Styling */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Typography & Card Styling</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm">Product Name Font Size</Label>
-                      <Select value={storefrontLayout.nameFontSize} onValueChange={v => setStorefrontLayout(p => ({ ...p, nameFontSize: v }))}>
-                        <SelectTrigger data-testid="select-name-font-size"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tiny">Tiny (10px)</SelectItem>
-                          <SelectItem value="small">Small (12px)</SelectItem>
-                          <SelectItem value="medium">Medium (14px)</SelectItem>
-                          <SelectItem value="large">Large (16px)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Price Font Size</Label>
-                      <Select value={storefrontLayout.priceFontSize} onValueChange={v => setStorefrontLayout(p => ({ ...p, priceFontSize: v }))}>
-                        <SelectTrigger data-testid="select-price-font-size"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tiny">Tiny (10px)</SelectItem>
-                          <SelectItem value="small">Small (12px)</SelectItem>
-                          <SelectItem value="medium">Medium (14px)</SelectItem>
-                          <SelectItem value="large">Large (16px)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm">Price Color</Label>
-                      <div className="flex gap-2 items-center">
-                        <Input
-                          type="color"
-                          value={storefrontLayout.priceColor || '#14b8a6'}
-                          onChange={e => setStorefrontLayout(p => ({ ...p, priceColor: e.target.value }))}
-                          className="w-10 h-9 p-1 cursor-pointer"
-                          data-testid="input-price-color"
-                        />
-                        <Input
-                          value={storefrontLayout.priceColor}
-                          onChange={e => setStorefrontLayout(p => ({ ...p, priceColor: e.target.value }))}
-                          placeholder="Default (primary)"
-                          className="flex-1"
-                        />
-                        {storefrontLayout.priceColor && (
-                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setStorefrontLayout(p => ({ ...p, priceColor: '' }))}>Clear</Button>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Price Weight</Label>
-                      <Select value={storefrontLayout.priceWeight} onValueChange={v => setStorefrontLayout(p => ({ ...p, priceWeight: v }))}>
-                        <SelectTrigger data-testid="select-price-weight"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="semibold">Semi Bold</SelectItem>
-                          <SelectItem value="bold">Bold</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Card Background</Label>
-                      <div className="flex gap-2 items-center">
-                        <Input
-                          type="color"
-                          value={storefrontLayout.cardBg || '#ffffff'}
-                          onChange={e => setStorefrontLayout(p => ({ ...p, cardBg: e.target.value }))}
-                          className="w-10 h-9 p-1 cursor-pointer"
-                          data-testid="input-card-bg"
-                        />
-                        <Input
-                          value={storefrontLayout.cardBg}
-                          onChange={e => setStorefrontLayout(p => ({ ...p, cardBg: e.target.value }))}
-                          placeholder="Default"
-                          className="flex-1"
-                        />
-                        {storefrontLayout.cardBg && (
-                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setStorefrontLayout(p => ({ ...p, cardBg: '' }))}>Clear</Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm">Card Border Radius</Label>
-                      <Select value={storefrontLayout.cardRadius} onValueChange={v => setStorefrontLayout(p => ({ ...p, cardRadius: v }))}>
-                        <SelectTrigger data-testid="select-card-radius"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="sharp">Sharp (0px)</SelectItem>
-                          <SelectItem value="slight">Slight (4px)</SelectItem>
-                          <SelectItem value="rounded">Rounded (8px)</SelectItem>
-                          <SelectItem value="extra">Extra Rounded (16px)</SelectItem>
-                          <SelectItem value="pill">Pill (24px)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Card Shadow</Label>
-                      <Select value={storefrontLayout.cardShadow} onValueChange={v => setStorefrontLayout(p => ({ ...p, cardShadow: v }))}>
-                        <SelectTrigger data-testid="select-card-shadow"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="subtle">Subtle</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="pronounced">Pronounced</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                {/* Hover & Interaction */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Hover & Interaction</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm">Hover Effect</Label>
-                      <Select value={storefrontLayout.hoverEffect} onValueChange={v => setStorefrontLayout(p => ({ ...p, hoverEffect: v }))}>
-                        <SelectTrigger data-testid="select-hover-effect"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="lift">Lift (shadow + translate)</SelectItem>
-                          <SelectItem value="scale">Scale Up</SelectItem>
-                          <SelectItem value="border">Border Highlight</SelectItem>
-                          <SelectItem value="glow">Glow</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Default Sort</Label>
-                      <Select value={storefrontLayout.defaultSort} onValueChange={v => setStorefrontLayout(p => ({ ...p, defaultSort: v }))}>
-                        <SelectTrigger data-testid="select-default-sort"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manual">Manual (custom order)</SelectItem>
-                          <SelectItem value="newest">Newest First</SelectItem>
-                          <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                          <SelectItem value="price-desc">Price: High to Low</SelectItem>
-                          <SelectItem value="alpha">Alphabetical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                {/* Headings & Subheadings */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Storefront Heading</h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={storefrontLayout.showHeading}
-                      onChange={e => setStorefrontLayout(p => ({ ...p, showHeading: e.target.checked }))}
-                      className="rounded border-input accent-primary"
-                      data-testid="checkbox-show-heading"
-                    />
-                    <span className="text-sm">Show Heading</span>
-                  </label>
-                  <Input
-                    value={storefrontLayout.headingText}
-                    onChange={e => setStorefrontLayout(p => ({ ...p, headingText: e.target.value }))}
-                    placeholder="e.g. Shop Our Products"
-                    data-testid="input-heading-text"
-                  />
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div>
-                      <Label className="text-xs">Size</Label>
-                      <Select value={storefrontLayout.headingFontSize} onValueChange={v => setStorefrontLayout(p => ({ ...p, headingFontSize: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="small">Small</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
-                          <SelectItem value="xlarge">Extra Large</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Weight</Label>
-                      <Select value={storefrontLayout.headingWeight} onValueChange={v => setStorefrontLayout(p => ({ ...p, headingWeight: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="semibold">Semi Bold</SelectItem>
-                          <SelectItem value="bold">Bold</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Color</Label>
-                      <div className="flex gap-1 items-center">
-                        <Input type="color" value={storefrontLayout.headingColor || '#000000'} onChange={e => setStorefrontLayout(p => ({ ...p, headingColor: e.target.value }))} className="w-9 h-9 p-1" />
-                        {storefrontLayout.headingColor && <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => setStorefrontLayout(p => ({ ...p, headingColor: '' }))}>X</Button>}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Align</Label>
-                      <Select value={storefrontLayout.headingAlign} onValueChange={v => setStorefrontLayout(p => ({ ...p, headingAlign: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="left">Left</SelectItem>
-                          <SelectItem value="center">Center</SelectItem>
-                          <SelectItem value="right">Right</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Storefront Subheading</h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={storefrontLayout.showSubheading}
-                      onChange={e => setStorefrontLayout(p => ({ ...p, showSubheading: e.target.checked }))}
-                      className="rounded border-input accent-primary"
-                      data-testid="checkbox-show-subheading"
-                    />
-                    <span className="text-sm">Show Subheading</span>
-                  </label>
-                  <Input
-                    value={storefrontLayout.subheadingText}
-                    onChange={e => setStorefrontLayout(p => ({ ...p, subheadingText: e.target.value }))}
-                    placeholder="e.g. Fresh deals from your neighborhood"
-                    data-testid="input-subheading-text"
-                  />
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div>
-                      <Label className="text-xs">Size</Label>
-                      <Select value={storefrontLayout.subheadingFontSize} onValueChange={v => setStorefrontLayout(p => ({ ...p, subheadingFontSize: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tiny">Tiny</SelectItem>
-                          <SelectItem value="small">Small</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Weight</Label>
-                      <Select value={storefrontLayout.subheadingWeight} onValueChange={v => setStorefrontLayout(p => ({ ...p, subheadingWeight: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="semibold">Semi Bold</SelectItem>
-                          <SelectItem value="bold">Bold</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Color</Label>
-                      <div className="flex gap-1 items-center">
-                        <Input type="color" value={storefrontLayout.subheadingColor || '#666666'} onChange={e => setStorefrontLayout(p => ({ ...p, subheadingColor: e.target.value }))} className="w-9 h-9 p-1" />
-                        {storefrontLayout.subheadingColor && <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => setStorefrontLayout(p => ({ ...p, subheadingColor: '' }))}>X</Button>}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Align</Label>
-                      <Select value={storefrontLayout.subheadingAlign} onValueChange={v => setStorefrontLayout(p => ({ ...p, subheadingAlign: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="left">Left</SelectItem>
-                          <SelectItem value="center">Center</SelectItem>
-                          <SelectItem value="right">Right</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                {/* Category & Subcategory Headings */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Category & Subcategory Headings</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm">Category Heading Size</Label>
-                      <Select value={storefrontLayout.categoryHeadingFontSize} onValueChange={v => setStorefrontLayout(p => ({ ...p, categoryHeadingFontSize: v }))}>
-                        <SelectTrigger data-testid="select-cat-heading-size"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="small">Small</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
-                          <SelectItem value="xlarge">Extra Large</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Category Heading Weight</Label>
-                      <Select value={storefrontLayout.categoryHeadingWeight} onValueChange={v => setStorefrontLayout(p => ({ ...p, categoryHeadingWeight: v }))}>
-                        <SelectTrigger data-testid="select-cat-heading-weight"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="semibold">Semi Bold</SelectItem>
-                          <SelectItem value="bold">Bold</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Category Heading Color</Label>
-                      <div className="flex gap-2 items-center">
-                        <Input type="color" value={storefrontLayout.categoryHeadingColor || '#000000'} onChange={e => setStorefrontLayout(p => ({ ...p, categoryHeadingColor: e.target.value }))} className="w-10 h-9 p-1" data-testid="input-cat-heading-color" />
-                        {storefrontLayout.categoryHeadingColor && <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setStorefrontLayout(p => ({ ...p, categoryHeadingColor: '' }))}>Clear</Button>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm">Subcategory Heading Size</Label>
-                      <Select value={storefrontLayout.subcategoryHeadingFontSize} onValueChange={v => setStorefrontLayout(p => ({ ...p, subcategoryHeadingFontSize: v }))}>
-                        <SelectTrigger data-testid="select-subcat-heading-size"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tiny">Tiny</SelectItem>
-                          <SelectItem value="small">Small</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Subcategory Heading Weight</Label>
-                      <Select value={storefrontLayout.subcategoryHeadingWeight} onValueChange={v => setStorefrontLayout(p => ({ ...p, subcategoryHeadingWeight: v }))}>
-                        <SelectTrigger data-testid="select-subcat-heading-weight"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="semibold">Semi Bold</SelectItem>
-                          <SelectItem value="bold">Bold</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm">Subcategory Heading Color</Label>
-                      <div className="flex gap-2 items-center">
-                        <Input type="color" value={storefrontLayout.subcategoryHeadingColor || '#999999'} onChange={e => setStorefrontLayout(p => ({ ...p, subcategoryHeadingColor: e.target.value }))} className="w-10 h-9 p-1" data-testid="input-subcat-heading-color" />
-                        {storefrontLayout.subcategoryHeadingColor && <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setStorefrontLayout(p => ({ ...p, subcategoryHeadingColor: '' }))}>Clear</Button>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                {/* Live Preview */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Preview</h4>
-                  <div className="border rounded-lg p-4 bg-background">
-                    {storefrontLayout.showHeading && (
-                      <div style={{
-                        textAlign: storefrontLayout.headingAlign as any,
-                        fontSize: ({ tiny: '14px', small: '18px', medium: '24px', large: '30px', xlarge: '36px' } as any)[storefrontLayout.headingFontSize] || '30px',
-                        fontWeight: storefrontLayout.headingWeight === 'bold' ? 700 : storefrontLayout.headingWeight === 'semibold' ? 600 : storefrontLayout.headingWeight === 'medium' ? 500 : 400,
-                        color: storefrontLayout.headingColor || undefined,
-                        marginBottom: storefrontLayout.showSubheading ? '4px' : '16px',
-                      }}>
-                        {storefrontLayout.headingText || 'Shop Our Products'}
-                      </div>
-                    )}
-                    {storefrontLayout.showSubheading && (
-                      <div style={{
-                        textAlign: storefrontLayout.subheadingAlign as any,
-                        fontSize: ({ tiny: '11px', small: '13px', medium: '15px', large: '18px' } as any)[storefrontLayout.subheadingFontSize] || '13px',
-                        fontWeight: storefrontLayout.subheadingWeight === 'bold' ? 700 : storefrontLayout.subheadingWeight === 'semibold' ? 600 : storefrontLayout.subheadingWeight === 'medium' ? 500 : 400,
-                        color: storefrontLayout.subheadingColor || '#666',
-                        marginBottom: '16px',
-                      }}>
-                        {storefrontLayout.subheadingText || 'Fresh deals from your neighborhood'}
-                      </div>
-                    )}
-                    <div style={{
-                      fontSize: ({ tiny: '14px', small: '18px', medium: '24px', large: '30px', xlarge: '36px' } as any)[storefrontLayout.categoryHeadingFontSize] || '24px',
-                      fontWeight: storefrontLayout.categoryHeadingWeight === 'bold' ? 700 : storefrontLayout.categoryHeadingWeight === 'semibold' ? 600 : storefrontLayout.categoryHeadingWeight === 'medium' ? 500 : 400,
-                      color: storefrontLayout.categoryHeadingColor || undefined,
-                      marginBottom: '8px',
-                    }} data-testid="preview-category-heading">
-                      Sample Category
-                    </div>
-                    <div style={{
-                      fontSize: ({ tiny: '10px', small: '12px', medium: '14px', large: '16px' } as any)[storefrontLayout.subcategoryHeadingFontSize] || '12px',
-                      fontWeight: storefrontLayout.subcategoryHeadingWeight === 'bold' ? 700 : storefrontLayout.subcategoryHeadingWeight === 'semibold' ? 600 : storefrontLayout.subcategoryHeadingWeight === 'medium' ? 500 : 400,
-                      color: storefrontLayout.subcategoryHeadingColor || '#999',
-                      marginBottom: '6px',
-                      paddingLeft: '2px',
-                    }} data-testid="preview-subcategory-heading">
-                      Sample Subcategory
-                    </div>
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${parseInt(storefrontLayout.columnsDesktop) || 4}, 1fr)`,
-                      gap: ({ tight: '4px', normal: '8px', relaxed: '16px', spacious: '24px' } as any)[storefrontLayout.gridGap] || '8px',
-                    }}>
-                      {[1,2,3,4,5].map(i => {
-                        const radiusMap: Record<string, string> = { sharp: '0', slight: '4px', rounded: '8px', extra: '16px', pill: '24px' };
-                        const shadowMap: Record<string, string> = { none: 'none', subtle: '0 1px 3px rgba(0,0,0,0.1)', medium: '0 2px 8px rgba(0,0,0,0.15)', pronounced: '0 4px 16px rgba(0,0,0,0.2)' };
-                        const fontSizeMap: Record<string, string> = { tiny: '10px', small: '12px', medium: '14px', large: '16px' };
-                        const aspectMap: Record<string, string> = { square: '1/1', '4:3': '4/3', '3:4': '3/4', '16:9': '16/9', auto: 'auto' };
-                        const paddingMap: Record<string, string> = { compact: '8px', standard: '16px', large: '24px' };
-                        return (
-                          <div key={i} style={{
-                            borderRadius: radiusMap[storefrontLayout.cardRadius] || '8px',
-                            boxShadow: shadowMap[storefrontLayout.cardShadow] || 'none',
-                            backgroundColor: storefrontLayout.cardBg || undefined,
-                            overflow: 'hidden',
-                            transition: 'all 0.2s',
-                          }}>
-                            <div style={{
-                              aspectRatio: aspectMap[storefrontLayout.imageAspect] || '1/1',
-                              backgroundColor: '#e5e7eb',
-                              backgroundImage: 'linear-gradient(135deg, #e5e7eb 25%, #d1d5db 50%, #e5e7eb 75%)',
-                            }} />
-                            <div style={{ padding: paddingMap[storefrontLayout.cardSize] || '16px' }}>
-                              {storefrontLayout.showName && (
-                                <div style={{
-                                  fontSize: fontSizeMap[storefrontLayout.nameFontSize] || '12px',
-                                  fontWeight: 500,
-                                  WebkitLineClamp: storefrontLayout.nameMaxLines !== 'none' ? parseInt(storefrontLayout.nameMaxLines) : undefined,
-                                  display: '-webkit-box',
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                  marginBottom: '4px',
-                                }}>
-                                  Sample Product {i}
-                                </div>
-                              )}
-                              {storefrontLayout.showPrice && (
-                                <div style={{
-                                  fontSize: fontSizeMap[storefrontLayout.priceFontSize] || '12px',
-                                  fontWeight: storefrontLayout.priceWeight === 'bold' ? 700 : storefrontLayout.priceWeight === 'semibold' ? 600 : storefrontLayout.priceWeight === 'medium' ? 500 : 400,
-                                  color: storefrontLayout.priceColor || '#14b8a6',
-                                }}>
-                                  ${(9.99 * i).toFixed(2)}
-                                </div>
-                              )}
-                              {storefrontLayout.showDescription && (
-                                <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>
-                                  Product description text...
-                                </div>
-                              )}
-                              {storefrontLayout.showCondition && (
-                                <span style={{ fontSize: '9px', backgroundColor: '#f0f0f0', padding: '1px 4px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>New</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    onClick={async () => {
-                      try {
-                        await fetch('/api/site-settings/storefrontLayout', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          credentials: 'include',
-                          body: JSON.stringify({ value: JSON.stringify(storefrontLayout) }),
-                        });
-                        toast.success('Storefront layout saved');
-                      } catch {
-                        toast.error('Failed to save layout');
-                      }
-                    }}
-                    data-testid="btn-save-storefront-layout"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Storefront Layout
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setStorefrontLayout(defaultStorefrontLayout)}
-                    data-testid="btn-reset-storefront-layout"
-                  >
-                    Reset to Defaults
-                  </Button>
-                </div>
               </CardContent>
             </Card>
 
@@ -25472,6 +24611,87 @@ Check other listings for more products`);
               <QrCodeGenerator />
             </Suspense>
           </TabsContent>
+
+          <TabsContent value="sourcing" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="w-5 h-5" />
+                  Amazon FBA Eligibility Checker
+                </CardTitle>
+                <CardDescription>Check if ASINs are gated for FBA inbound in the Canada marketplace. Enter up to 20 ASINs, one per line or comma-separated.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-3 items-start">
+                  <textarea
+                    className="flex-1 min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    placeholder={"B08N5WRWNW\nB07XJ8C8F5\nB0C1234ABC"}
+                    value={sourcingInput}
+                    onChange={e => setSourcingInput(e.target.value)}
+                  />
+                  <Button
+                    disabled={sourcingLoading || !sourcingInput.trim()}
+                    onClick={async () => {
+                      const raw = sourcingInput.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+                      const asins = [...new Set(raw)].slice(0, 20);
+                      setSourcingLoading(true);
+                      setSourcingResults([]);
+                      try {
+                        const res = await fetch('/api/sourcing/eligibility', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ asins }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Request failed');
+                        setSourcingResults(data.results);
+                      } catch (err: any) {
+                        toast.error(err.message);
+                      } finally {
+                        setSourcingLoading(false);
+                      }
+                    }}
+                  >
+                    {sourcingLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+                    {sourcingLoading ? 'Checking…' : 'Check'}
+                  </Button>
+                </div>
+
+                {sourcingResults.length > 0 && (
+                  <div className="rounded-md border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">ASIN</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sourcingResults.map((r, i) => (
+                          <tr key={r.asin} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                            <td className="px-4 py-2 font-mono font-medium">{r.asin}</td>
+                            <td className="px-4 py-2">
+                              {r.error ? (
+                                <span className="inline-flex items-center gap-1.5 text-amber-600 font-medium"><AlertTriangle className="w-3.5 h-3.5" />Error</span>
+                              ) : r.eligible ? (
+                                <span className="inline-flex items-center gap-1.5 text-green-600 font-medium"><Check className="w-3.5 h-3.5" />Eligible</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-red-600 font-medium"><X className="w-3.5 h-3.5" />Gated</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-muted-foreground">
+                              {r.error || r.reasons.join(', ') || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
       
@@ -26709,7 +25929,7 @@ Check other listings for more products`);
                 {previewProduct.variantName && (
                   <div className="text-sm text-primary font-medium mb-1">{previewProduct.variantName}</div>
                 )}
-                <h1 className="font-display text-2xl font-bold mb-16">{previewProduct.name}</h1>
+                <h1 className="font-display text-2xl font-bold mb-3">{previewProduct.name}</h1>
                 
                 {/* Variant Selection */}
                 {hasVariants && (
@@ -26748,7 +25968,41 @@ Check other listings for more products`);
                   </div>
                 )}
                 
-                <div className="text-lg text-muted-foreground mb-6">
+                {previewProduct.contentSections?.length ? (
+                  <div className="mb-6 space-y-4">
+                    {previewProduct.contentSections.map((section: any) => (
+                      <div key={section.id}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{section.name}</p>
+                        {section.type === 'text' && (
+                          <p className="text-sm text-foreground leading-relaxed">{section.content}</p>
+                        )}
+                        {section.type === 'bullets' && Array.isArray(section.content) && (
+                          <ul className="space-y-1">
+                            {(section.content as string[]).map((item: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-sm">
+                                <span className="text-primary mt-0.5">•</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {section.type === 'specs' && Array.isArray(section.content) && (
+                          <table className="w-full text-sm border-collapse">
+                            <tbody>
+                              {(section.content as { key: string; value: string }[]).map((row, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-muted/40' : ''}>
+                                  <td className="py-1 px-2 font-medium text-muted-foreground w-2/5">{row.key}</td>
+                                  <td className="py-1 px-2">{row.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                <div className="text-sm text-muted-foreground mb-6">
                   <ul className="space-y-2">
                     {getDescriptionString(previewProduct.description).split('\n').filter(line => line.trim()).slice(0, 6).map((point, idx) => (
                       <li key={idx} className="flex items-start gap-2">
@@ -26758,7 +26012,8 @@ Check other listings for more products`);
                     ))}
                   </ul>
                 </div>
-                
+                )}
+
                 <div className="flex items-center gap-4 mb-6">
                   <span className="font-display text-4xl font-bold">
                     {formatCurrency(previewProduct.price)}

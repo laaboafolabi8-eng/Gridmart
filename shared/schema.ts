@@ -66,6 +66,7 @@ export const products = pgTable("products", {
   inStore: boolean("in_store").default(false), // Product is viewable in-store; shown on product pages but cannot be ordered online
   imageOverlays: jsonb("image_overlays"), // Overlay data per image: [{imageIndex, overlays: [{id, imageUrl, x, y, width, height}]}]
   contentSections: jsonb("content_sections"), // Structured content sections [{id, name, type, content}]
+  googleTitle: text("google_title"), // Google Shopping optimised title
   createdAt: timestamp("created_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"), // Soft delete timestamp - null means active, set means deleted
 });

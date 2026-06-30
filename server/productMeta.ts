@@ -130,7 +130,7 @@ export function injectProductMeta(html: string, res: Response, baseUrl: string):
     name: product.name,
     url: productPageUrl,
     description: rawDesc || `${product.name} available at GridMart`,
-    sku: product.productCode || product.id.split('-')[0],
+    sku: product.productCode || product.id,
     brand: {
       '@type': 'Brand',
       name: 'GridMart',
