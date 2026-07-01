@@ -1582,7 +1582,13 @@ export async function registerRoutes(
 
           return hasStock && isInActiveCrate;
         });
-        const slimProducts = liveProducts.map(({ contentSections, sourceUrl, purchaseDate, costPrice, sheetSource, sheetRow, sku, deletedAt, ...rest }: any) => rest);
+        const slimProducts = liveProducts.map(({ contentSections, sourceUrl, purchaseDate, costPrice, sheetSource, sheetRow, sku, deletedAt, ...rest }: any) => {
+          const images = (rest.images || []).map((img: string, i: number) =>
+            img.startsWith('data:') ? `/api/products/${rest.id}/image/${i}` : img
+          );
+          const image = rest.image?.startsWith('data:') ? `/api/products/${rest.id}/image/0` : rest.image;
+          return { ...rest, images, image };
+        });
         return res.json(slimProducts);
       }
 
@@ -1619,6 +1625,29 @@ export async function registerRoutes(
     }
   });
   
+  // Serve a base64-stored product image as a real image file with cache headers
+  app.get("/api/products/:id/image/:index", async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) return res.status(404).end();
+      const idx = parseInt(req.params.index) || 0;
+      const allImages = product.images?.length ? product.images : (product.image ? [product.image] : []);
+      const imageData = allImages[idx];
+      if (!imageData) return res.status(404).end();
+      if (imageData.startsWith('data:')) {
+        const match = imageData.match(/^data:([^;]+);base64,(.+)$/s);
+        if (!match) return res.status(404).end();
+        const buffer = Buffer.from(match[2], 'base64');
+        res.set('Content-Type', match[1]);
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(buffer);
+      }
+      return res.redirect(302, imageData);
+    } catch (error: any) {
+      res.status(500).end();
+    }
+  });
+
   // Get single product
   app.get("/api/products/:id", async (req, res) => {
     try {
