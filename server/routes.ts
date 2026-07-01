@@ -26,6 +26,31 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import sharp from "sharp";
 import { addDays, parse, format } from "date-fns";
 
+const IMG_MAX_WIDTH = 1400;
+
+async function serveBase64Image(
+  req: { headers: { accept?: string } },
+  res: any,
+  rawBuf: Buffer,
+  originalMime: string
+): Promise<void> {
+  const wantsWebP = req.headers.accept?.includes('image/webp') ?? false;
+  const isConvertible = /^image\/(jpeg|png|tiff|bmp|gif)$/.test(originalMime);
+  if (wantsWebP && isConvertible) {
+    const webpBuf = await sharp(rawBuf)
+      .resize({ width: IMG_MAX_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+    res.set('Content-Type', 'image/webp');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Vary', 'Accept');
+    return res.send(webpBuf);
+  }
+  res.set('Content-Type', originalMime);
+  res.set('Cache-Control', 'public, max-age=86400');
+  return res.send(rawBuf);
+}
+
 const TIMEZONE = "America/Toronto";
 
 const gmailTransporter = nodemailer.createTransport({
@@ -1638,13 +1663,12 @@ export async function registerRoutes(
       if (imageData.startsWith('data:')) {
         const match = imageData.match(/^data:([^;]+);base64,(.+)$/s);
         if (!match) return res.status(404).end();
-        const buffer = Buffer.from(match[2], 'base64');
-        res.set('Content-Type', match[1]);
-        res.set('Cache-Control', 'public, max-age=86400');
-        return res.send(buffer);
+        await serveBase64Image(req, res, Buffer.from(match[2], 'base64'), match[1]);
+        return;
       }
       return res.redirect(302, imageData);
     } catch (error: any) {
+      console.error("Product image serve error:", error);
       res.status(500).end();
     }
   });
@@ -10762,10 +10786,7 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
       if (!value?.startsWith('data:')) return res.status(404).end();
       const match = value.match(/^data:([^;]+);base64,(.+)$/s);
       if (!match) return res.status(404).end();
-      const buf = Buffer.from(match[2], 'base64');
-      res.set('Content-Type', match[1]);
-      res.set('Cache-Control', 'public, max-age=86400');
-      return res.send(buf);
+      await serveBase64Image(req, res, Buffer.from(match[2], 'base64'), match[1]);
     } catch (error) {
       console.error("Site settings image error:", error);
       res.status(500).end();
@@ -10781,10 +10802,7 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
       if (!img?.startsWith('data:')) return res.status(404).end();
       const match = img.match(/^data:([^;]+);base64,(.+)$/s);
       if (!match) return res.status(404).end();
-      const buf = Buffer.from(match[2], 'base64');
-      res.set('Content-Type', match[1]);
-      res.set('Cache-Control', 'public, max-age=86400');
-      return res.send(buf);
+      await serveBase64Image(req, res, Buffer.from(match[2], 'base64'), match[1]);
     } catch (error) {
       console.error("Category image error:", error);
       res.status(500).end();
