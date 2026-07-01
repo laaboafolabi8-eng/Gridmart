@@ -150,11 +150,59 @@ export function stopVerificationCleanup(): void {
   }
 }
 
+// Recursively convert any base64 data:image/ string (non-WebP) to WebP in-place
+async function convertBodyImagesToWebp(value: unknown): Promise<unknown> {
+  if (typeof value === 'string') {
+    if (value.startsWith('data:image/') && !value.startsWith('data:image/webp')) {
+      const match = value.match(/^data:image\/[^;]+;base64,(.+)$/);
+      if (match) {
+        try {
+          const inputBuffer = Buffer.from(match[1], 'base64');
+          const outputBuffer = await sharp(inputBuffer)
+            .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+          return `data:image/webp;base64,${outputBuffer.toString('base64')}`;
+        } catch {
+          return value;
+        }
+      }
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map(convertBodyImagesToWebp));
+  }
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[k] = await convertBodyImagesToWebp(v);
+    }
+    return result;
+  }
+  return value;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
+  // Auto-convert any uploaded base64 image to WebP on every mutating request
+  app.use(async (req, res, next) => {
+    if ((req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') && req.body && typeof req.body === 'object') {
+      const bodyStr = JSON.stringify(req.body);
+      if (/data:image\/(?!webp)/.test(bodyStr)) {
+        try {
+          req.body = await convertBodyImagesToWebp(req.body);
+        } catch {
+          // conversion failed — continue with original body
+        }
+      }
+    }
+    next();
+  });
+
   app.get("/robots.txt", (_req, res) => {
     res.type("text/plain").send(
       [
