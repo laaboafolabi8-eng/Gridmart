@@ -8,6 +8,7 @@ const CONVERTIBLE_TYPES = new Set([
 ]);
 
 const MAX_CONVERT_SIZE = 10 * 1024 * 1024; // 10MB max for conversion
+const MAX_IMAGE_WIDTH = 1400; // cap all served images at 1400px (2× retina)
 
 function detectContentType(filename: string): string {
   const ext = filename.toLowerCase().split('.').pop() || '';
@@ -76,7 +77,7 @@ export function registerObjectStorageRoutes(app: Express): void {
 
       const etag = metadata.etag || metadata.generation || '';
       const etagHash = etag ? `-${Buffer.from(String(etag)).toString('base64url').slice(0, 8)}` : '';
-      const webpCachePath = objectFile.name + etagHash + '.webp';
+      const webpCachePath = objectFile.name + etagHash + `.w${MAX_IMAGE_WIDTH}.webp`;
       const bucket = objectFile.bucket;
       const cachedWebP = bucket.file(webpCachePath);
       const [cacheExists] = await cachedWebP.exists();
@@ -121,7 +122,9 @@ export function registerObjectStorageRoutes(app: Express): void {
 
       const webpBuffer = await new Promise<Buffer>((resolve, reject) => {
         const bufs: Buffer[] = [];
-        const transform = sharp().webp({ quality: 80 });
+        const transform = sharp()
+          .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+          .webp({ quality: 80 });
         transform.on('data', (chunk: Buffer) => bufs.push(chunk));
         transform.on('end', () => resolve(Buffer.concat(bufs)));
         transform.on('error', reject);
