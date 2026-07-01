@@ -345,6 +345,7 @@ export async function registerRoutes(
         const user = await storage.getUser(id);
         done(null, user);
       } catch (error) {
+        console.error('Passport deserialize error:', error);
         done(error);
       }
     });
@@ -4919,7 +4920,7 @@ export async function registerRoutes(
               return updated[0];
             }
           } catch (e) {
-            // Session may have been deleted, skip
+            console.warn('Session update skipped (may have been deleted):', e);
           }
         }
         return link;
@@ -7908,6 +7909,7 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
             });
             results.dashboard++;
           } catch (e) {
+            console.error(`Dashboard notification failed for ${node.name}:`, e);
             results.errors.push(`Dashboard notification failed for ${node.name}`);
           }
         }
@@ -7934,6 +7936,7 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
               results.errors.push(`Email not configured - skipped for ${node.name}`);
             }
           } catch (e) {
+            console.error(`Email notification failed for ${node.name}:`, e);
             results.errors.push(`Email failed for ${node.name}`);
           }
         }
@@ -7945,6 +7948,7 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
               await sendSms(phone, `GridMart: ${message.trim()}`);
               results.sms++;
             } catch (e) {
+              console.error(`SMS notification failed for ${node.name}:`, e);
               results.errors.push(`SMS failed for ${node.name}`);
             }
           } else {
@@ -10749,11 +10753,72 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
     }
   });
 
+  // Serve site-setting images (hero, interior, category) as binary with cache headers
+  const IMAGE_SETTING_KEYS = ['storefrontHeroImage', 'storefrontInteriorImage'];
+
+  app.get("/api/site-settings/image/:key", async (req, res) => {
+    try {
+      const value = await storage.getSiteSetting(req.params.key);
+      if (!value?.startsWith('data:')) return res.status(404).end();
+      const match = value.match(/^data:([^;]+);base64,(.+)$/s);
+      if (!match) return res.status(404).end();
+      const buf = Buffer.from(match[2], 'base64');
+      res.set('Content-Type', match[1]);
+      res.set('Cache-Control', 'public, max-age=86400');
+      return res.send(buf);
+    } catch (error) {
+      console.error("Site settings image error:", error);
+      res.status(500).end();
+    }
+  });
+
+  app.get("/api/site-settings/category-image/:category", async (req, res) => {
+    try {
+      const value = await storage.getSiteSetting('categoryImages');
+      if (!value) return res.status(404).end();
+      const catImages = JSON.parse(value);
+      const img = catImages[decodeURIComponent(req.params.category)];
+      if (!img?.startsWith('data:')) return res.status(404).end();
+      const match = img.match(/^data:([^;]+);base64,(.+)$/s);
+      if (!match) return res.status(404).end();
+      const buf = Buffer.from(match[2], 'base64');
+      res.set('Content-Type', match[1]);
+      res.set('Cache-Control', 'public, max-age=86400');
+      return res.send(buf);
+    } catch (error) {
+      console.error("Category image error:", error);
+      res.status(500).end();
+    }
+  });
+
   // Get all site settings (public - for tax config at checkout)
   app.get("/api/site-settings", async (_req, res) => {
     try {
       const settings = await storage.getAllSiteSettings();
-      res.json(settings);
+
+      // Replace base64 images with URL references so the response stays small
+      const slim: Record<string, string> = {};
+      for (const [key, value] of Object.entries(settings)) {
+        if (IMAGE_SETTING_KEYS.includes(key) && value?.startsWith('data:')) {
+          slim[key] = `/api/site-settings/image/${key}`;
+        } else if (key === 'categoryImages' && value) {
+          try {
+            const catImages = JSON.parse(value) as Record<string, string>;
+            const slimCat: Record<string, string> = {};
+            for (const [cat, img] of Object.entries(catImages)) {
+              slimCat[cat] = typeof img === 'string' && img.startsWith('data:')
+                ? `/api/site-settings/category-image/${encodeURIComponent(cat)}`
+                : img;
+            }
+            slim[key] = JSON.stringify(slimCat);
+          } catch { slim[key] = value; }
+        } else {
+          slim[key] = value;
+        }
+      }
+
+      res.set('Cache-Control', 'public, max-age=30');
+      res.json(slim);
     } catch (error) {
       console.error("Get site settings error:", error);
       res.status(500).json({ error: "Failed to get site settings" });
@@ -12006,6 +12071,7 @@ ${items.join('\n')}
       const accounts = await storage.getSocialFbAccounts();
       res.json(accounts);
     } catch (error) {
+      console.error('Failed to fetch FB accounts:', error);
       res.status(500).json({ error: 'Failed to fetch FB accounts' });
     }
   });
@@ -12015,6 +12081,7 @@ ${items.join('\n')}
       const account = await storage.createSocialFbAccount(req.body);
       res.json(account);
     } catch (error) {
+      console.error('Failed to create FB account:', error);
       res.status(500).json({ error: 'Failed to create FB account' });
     }
   });
@@ -12025,6 +12092,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Account not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update FB account:', error);
       res.status(500).json({ error: 'Failed to update FB account' });
     }
   });
@@ -12034,6 +12102,7 @@ ${items.join('\n')}
       await storage.deleteSocialFbAccount(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete FB account:', error);
       res.status(500).json({ error: 'Failed to delete FB account' });
     }
   });
@@ -12043,6 +12112,7 @@ ${items.join('\n')}
       const cats = await storage.getSocialCategories();
       res.json(cats);
     } catch (error) {
+      console.error('Failed to fetch social categories:', error);
       res.status(500).json({ error: 'Failed to fetch social categories' });
     }
   });
@@ -12052,6 +12122,7 @@ ${items.join('\n')}
       const cat = await storage.createSocialCategory(req.body);
       res.json(cat);
     } catch (error) {
+      console.error('Failed to create social category:', error);
       res.status(500).json({ error: 'Failed to create social category' });
     }
   });
@@ -12062,6 +12133,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Category not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update social category:', error);
       res.status(500).json({ error: 'Failed to update social category' });
     }
   });
@@ -12071,6 +12143,7 @@ ${items.join('\n')}
       await storage.deleteSocialCategory(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete social category:', error);
       res.status(500).json({ error: 'Failed to delete social category' });
     }
   });
@@ -12080,6 +12153,7 @@ ${items.join('\n')}
       const groups = await storage.getSocialGroups();
       res.json(groups);
     } catch (error) {
+      console.error('Failed to fetch social groups:', error);
       res.status(500).json({ error: 'Failed to fetch social groups' });
     }
   });
@@ -12089,6 +12163,7 @@ ${items.join('\n')}
       const group = await storage.createSocialGroup(req.body);
       res.json(group);
     } catch (error) {
+      console.error('Failed to create social group:', error);
       res.status(500).json({ error: 'Failed to create social group' });
     }
   });
@@ -12099,6 +12174,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Group not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update social group:', error);
       res.status(500).json({ error: 'Failed to update social group' });
     }
   });
@@ -12108,6 +12184,7 @@ ${items.join('\n')}
       await storage.deleteSocialGroup(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete social group:', error);
       res.status(500).json({ error: 'Failed to delete social group' });
     }
   });
@@ -12117,6 +12194,7 @@ ${items.join('\n')}
       const posts = await storage.getSocialPosts();
       res.json(posts);
     } catch (error) {
+      console.error('Failed to fetch social posts:', error);
       res.status(500).json({ error: 'Failed to fetch social posts' });
     }
   });
@@ -12126,6 +12204,7 @@ ${items.join('\n')}
       const post = await storage.createSocialPost(req.body);
       res.json(post);
     } catch (error) {
+      console.error('Failed to create social post:', error);
       res.status(500).json({ error: 'Failed to create social post' });
     }
   });
@@ -12136,6 +12215,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Post not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update social post:', error);
       res.status(500).json({ error: 'Failed to update social post' });
     }
   });
@@ -12145,6 +12225,7 @@ ${items.join('\n')}
       await storage.deleteSocialPost(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete social post:', error);
       res.status(500).json({ error: 'Failed to delete social post' });
     }
   });
