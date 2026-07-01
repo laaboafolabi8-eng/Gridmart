@@ -5871,6 +5871,7 @@ export default function AdminDashboard() {
   const [showBulkSheetSync, setShowBulkSheetSync] = useState(false);
   const [bulkSyncColumn, setBulkSyncColumn] = useState<'quantity' | 'costPrice' | 'price' | 'name' | 'images' | 'description' | 'code'>('quantity');
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+  const [isConvertingWebp, setIsConvertingWebp] = useState(false);
   const [isBatchRemovingBg, setIsBatchRemovingBg] = useState(false);
   const [isDownloadingPhotos, setIsDownloadingPhotos] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -10257,6 +10258,36 @@ Check other listings for more products`);
                   >
                     <X className="w-4 h-4 mr-1" />
                     Remove In-Store
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isConvertingWebp}
+                    onClick={async () => {
+                      setIsConvertingWebp(true);
+                      try {
+                        const res = await fetch('/api/admin/convert-images-webp', {
+                          method: 'POST',
+                          credentials: 'include',
+                        });
+                        const result = await res.json();
+                        if (res.ok) {
+                          queryClient.invalidateQueries({ queryKey: ['products'] });
+                          toast.success(`Converted ${result.converted} images to WebP — saved ${result.savedKB} KB${result.failed ? `. ${result.failed} failed.` : ''}`);
+                        } else {
+                          toast.error('WebP conversion failed: ' + (result.error || 'Unknown error'));
+                        }
+                      } catch (error: any) {
+                        toast.error('WebP conversion failed: ' + error.message);
+                      }
+                      setIsConvertingWebp(false);
+                    }}
+                  >
+                    {isConvertingWebp ? (
+                      <><RefreshCw className="w-4 h-4 mr-1 animate-spin" />Converting...</>
+                    ) : (
+                      <><ImageIcon className="w-4 h-4 mr-1" />Convert to WebP</>
+                    )}
                   </Button>
                   <div className="flex items-center gap-1">
                     <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>

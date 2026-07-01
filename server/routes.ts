@@ -23,6 +23,7 @@ import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { objectStorageClient } from "./replit_integrations/object_storage/objectStorage";
 import { randomUUID } from "crypto";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import sharp from "sharp";
 import { addDays, parse, format } from "date-fns";
 
 const TIMEZONE = "America/Toronto";
@@ -8803,6 +8804,82 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
     } catch (error: any) {
       console.error("pull-all-stock error:", error);
       res.status(500).json({ error: error.message || "Failed to pull stock from sheet" });
+    }
+  });
+
+  // Convert all base64 product images to WebP
+  app.post("/api/admin/convert-images-webp", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Not authenticated" });
+      const user = await storage.getUser(req.session.userId);
+      if (user?.type !== 'admin') return res.status(403).json({ error: "Admin access required" });
+
+      const allProducts = await storage.getAllProducts();
+      let converted = 0;
+      let skipped = 0;
+      let failed = 0;
+      let savedBytes = 0;
+
+      const convertDataUri = async (dataUri: string): Promise<string | null> => {
+        if (!dataUri.startsWith('data:image/')) return null;
+        if (dataUri.startsWith('data:image/webp')) return null; // already WebP
+        const match = dataUri.match(/^data:image\/[^;]+;base64,(.+)$/);
+        if (!match) return null;
+        try {
+          const inputBuffer = Buffer.from(match[1], 'base64');
+          if (inputBuffer.length < 10240) return null; // skip images under 10KB
+          const outputBuffer = await sharp(inputBuffer)
+            .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+          savedBytes += inputBuffer.length - outputBuffer.length;
+          return `data:image/webp;base64,${outputBuffer.toString('base64')}`;
+        } catch {
+          return null;
+        }
+      };
+
+      for (const product of allProducts) {
+        if (product.deletedAt) continue;
+        let changed = false;
+        const updates: Record<string, any> = {};
+
+        // Convert images array
+        if (product.images && product.images.length > 0) {
+          const newImages = await Promise.all(product.images.map(async (img: string) => {
+            const webp = await convertDataUri(img);
+            if (webp) { converted++; changed = true; return webp; }
+            if (img.startsWith('data:image/') && !img.startsWith('data:image/webp')) skipped++;
+            return img;
+          }));
+          if (changed) updates.images = newImages;
+        }
+
+        // Convert legacy single image field
+        if (product.image && product.image.startsWith('data:image/') && !product.image.startsWith('data:image/webp')) {
+          const webp = await convertDataUri(product.image);
+          if (webp) { updates.image = webp; converted++; changed = true; }
+          else skipped++;
+        }
+
+        if (changed) {
+          try {
+            await storage.updateProduct(product.id, updates);
+          } catch {
+            failed++;
+          }
+        }
+      }
+
+      res.json({
+        converted,
+        skipped,
+        failed,
+        savedKB: Math.round(savedBytes / 1024),
+      });
+    } catch (error: any) {
+      console.error("convert-images-webp error:", error);
+      res.status(500).json({ error: error.message || "Conversion failed" });
     }
   });
 
