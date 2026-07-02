@@ -324,7 +324,7 @@ export default function ProductDetail() {
               <div className="flex gap-2 mb-2">
                 <Badge
                   className="bg-muted text-foreground cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                  onClick={() => navigate(`/?category=${encodeURIComponent(product.category)}`)}>
+                  onClick={() => navigate(`/category/${encodeURIComponent(product.category)}`)}>
                   {product.category}
                 </Badge>
                 {product.condition && (
