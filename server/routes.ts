@@ -23,7 +23,33 @@ import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { objectStorageClient } from "./replit_integrations/object_storage/objectStorage";
 import { randomUUID } from "crypto";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import sharp from "sharp";
 import { addDays, parse, format } from "date-fns";
+
+const IMG_MAX_WIDTH = 1400;
+
+async function serveBase64Image(
+  req: { headers: { accept?: string } },
+  res: any,
+  rawBuf: Buffer,
+  originalMime: string
+): Promise<void> {
+  const wantsWebP = req.headers.accept?.includes('image/webp') ?? false;
+  const isConvertible = /^image\/(jpeg|png|tiff|bmp|gif)$/.test(originalMime);
+  if (wantsWebP && isConvertible) {
+    const webpBuf = await sharp(rawBuf)
+      .resize({ width: IMG_MAX_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+    res.set('Content-Type', 'image/webp');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Vary', 'Accept');
+    return res.send(webpBuf);
+  }
+  res.set('Content-Type', originalMime);
+  res.set('Cache-Control', 'public, max-age=86400');
+  return res.send(rawBuf);
+}
 
 const TIMEZONE = "America/Toronto";
 
@@ -149,11 +175,59 @@ export function stopVerificationCleanup(): void {
   }
 }
 
+// Recursively convert any base64 data:image/ string (non-WebP) to WebP in-place
+async function convertBodyImagesToWebp(value: unknown): Promise<unknown> {
+  if (typeof value === 'string') {
+    if (value.startsWith('data:image/') && !value.startsWith('data:image/webp')) {
+      const match = value.match(/^data:image\/[^;]+;base64,(.+)$/);
+      if (match) {
+        try {
+          const inputBuffer = Buffer.from(match[1], 'base64');
+          const outputBuffer = await sharp(inputBuffer)
+            .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+          return `data:image/webp;base64,${outputBuffer.toString('base64')}`;
+        } catch {
+          return value;
+        }
+      }
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map(convertBodyImagesToWebp));
+  }
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[k] = await convertBodyImagesToWebp(v);
+    }
+    return result;
+  }
+  return value;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
+  // Auto-convert any uploaded base64 image to WebP on every mutating request
+  app.use(async (req, res, next) => {
+    if ((req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') && req.body && typeof req.body === 'object') {
+      const bodyStr = JSON.stringify(req.body);
+      if (/data:image\/(?!webp)/.test(bodyStr)) {
+        try {
+          req.body = await convertBodyImagesToWebp(req.body);
+        } catch {
+          // conversion failed — continue with original body
+        }
+      }
+    }
+    next();
+  });
+
   app.get("/robots.txt", (_req, res) => {
     res.type("text/plain").send(
       [
@@ -296,6 +370,7 @@ export async function registerRoutes(
         const user = await storage.getUser(id);
         done(null, user);
       } catch (error) {
+        console.error('Passport deserialize error:', error);
         done(error);
       }
     });
@@ -1533,9 +1608,16 @@ export async function registerRoutes(
 
           return hasStock && isInActiveCrate;
         });
-        return res.json(liveProducts);
+        const slimProducts = liveProducts.map(({ contentSections, sourceUrl, purchaseDate, costPrice, sheetSource, sheetRow, sku, deletedAt, ...rest }: any) => {
+          const images = (rest.images || []).map((img: string, i: number) =>
+            img.startsWith('data:') ? `/api/products/${rest.id}/image/${i}` : img
+          );
+          const image = rest.image?.startsWith('data:') ? `/api/products/${rest.id}/image/0` : rest.image;
+          return { ...rest, images, image };
+        });
+        return res.json(slimProducts);
       }
-      
+
       res.json(productsWithInventory);
     } catch (error) {
       console.error("Get products error:", error);
@@ -1569,6 +1651,28 @@ export async function registerRoutes(
     }
   });
   
+  // Serve a base64-stored product image as a real image file with cache headers
+  app.get("/api/products/:id/image/:index", async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) return res.status(404).end();
+      const idx = parseInt(req.params.index) || 0;
+      const allImages = product.images?.length ? product.images : (product.image ? [product.image] : []);
+      const imageData = allImages[idx];
+      if (!imageData) return res.status(404).end();
+      if (imageData.startsWith('data:')) {
+        const match = imageData.match(/^data:([^;]+);base64,(.+)$/s);
+        if (!match) return res.status(404).end();
+        await serveBase64Image(req, res, Buffer.from(match[2], 'base64'), match[1]);
+        return;
+      }
+      return res.redirect(302, imageData);
+    } catch (error: any) {
+      console.error("Product image serve error:", error);
+      res.status(500).end();
+    }
+  });
+
   // Get single product
   app.get("/api/products/:id", async (req, res) => {
     try {
@@ -4840,7 +4944,7 @@ export async function registerRoutes(
               return updated[0];
             }
           } catch (e) {
-            // Session may have been deleted, skip
+            console.warn('Session update skipped (may have been deleted):', e);
           }
         }
         return link;
@@ -7829,6 +7933,7 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
             });
             results.dashboard++;
           } catch (e) {
+            console.error(`Dashboard notification failed for ${node.name}:`, e);
             results.errors.push(`Dashboard notification failed for ${node.name}`);
           }
         }
@@ -7855,6 +7960,7 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
               results.errors.push(`Email not configured - skipped for ${node.name}`);
             }
           } catch (e) {
+            console.error(`Email notification failed for ${node.name}:`, e);
             results.errors.push(`Email failed for ${node.name}`);
           }
         }
@@ -7866,6 +7972,7 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
               await sendSms(phone, `GridMart: ${message.trim()}`);
               results.sms++;
             } catch (e) {
+              console.error(`SMS notification failed for ${node.name}:`, e);
               results.errors.push(`SMS failed for ${node.name}`);
             }
           } else {
@@ -8747,6 +8854,140 @@ Return ONLY the JSON object, no markdown code blocks or explanation.`
     }
   });
   
+  // Pull stock counts from sheet for ALL sheet-linked products
+  app.post("/api/sheet-sync/pull-all-stock", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { getSpreadsheetData, getSpreadsheetMetadata } = await import('./services/googleSheets');
+
+      const allProducts = await storage.getAllProducts();
+      const linked = allProducts.filter(p => p.sheetSource && p.sheetRow);
+
+      if (linked.length === 0) {
+        return res.json({ updated: 0, failed: 0, message: "No products have sheet references" });
+      }
+
+      // Group by spreadsheet to minimise API calls
+      const bySheet: Record<string, typeof linked> = {};
+      for (const p of linked) {
+        const sid = p.sheetSource!;
+        if (!bySheet[sid]) bySheet[sid] = [];
+        bySheet[sid].push(p);
+      }
+
+      let updated = 0;
+      let failed = 0;
+
+      for (const [sheetId, products] of Object.entries(bySheet)) {
+        try {
+          const metadata = await getSpreadsheetMetadata(sheetId);
+          const sheetName = metadata.sheets?.[0]?.title || 'Sheet1';
+          const rows = await getSpreadsheetData(sheetId, sheetName);
+
+          for (const product of products) {
+            try {
+              const rowIndex = (product.sheetRow || 1) - 1;
+              const row = rows[rowIndex];
+              if (!row) { failed++; continue; }
+              const quantity = row[2] ? parseInt(row[2].toString(), 10) || 0 : 0;
+              await storage.updateProduct(product.id, { sheetQuantity: quantity });
+              updated++;
+            } catch {
+              failed++;
+            }
+          }
+        } catch (sheetErr: any) {
+          console.error(`[pull-all-stock] Failed to read sheet ${sheetId}:`, sheetErr.message);
+          failed += products.length;
+        }
+      }
+
+      res.json({ updated, failed, total: linked.length });
+    } catch (error: any) {
+      console.error("pull-all-stock error:", error);
+      res.status(500).json({ error: error.message || "Failed to pull stock from sheet" });
+    }
+  });
+
+  // Convert all base64 product images to WebP
+  app.post("/api/admin/convert-images-webp", async (req, res) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Not authenticated" });
+      const user = await storage.getUser(req.session.userId);
+      if (user?.type !== 'admin') return res.status(403).json({ error: "Admin access required" });
+
+      const allProducts = await storage.getAllProducts();
+      let converted = 0;
+      let skipped = 0;
+      let failed = 0;
+      let savedBytes = 0;
+
+      const convertDataUri = async (dataUri: string): Promise<string | null> => {
+        if (!dataUri.startsWith('data:image/')) return null;
+        if (dataUri.startsWith('data:image/webp')) return null; // already WebP
+        const match = dataUri.match(/^data:image\/[^;]+;base64,(.+)$/);
+        if (!match) return null;
+        try {
+          const inputBuffer = Buffer.from(match[1], 'base64');
+          if (inputBuffer.length < 10240) return null; // skip images under 10KB
+          const outputBuffer = await sharp(inputBuffer)
+            .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+          savedBytes += inputBuffer.length - outputBuffer.length;
+          return `data:image/webp;base64,${outputBuffer.toString('base64')}`;
+        } catch {
+          return null;
+        }
+      };
+
+      for (const product of allProducts) {
+        if (product.deletedAt) continue;
+        let changed = false;
+        const updates: Record<string, any> = {};
+
+        // Convert images array
+        if (product.images && product.images.length > 0) {
+          const newImages = await Promise.all(product.images.map(async (img: string) => {
+            const webp = await convertDataUri(img);
+            if (webp) { converted++; changed = true; return webp; }
+            if (img.startsWith('data:image/') && !img.startsWith('data:image/webp')) skipped++;
+            return img;
+          }));
+          if (changed) updates.images = newImages;
+        }
+
+        // Convert legacy single image field
+        if (product.image && product.image.startsWith('data:image/') && !product.image.startsWith('data:image/webp')) {
+          const webp = await convertDataUri(product.image);
+          if (webp) { updates.image = webp; converted++; changed = true; }
+          else skipped++;
+        }
+
+        if (changed) {
+          try {
+            await storage.updateProduct(product.id, updates);
+          } catch {
+            failed++;
+          }
+        }
+      }
+
+      res.json({
+        converted,
+        skipped,
+        failed,
+        savedKB: Math.round(savedBytes / 1024),
+      });
+    } catch (error: any) {
+      console.error("convert-images-webp error:", error);
+      res.status(500).json({ error: error.message || "Conversion failed" });
+    }
+  });
+
   // Transfer product codes to spreadsheet
   app.post("/api/spreadsheet-sync/export-codes", async (req, res) => {
     try {
@@ -10536,11 +10777,66 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
     }
   });
 
+  // Serve site-setting images (hero, interior, category) as binary with cache headers
+  const IMAGE_SETTING_KEYS = ['storefrontHeroImage', 'storefrontInteriorImage'];
+
+  app.get("/api/site-settings/image/:key", async (req, res) => {
+    try {
+      const value = await storage.getSiteSetting(req.params.key);
+      if (!value?.startsWith('data:')) return res.status(404).end();
+      const match = value.match(/^data:([^;]+);base64,(.+)$/s);
+      if (!match) return res.status(404).end();
+      await serveBase64Image(req, res, Buffer.from(match[2], 'base64'), match[1]);
+    } catch (error) {
+      console.error("Site settings image error:", error);
+      res.status(500).end();
+    }
+  });
+
+  app.get("/api/site-settings/category-image/:category", async (req, res) => {
+    try {
+      const value = await storage.getSiteSetting('categoryImages');
+      if (!value) return res.status(404).end();
+      const catImages = JSON.parse(value);
+      const img = catImages[decodeURIComponent(req.params.category)];
+      if (!img?.startsWith('data:')) return res.status(404).end();
+      const match = img.match(/^data:([^;]+);base64,(.+)$/s);
+      if (!match) return res.status(404).end();
+      await serveBase64Image(req, res, Buffer.from(match[2], 'base64'), match[1]);
+    } catch (error) {
+      console.error("Category image error:", error);
+      res.status(500).end();
+    }
+  });
+
   // Get all site settings (public - for tax config at checkout)
   app.get("/api/site-settings", async (_req, res) => {
     try {
       const settings = await storage.getAllSiteSettings();
-      res.json(settings);
+
+      // Replace base64 images with URL references so the response stays small
+      const slim: Record<string, string> = {};
+      for (const [key, value] of Object.entries(settings)) {
+        if (IMAGE_SETTING_KEYS.includes(key) && value?.startsWith('data:')) {
+          slim[key] = `/api/site-settings/image/${key}`;
+        } else if (key === 'categoryImages' && value) {
+          try {
+            const catImages = JSON.parse(value) as Record<string, string>;
+            const slimCat: Record<string, string> = {};
+            for (const [cat, img] of Object.entries(catImages)) {
+              slimCat[cat] = typeof img === 'string' && img.startsWith('data:')
+                ? `/api/site-settings/category-image/${encodeURIComponent(cat)}`
+                : img;
+            }
+            slim[key] = JSON.stringify(slimCat);
+          } catch { slim[key] = value; }
+        } else {
+          slim[key] = value;
+        }
+      }
+
+      res.set('Cache-Control', 'public, max-age=30');
+      res.json(slim);
     } catch (error) {
       console.error("Get site settings error:", error);
       res.status(500).json({ error: "Failed to get site settings" });
@@ -11178,67 +11474,40 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
 
     const allProducts = await storage.getAllProducts();
     const productsWithCode = allProducts.filter((p: any) => !!p.productCode && !p.deletedAt);
-    const allNodes = await storage.getAllNodes();
-    const activeNodes = allNodes.filter((n: any) => n.status === 'active');
-    const nodeMap = new Map(activeNodes.map(n => [n.id, n]));
 
-    const allAssignments = await storage.getAllCrateAssignments();
-    const activeAssignments = allAssignments.filter(a => a.status === 'active');
-
-    const productNodeMap = new Map<string, Set<string>>();
-    for (const assignment of activeAssignments) {
-      const crateItems = await storage.getCrateItems(assignment.crateId);
-      for (const item of crateItems) {
-        if (!productNodeMap.has(item.productId)) {
-          productNodeMap.set(item.productId, new Set());
-        }
-        productNodeMap.get(item.productId)!.add(assignment.nodeId);
-      }
-    }
-
-    const nodeCountSet = new Set<string>();
     let totalRows = 0;
     const entries: string[] = [];
+    const escXmlLocal = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     for (const product of productsWithCode) {
-      const assignedNodeIds = productNodeMap.get(product.id);
-      if (!assignedNodeIds || assignedNodeIds.size === 0) continue;
-
       const inventoryRows = await storage.getInventoryByProduct(product.id);
+      const totalQty = inventoryRows.length > 0
+        ? inventoryRows.reduce((sum, i) => sum + parseInt(i.quantity.toString()), 0)
+        : (product.sheetQuantity || 0);
 
-      for (const nodeId of assignedNodeIds) {
-        const node = nodeMap.get(nodeId);
-        if (!node) continue;
-        nodeCountSet.add(nodeId);
+      const availability = totalQty > 0 ? 'in stock' : 'out of stock';
+      const price = `${parseFloat(product.price).toFixed(2)} CAD`;
 
-        const inv = inventoryRows.find(i => i.nodeId === nodeId);
-        const qty = inv ? inv.quantity : (product.sheetQuantity || 0);
-        const availability = qty > 0 ? 'in stock' : 'out of stock';
-        const price = `${product.price} CAD`;
-
-        const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-        entries.push(`  <entry>
-    <g:id>${escXml(product.productCode!)}</g:id>
-    <g:store_code>${escXml(globalStoreCode)}</g:store_code>
+      entries.push(`  <entry>
+    <g:id>${escXmlLocal(product.productCode!)}</g:id>
+    <g:store_code>${escXmlLocal(globalStoreCode)}</g:store_code>
     <g:availability>${availability}</g:availability>
-    <g:price>${escXml(price)}</g:price>
-    <g:quantity>${qty}</g:quantity>
+    <g:price>${escXmlLocal(price)}</g:price>
+    <g:quantity>${totalQty}</g:quantity>
+    <g:pickup_method>buy</g:pickup_method>
     <g:pickup_sla>same day</g:pickup_sla>
-    <g:instore_product_location>${escXml(node.name)}</g:instore_product_location>
   </entry>`);
-        totalRows++;
-      }
+      totalRows++;
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:g="http://base.google.com/ns/1.0">
-  <title>Local Inventory</title>
+  <title>GridMart Local Inventory</title>
   <updated>${new Date().toISOString()}</updated>
 ${entries.join('\n')}
 </feed>`;
 
-    return { xml, totalRows, productCount: productsWithCode.length, nodeCount: nodeCountSet.size };
+    return { xml, totalRows, productCount: productsWithCode.length, nodeCount: 1 };
   }
 
   function inferBrand(product: any): string {
@@ -11256,20 +11525,20 @@ ${entries.join('\n')}
     const shortId = product.id.slice(0, 8);
     const productLink = `${baseUrl}/product/${slug}-${shortId}`;
 
-    const images = product.images && product.images.length > 0
+    const allImages = product.images && product.images.length > 0
       ? product.images
       : product.image ? [product.image] : [];
-    const imageLink = images.length > 0
-      ? (images[0].startsWith('http') ? images[0] : `${baseUrl}${images[0]}`)
-      : '';
-    const additionalImages = images.slice(1).map((img: string) =>
-      img.startsWith('http') ? img : `${baseUrl}${img}`
+    const images = allImages.filter((img: string) =>
+      img && !img.startsWith('data:') && img.length <= 2000
     );
+    const toAbsolute = (img: string) => img.startsWith('http') ? img : `${baseUrl}${img}`;
+    const imageLink = images.length > 0 ? toAbsolute(images[0]) : '';
+    const additionalImages = images.slice(1, 6).map(toAbsolute);
 
     const descriptionRaw = Array.isArray(product.description)
-      ? product.description.join('\n')
+      ? product.description.join(' ')
       : (product.description || product.name);
-    const description = descriptionRaw.replace(/<[^>]*>/g, '').slice(0, 5000);
+    const description = descriptionRaw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000);
 
     const condition = (product.condition || 'new').toLowerCase() === 'new' ? 'new'
       : (product.condition || '').toLowerCase().includes('refurbished') ? 'refurbished'
@@ -11305,7 +11574,7 @@ ${entries.join('\n')}
         const inventoryRows = await storage.getInventoryByProduct(product.id);
         const totalQty = inventoryRows.reduce((sum, i) => sum + i.quantity, 0);
         const availability = totalQty > 0 ? 'in stock' : 'out of stock';
-        const price = `${product.price} CAD`;
+        const price = `${parseFloat(product.price).toFixed(2)} CAD`;
         const { productLink, imageLink, additionalImages, description, condition } = getProductFeedData(product, baseUrl, slugify);
         const brand = inferBrand(product);
 
@@ -11313,21 +11582,21 @@ ${entries.join('\n')}
     <g:id>${escXml(product.productCode!)}</g:id>
     <g:title>${escXml(product.name.slice(0, 150))}</g:title>
     <g:description>${escXml(description)}</g:description>
-    <g:availability>${availability}</g:availability>
-    <g:condition>${condition}</g:condition>
-    <g:price>${escXml(price)}</g:price>
     <g:link>${escXml(productLink)}</g:link>
     <g:image_link>${escXml(imageLink)}</g:image_link>${additionalImages.map((img: string) => `
-    <g:additional_image_link>${escXml(img)}</g:additional_image_link>`).join('')}${brand ? `
-    <g:brand>${escXml(brand)}</g:brand>` : ''}
-    <g:quantity>${totalQty}</g:quantity>${product.category ? `
+    <g:additional_image_link>${escXml(img)}</g:additional_image_link>`).join('')}
+    <g:condition>${condition}</g:condition>
+    <g:availability>${availability}</g:availability>
+    <g:price>${escXml(price)}</g:price>${brand ? `
+    <g:brand>${escXml(brand)}</g:brand>` : ''}${product.category ? `
     <g:product_type>${escXml(product.category)}</g:product_type>` : ''}
   </entry>`);
       }
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:g="http://base.google.com/ns/1.0">
-  <title>Product Inventory</title>
+  <title>GridMart Product Feed</title>
+  <link rel="self" href="${baseUrl}/api/inventory.xml" />
   <updated>${new Date().toISOString()}</updated>
 ${entries.join('\n')}
 </feed>`;
@@ -11351,7 +11620,7 @@ ${entries.join('\n')}
         const inventoryRows = await storage.getInventoryByProduct(product.id);
         const totalQty = inventoryRows.reduce((sum, i) => sum + i.quantity, 0);
         const availability = totalQty > 0 ? 'in stock' : 'out of stock';
-        const price = `${product.price} CAD`;
+        const price = `${parseFloat(product.price).toFixed(2)} CAD`;
         const { productLink, imageLink, additionalImages, description, condition } = getProductFeedData(product, baseUrl, slugify);
         const brand = inferBrand(product);
 
@@ -11820,6 +12089,7 @@ ${items.join('\n')}
       const accounts = await storage.getSocialFbAccounts();
       res.json(accounts);
     } catch (error) {
+      console.error('Failed to fetch FB accounts:', error);
       res.status(500).json({ error: 'Failed to fetch FB accounts' });
     }
   });
@@ -11829,6 +12099,7 @@ ${items.join('\n')}
       const account = await storage.createSocialFbAccount(req.body);
       res.json(account);
     } catch (error) {
+      console.error('Failed to create FB account:', error);
       res.status(500).json({ error: 'Failed to create FB account' });
     }
   });
@@ -11839,6 +12110,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Account not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update FB account:', error);
       res.status(500).json({ error: 'Failed to update FB account' });
     }
   });
@@ -11848,6 +12120,7 @@ ${items.join('\n')}
       await storage.deleteSocialFbAccount(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete FB account:', error);
       res.status(500).json({ error: 'Failed to delete FB account' });
     }
   });
@@ -11857,6 +12130,7 @@ ${items.join('\n')}
       const cats = await storage.getSocialCategories();
       res.json(cats);
     } catch (error) {
+      console.error('Failed to fetch social categories:', error);
       res.status(500).json({ error: 'Failed to fetch social categories' });
     }
   });
@@ -11866,6 +12140,7 @@ ${items.join('\n')}
       const cat = await storage.createSocialCategory(req.body);
       res.json(cat);
     } catch (error) {
+      console.error('Failed to create social category:', error);
       res.status(500).json({ error: 'Failed to create social category' });
     }
   });
@@ -11876,6 +12151,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Category not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update social category:', error);
       res.status(500).json({ error: 'Failed to update social category' });
     }
   });
@@ -11885,6 +12161,7 @@ ${items.join('\n')}
       await storage.deleteSocialCategory(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete social category:', error);
       res.status(500).json({ error: 'Failed to delete social category' });
     }
   });
@@ -11894,6 +12171,7 @@ ${items.join('\n')}
       const groups = await storage.getSocialGroups();
       res.json(groups);
     } catch (error) {
+      console.error('Failed to fetch social groups:', error);
       res.status(500).json({ error: 'Failed to fetch social groups' });
     }
   });
@@ -11903,6 +12181,7 @@ ${items.join('\n')}
       const group = await storage.createSocialGroup(req.body);
       res.json(group);
     } catch (error) {
+      console.error('Failed to create social group:', error);
       res.status(500).json({ error: 'Failed to create social group' });
     }
   });
@@ -11913,6 +12192,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Group not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update social group:', error);
       res.status(500).json({ error: 'Failed to update social group' });
     }
   });
@@ -11922,6 +12202,7 @@ ${items.join('\n')}
       await storage.deleteSocialGroup(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete social group:', error);
       res.status(500).json({ error: 'Failed to delete social group' });
     }
   });
@@ -11931,6 +12212,7 @@ ${items.join('\n')}
       const posts = await storage.getSocialPosts();
       res.json(posts);
     } catch (error) {
+      console.error('Failed to fetch social posts:', error);
       res.status(500).json({ error: 'Failed to fetch social posts' });
     }
   });
@@ -11940,6 +12222,7 @@ ${items.join('\n')}
       const post = await storage.createSocialPost(req.body);
       res.json(post);
     } catch (error) {
+      console.error('Failed to create social post:', error);
       res.status(500).json({ error: 'Failed to create social post' });
     }
   });
@@ -11950,6 +12233,7 @@ ${items.join('\n')}
       if (!updated) return res.status(404).json({ error: 'Post not found' });
       res.json(updated);
     } catch (error) {
+      console.error('Failed to update social post:', error);
       res.status(500).json({ error: 'Failed to update social post' });
     }
   });
@@ -11959,6 +12243,7 @@ ${items.join('\n')}
       await storage.deleteSocialPost(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete social post:', error);
       res.status(500).json({ error: 'Failed to delete social post' });
     }
   });

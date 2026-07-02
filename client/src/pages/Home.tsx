@@ -35,14 +35,20 @@ export default function Home() {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
 
   // Single fetch for all site settings — derived values computed from this one query
+  const cachedSettings = (() => {
+    try { const s = localStorage.getItem('gm_site_settings'); return s ? JSON.parse(s) : undefined; } catch { return undefined; }
+  })();
   const { data: siteSettings = {}, isSuccess: siteSettingsLoaded } = useQuery<Record<string, string>>({
     queryKey: ['site-settings'],
     queryFn: async () => {
       const res = await fetch('/api/site-settings');
       if (!res.ok) return {};
-      return res.json();
+      const data = await res.json();
+      try { localStorage.setItem('gm_site_settings', JSON.stringify(data)); } catch {}
+      return data;
     },
     staleTime: 60000,
+    initialData: cachedSettings,
   });
 
   const storefrontLayout = useMemo((): StorefrontLayoutSettings => {
@@ -285,7 +291,7 @@ export default function Home() {
               </>
             )}
             <div className="container mx-auto px-4 py-10 md:py-16 lg:py-20 relative z-10 w-full">
-              <div className={`grid grid-cols-1 gap-8 lg:gap-16 items-center ${showBg ? 'lg:grid-cols-2' : ''}`}>
+              <div className={`grid grid-cols-1 gap-8 lg:gap-16 items-center ${!showFg ? 'lg:grid-cols-2' : ''}`}>
 
                 {/* Left – store info */}
                 <div className="space-y-5">
@@ -343,21 +349,20 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Right – interior photo */}
-                {showBg && (
-                  <div className={`rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 ${bgSizeClass}`} style={{ aspectRatio: bgAspect }}>
-                    <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" loading="eager" decoding="async" />
-                  </div>
-                )}
-
-                {/* Placeholder when no photos configured */}
-                {!showFg && !showBg && (
-                  <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3] flex flex-col items-center justify-center gap-3 p-8 text-center">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <ShoppingBag className="w-8 h-8 text-primary/30" />
+                {/* Right column — always rendered when not full-bleed to prevent CLS */}
+                {!showFg && (
+                  showBg ? (
+                    <div className={`rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 ${bgSizeClass}`} style={{ aspectRatio: bgAspect }}>
+                      <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" loading="eager" decoding="async" />
                     </div>
-                    <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
-                  </div>
+                  ) : (
+                    <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3] flex flex-col items-center justify-center gap-3 p-8 text-center">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <ShoppingBag className="w-8 h-8 text-primary/30" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">Set storefront photos in Admin → Site Settings</p>
+                    </div>
+                  )
                 )}
 
               </div>

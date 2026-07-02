@@ -5871,6 +5871,7 @@ export default function AdminDashboard() {
   const [showBulkSheetSync, setShowBulkSheetSync] = useState(false);
   const [bulkSyncColumn, setBulkSyncColumn] = useState<'quantity' | 'costPrice' | 'price' | 'name' | 'images' | 'description' | 'code'>('quantity');
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+  const [isConvertingWebp, setIsConvertingWebp] = useState(false);
   const [isBatchRemovingBg, setIsBatchRemovingBg] = useState(false);
   const [isDownloadingPhotos, setIsDownloadingPhotos] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -10186,6 +10187,43 @@ Check other listings for more products`);
                         >
                           Sync Now
                         </Button>
+                        <div className="border-t pt-3">
+                          <Label className="text-sm font-medium">Pull stock — all products</Label>
+                          <p className="text-xs text-muted-foreground mt-1 mb-2">Re-read column C from every product's source sheet and update quantities in the store</p>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full"
+                            disabled={isBulkSyncing}
+                            onClick={async () => {
+                              setIsBulkSyncing(true);
+                              setShowBulkSheetSync(false);
+                              try {
+                                const res = await fetch('/api/sheet-sync/pull-all-stock', {
+                                  method: 'POST',
+                                  credentials: 'include',
+                                });
+                                const result = await res.json();
+                                if (res.ok) {
+                                  queryClient.invalidateQueries({ queryKey: ['products'] });
+                                  if (result.failed > 0) {
+                                    toast.warning(`Updated ${result.updated} products. ${result.failed} failed.`);
+                                  } else {
+                                    toast.success(`Stock synced for ${result.updated} products`);
+                                  }
+                                } else {
+                                  toast.error('Failed: ' + (result.error || 'Unknown error'));
+                                }
+                              } catch (error: any) {
+                                toast.error('Failed: ' + error.message);
+                              }
+                              setIsBulkSyncing(false);
+                            }}
+                          >
+                            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                            Pull All Stock
+                          </Button>
+                        </div>
                       </div>
                     </PopoverContent>
                   </Popover>
@@ -10220,6 +10258,36 @@ Check other listings for more products`);
                   >
                     <X className="w-4 h-4 mr-1" />
                     Remove In-Store
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isConvertingWebp}
+                    onClick={async () => {
+                      setIsConvertingWebp(true);
+                      try {
+                        const res = await fetch('/api/admin/convert-images-webp', {
+                          method: 'POST',
+                          credentials: 'include',
+                        });
+                        const result = await res.json();
+                        if (res.ok) {
+                          queryClient.invalidateQueries({ queryKey: ['products'] });
+                          toast.success(`Converted ${result.converted} images to WebP — saved ${result.savedKB} KB${result.failed ? `. ${result.failed} failed.` : ''}`);
+                        } else {
+                          toast.error('WebP conversion failed: ' + (result.error || 'Unknown error'));
+                        }
+                      } catch (error: any) {
+                        toast.error('WebP conversion failed: ' + error.message);
+                      }
+                      setIsConvertingWebp(false);
+                    }}
+                  >
+                    {isConvertingWebp ? (
+                      <><RefreshCw className="w-4 h-4 mr-1 animate-spin" />Converting...</>
+                    ) : (
+                      <><ImageIcon className="w-4 h-4 mr-1" />Convert to WebP</>
+                    )}
                   </Button>
                   <div className="flex items-center gap-1">
                     <Select value={pushSheetOption} onValueChange={v => setPushSheetOption(v as 'codes' | 'price')}>
