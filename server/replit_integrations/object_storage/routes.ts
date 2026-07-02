@@ -58,17 +58,14 @@ export function registerObjectStorageRoutes(app: Express): void {
     try {
       const requestedW = parseInt(req.query?.w || '0') || 0;
       const targetWidth = requestedW > 0 ? Math.min(requestedW, MAX_IMAGE_WIDTH) : MAX_IMAGE_WIDTH;
-      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const acceptsWebP = req.headers.accept?.includes('image/webp');
 
-      if (!acceptsWebP) {
-        return await objectStorageService.downloadObject(objectFile, res);
-      }
-
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const [metadata] = await objectFile.getMetadata();
-      let contentType = metadata.contentType || detectContentType(objectFile.name);
+      const contentType = metadata.contentType || detectContentType(objectFile.name);
       const fileSize = parseInt(metadata.size as string, 10) || 0;
 
+      // Pass through files we can't convert (SVG, AVIF, HEIC, huge files)
       if (!isConvertibleImage(contentType, objectFile.name) || fileSize > MAX_CONVERT_SIZE) {
         return await objectStorageService.downloadObject(objectFile, res);
       }
@@ -77,76 +74,56 @@ export function registerObjectStorageRoutes(app: Express): void {
       const isPublic = aclPolicy?.visibility === "public";
       const cacheVisibility = isPublic ? "public" : "private";
 
+      const outputMime = acceptsWebP ? 'image/webp' : contentType;
       const etag = metadata.etag || metadata.generation || '';
       const etagHash = etag ? `-${Buffer.from(String(etag)).toString('base64url').slice(0, 8)}` : '';
-      const webpCachePath = objectFile.name + etagHash + `.w${targetWidth}.webp`;
+      const cacheSuffix = acceptsWebP ? `.w${targetWidth}.webp` : `.w${targetWidth}.orig`;
+      const cachedPath = objectFile.name + etagHash + cacheSuffix;
       const bucket = objectFile.bucket;
-      const cachedWebP = bucket.file(webpCachePath);
-      const [cacheExists] = await cachedWebP.exists();
+      const cachedFile = bucket.file(cachedPath);
+      const [cacheExists] = await cachedFile.exists();
 
       if (cacheExists) {
-        const [cachedMeta] = await cachedWebP.getMetadata();
+        const [cachedMeta] = await cachedFile.getMetadata();
         res.set({
-          "Content-Type": "image/webp",
+          "Content-Type": outputMime,
           "Content-Length": cachedMeta.size,
           "Cache-Control": `${cacheVisibility}, max-age=31536000, immutable`,
           "Vary": "Accept",
         });
-        const stream = cachedWebP.createReadStream();
+        const stream = cachedFile.createReadStream();
         stream.on("error", (err: Error) => {
-          console.error("WebP cache stream error:", err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: "Error streaming file" });
-          }
+          console.error("Cache stream error:", err);
+          if (!res.headersSent) res.status(500).json({ error: "Error streaming file" });
         });
         stream.pipe(res);
         return;
       }
 
-      const transformer = sharp().webp({ quality: 80 });
-      const chunks: Buffer[] = [];
-
-      transformer.on('data', (chunk: Buffer) => chunks.push(chunk));
-      transformer.on('error', (err: Error) => {
-        console.error("Sharp conversion error:", err);
-        if (!res.headersSent) {
-          objectStorageService.downloadObject(objectFile, res);
-        }
-      });
-
-      const readStream = objectFile.createReadStream();
-      readStream.on('error', (err: Error) => {
-        console.error("Read stream error:", err);
-        if (!res.headersSent) {
-          res.status(500).json({ error: "Error reading file" });
-        }
-      });
-
-      const webpBuffer = await new Promise<Buffer>((resolve, reject) => {
+      // Convert: resize + optionally encode as WebP
+      const outBuffer = await new Promise<Buffer>((resolve, reject) => {
         const bufs: Buffer[] = [];
-        const transform = sharp()
-          .resize({ width: targetWidth, withoutEnlargement: true })
-          .webp({ quality: 80 });
-        transform.on('data', (chunk: Buffer) => bufs.push(chunk));
-        transform.on('end', () => resolve(Buffer.concat(bufs)));
-        transform.on('error', reject);
+        let pipeline = sharp().resize({ width: targetWidth, withoutEnlargement: true });
+        if (acceptsWebP) pipeline = pipeline.webp({ quality: 75 }) as any;
+        pipeline.on('data', (chunk: Buffer) => bufs.push(chunk));
+        pipeline.on('end', () => resolve(Buffer.concat(bufs)));
+        pipeline.on('error', reject);
+        const readStream = objectFile.createReadStream();
         readStream.on('error', reject);
-        readStream.pipe(transform);
+        readStream.pipe(pipeline);
       });
 
-      cachedWebP.save(webpBuffer, {
-        metadata: { contentType: 'image/webp' },
-      }).catch((err: Error) => {
-        console.error("Failed to cache WebP version:", err);
-      });
+      cachedFile.save(outBuffer, {
+        metadata: { contentType: outputMime },
+      }).catch((err: Error) => console.error("Failed to cache resized image:", err));
 
       res.set({
-        "Content-Type": "image/webp",
-        "Content-Length": webpBuffer.length.toString(),
+        "Content-Type": outputMime,
+        "Content-Length": outBuffer.length.toString(),
         "Cache-Control": `${cacheVisibility}, max-age=31536000, immutable`,
         "Vary": "Accept",
       });
-      res.send(webpBuffer);
+      res.send(outBuffer);
 
     } catch (error) {
       console.error("Error serving object:", error);
