@@ -278,7 +278,19 @@ export default function Home() {
           <section className="relative overflow-hidden flex items-center min-h-[500px] md:min-h-[560px]">
             {showFg ? (
               <>
-                <img src={siteSettings.storefrontHeroImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: fgPosition }} fetchPriority="high" loading="eager" decoding="async" />
+                <img
+                  src={siteSettings.storefrontHeroImage}
+                  srcSet={siteSettings.storefrontHeroImage?.startsWith('/api/')
+                    ? `${siteSettings.storefrontHeroImage}?w=480 480w, ${siteSettings.storefrontHeroImage}?w=800 800w, ${siteSettings.storefrontHeroImage}?w=1400 1400w`
+                    : undefined}
+                  sizes="100vw"
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ objectPosition: fgPosition }}
+                  fetchPriority="high"
+                  loading="eager"
+                  decoding="async"
+                />
                 <div className="absolute inset-0 bg-black" style={{ opacity: overlayPct / 100 }} />
               </>
             ) : (
@@ -353,7 +365,17 @@ export default function Home() {
                 {!showFg && (
                   showBg ? (
                     <div className={`rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 ${bgSizeClass}`} style={{ aspectRatio: bgAspect }}>
-                      <img src={siteSettings.storefrontInteriorImage} alt="Store" className="w-full h-full object-cover" loading="eager" decoding="async" />
+                      <img
+                        src={siteSettings.storefrontInteriorImage}
+                        srcSet={siteSettings.storefrontInteriorImage?.startsWith('/api/')
+                          ? `${siteSettings.storefrontInteriorImage}?w=400 400w, ${siteSettings.storefrontInteriorImage}?w=800 800w`
+                          : undefined}
+                        sizes="(max-width: 1024px) 100vw, 50vw"
+                        alt="Store"
+                        className="w-full h-full object-cover"
+                        loading="eager"
+                        decoding="async"
+                      />
                     </div>
                   ) : (
                     <div className="rounded-2xl overflow-hidden shadow-xl bg-muted aspect-[4/3] flex flex-col items-center justify-center gap-3 p-8 text-center">
