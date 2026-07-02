@@ -29,22 +29,33 @@ import { addDays, parse, format } from "date-fns";
 const IMG_MAX_WIDTH = 1400;
 
 async function serveBase64Image(
-  req: { headers: { accept?: string } },
+  req: { headers: { accept?: string }; query?: Record<string, any> },
   res: any,
   rawBuf: Buffer,
   originalMime: string
 ): Promise<void> {
+  const requestedW = parseInt((req as any).query?.w || '0') || 0;
+  const targetWidth = requestedW > 0 ? Math.min(requestedW, IMG_MAX_WIDTH) : IMG_MAX_WIDTH;
   const wantsWebP = req.headers.accept?.includes('image/webp') ?? false;
   const isConvertible = /^image\/(jpeg|png|tiff|bmp|gif)$/.test(originalMime);
   if (wantsWebP && isConvertible) {
     const webpBuf = await sharp(rawBuf)
-      .resize({ width: IMG_MAX_WIDTH, withoutEnlargement: true })
+      .resize({ width: targetWidth, withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer();
     res.set('Content-Type', 'image/webp');
     res.set('Cache-Control', 'public, max-age=86400');
     res.set('Vary', 'Accept');
     return res.send(webpBuf);
+  }
+  // Non-WebP browsers: still resize if a smaller width was requested
+  if (requestedW > 0 && isConvertible) {
+    const resizedBuf = await sharp(rawBuf)
+      .resize({ width: targetWidth, withoutEnlargement: true })
+      .toBuffer();
+    res.set('Content-Type', originalMime);
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(resizedBuf);
   }
   res.set('Content-Type', originalMime);
   res.set('Cache-Control', 'public, max-age=86400');

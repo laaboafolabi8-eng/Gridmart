@@ -84,7 +84,7 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
             const coverPosition = imgData.position || '50% 50%';
             const coverScale = imgData.scale || 1;
             return (
-              <Link key={cat.id} href={`/shop?category=${encodeURIComponent(cat.name)}`}>
+              <Link key={cat.id} href={`/category/${encodeURIComponent(cat.name)}`}>
                 <div className="group relative rounded-xl overflow-hidden cursor-pointer bg-muted" style={{ aspectRatio: '1/1' }}>
                   {coverUrl ? (
                     <img
