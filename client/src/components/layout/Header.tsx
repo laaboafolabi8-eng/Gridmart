@@ -156,7 +156,7 @@ export function Header() {
                   {topLevelCategories.length > 0 && <DropdownMenuSeparator />}
                   {topLevelCategories.map(cat => (
                     <DropdownMenuItem key={cat.id} asChild>
-                      <Link href={`/?category=${encodeURIComponent(cat.name)}`} className="w-full cursor-pointer">
+                      <Link href={`/category/${encodeURIComponent(cat.name)}`} className="w-full cursor-pointer">
                         {cat.name}
                       </Link>
                     </DropdownMenuItem>
@@ -335,7 +335,7 @@ export function Header() {
               </Button>
             </Link>
             {topLevelCategories.map(cat => (
-              <Link key={cat.id} href={`/?category=${encodeURIComponent(cat.name)}`}>
+              <Link key={cat.id} href={`/category/${encodeURIComponent(cat.name)}`}>
                 <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground pl-5">
                   {cat.name}
                 </Button>

@@ -47,6 +47,7 @@ const TrackOrder = lazy(() => import("@/pages/TrackOrder"));
 const WarrantyPolicy = lazy(() => import("@/pages/WarrantyPolicy"));
 const PaymentPolicy = lazy(() => import("@/pages/PaymentPolicy"));
 const Disclaimer = lazy(() => import("@/pages/Disclaimer"));
+const CategoryPage = lazy(() => import("@/pages/CategoryPage"));
 
 // Paths that always work even in under-construction mode
 const BYPASS_PATHS = ['/admin', '/admin/login'];
@@ -65,6 +66,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/shop" component={Home} />
+        <Route path="/category/:name" component={CategoryPage} />
         <Route path="/product/:slug" component={ProductDetail} />
         <Route path="/cart" component={Cart} />
         <Route path="/checkout" component={Checkout} />
