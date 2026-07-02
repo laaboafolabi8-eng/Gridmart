@@ -89,6 +89,10 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
                   {coverUrl ? (
                     <img
                       src={coverUrl}
+                      srcSet={coverUrl.startsWith('/api/')
+                        ? `${coverUrl}?w=200 200w, ${coverUrl}?w=400 400w, ${coverUrl}?w=800 800w`
+                        : undefined}
+                      sizes="(max-width: 640px) calc(50vw - 24px), calc(33vw - 24px)"
                       alt={cat.name}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500"
                       style={{
@@ -96,6 +100,7 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
                         transform: `scale(${coverScale})`,
                         transformOrigin: coverPosition,
                       }}
+                      loading="lazy"
                     />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
