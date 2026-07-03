@@ -1541,9 +1541,13 @@ export async function registerRoutes(
             deduped.set(inv.nodeId, Math.max(existing, parseInt(inv.quantity.toString())));
           }
           
+          const sanitizedImages = images.map((img: string, idx: number) =>
+            img?.startsWith('data:') ? `/api/products/${product.id}/image/${idx}` : img
+          );
+
           return {
             ...product,
-            images,
+            images: sanitizedImages,
             inventory: Array.from(deduped.entries()).map(([nodeId, quantity]) => ({
               nodeId,
               quantity

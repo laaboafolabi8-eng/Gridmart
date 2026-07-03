@@ -202,6 +202,10 @@ export function ProductCard({ product, variants = [], layout, hideImageNav }: Pr
             ) : (
               <img
                 src={currentImage}
+                srcSet={currentImage.startsWith('/api/')
+                  ? `${currentImage}?w=200 200w, ${currentImage}?w=400 400w, ${currentImage}?w=800 800w`
+                  : undefined}
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
                 alt={product.name}
                 width={400}
                 height={400}

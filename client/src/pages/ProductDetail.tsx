@@ -63,19 +63,6 @@ export default function ProductDetail() {
     },
   });
 
-  const { data: storefrontLayout } = useQuery<StorefrontLayoutSettings>({
-    queryKey: ['storefrontLayout'],
-    queryFn: async () => {
-      const res = await fetch('/api/site-settings');
-      if (!res.ok) return {};
-      const settings = await res.json();
-      if (settings.storefrontLayout) {
-        try { return JSON.parse(settings.storefrontLayout); } catch { return {}; }
-      }
-      return {};
-    },
-  });
-
   const { data: siteSettings = {} } = useQuery<Record<string, string>>({
     queryKey: ['site-settings'],
     queryFn: async () => {
@@ -83,7 +70,13 @@ export default function ProductDetail() {
       if (!res.ok) return {};
       return res.json();
     },
+    staleTime: 60000,
   });
+
+  const storefrontLayout: StorefrontLayoutSettings = useMemo(() => {
+    if (!siteSettings.storefrontLayout) return {};
+    try { return JSON.parse(siteSettings.storefrontLayout); } catch { return {}; }
+  }, [siteSettings.storefrontLayout]);
 
   const flatRate = parseFloat(siteSettings.shippingFlatRate || '15.00');
   const freeThreshold = parseFloat(siteSettings.freeShippingThreshold || '99.00');
@@ -275,15 +268,24 @@ export default function ProductDetail() {
                   <MediaThumbnail url={product.images[currentImageIndex] || product.images[0]} alt={product.name} className="w-full h-full" />
                 ) : (
                   <Zoom>
-                    <img
-                      src={product.images[currentImageIndex] || product.images[0]}
-                      alt={product.name}
-                      width={800}
-                      height={800}
-                      fetchPriority={currentImageIndex === 0 ? 'high' : 'auto'}
-                      decoding="async"
-                      className="w-full max-h-[500px] object-contain cursor-zoom-in"
-                    />
+                    {(() => {
+                      const src = product.images[currentImageIndex] || product.images[0];
+                      return (
+                        <img
+                          src={src}
+                          srcSet={src?.startsWith('/api/')
+                            ? `${src}?w=400 400w, ${src}?w=800 800w, ${src}?w=1200 1200w`
+                            : undefined}
+                          sizes="(max-width: 1024px) 100vw, 50vw"
+                          alt={product.name}
+                          width={800}
+                          height={800}
+                          fetchPriority={currentImageIndex === 0 ? 'high' : 'auto'}
+                          decoding="async"
+                          className="w-full max-h-[500px] object-contain cursor-zoom-in"
+                        />
+                      );
+                    })()}
                   </Zoom>
                 )}
                 {product.images.length > 1 && (

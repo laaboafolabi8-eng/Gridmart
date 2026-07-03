@@ -60,7 +60,15 @@ export default function Cart() {
                       <div className="relative flex-shrink-0 overflow-hidden rounded-lg">
                         <img
                           src={item.product.images[0]}
+                          srcSet={item.product.images[0]?.startsWith('/api/')
+                            ? `${item.product.images[0]}?w=96 96w, ${item.product.images[0]}?w=192 192w`
+                            : undefined}
+                          sizes="96px"
                           alt={item.product.name}
+                          width={96}
+                          height={96}
+                          loading="lazy"
+                          decoding="async"
                           className="w-24 h-24 rounded-lg object-contain bg-muted"
                         />
                       </div>

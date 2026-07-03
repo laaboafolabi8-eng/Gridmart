@@ -145,7 +145,7 @@ function AppGate() {
       const res = await fetch('/api/site-settings');
       return res.ok ? res.json() : {};
     },
-    staleTime: 5000,
+    staleTime: 30000,
   });
 
   const isUnderConstruction = settings.siteUnderConstruction === 'true';

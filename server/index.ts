@@ -86,22 +86,37 @@ async function seedDefaultApplicationStatuses() {
   }
 }
 
-const REFUND_POLICY_CONTENT = `Refunds & Issues
+const REFUND_POLICY_CONTENT = `Refunds & Returns
 
-Refunds or replacements may be offered at GridMart's discretion for:
 
-• Incorrect item handed off
-• Incorrect quantity provided
-• Items that were purchased damaged or defective
+Online Orders (Shipping)
 
-Returns accepted in-store within 30 days of purchase with original packaging at:
-3176 Walker Rd, Windsor, ON N8W 3R5
+Returns are accepted within 30 days of delivery for any reason. Items must be returned in their original packaging and include proof of purchase (receipt or order confirmation).
 
-Refunds are not provided for:
+To initiate a return, contact us at admin@gridmart.ca or 519-919-7764 with your order number and reason for the return. We will respond within 2 business days.
 
-• Buyer remorse
-• Manufacturer warranty, promotional or product registration failures
-• Compatibility or preference issues`;
+Customers are responsible for the cost of return shipping unless the return is due to an incorrect item, incorrect quantity, or an item that arrived damaged or defective. In those cases, GridMart will provide a replacement or, if a replacement is unavailable, issue a full refund.
+
+Approved refunds are issued to the original payment method and are processed within 3-5 business days after the returned item has been received and the return has been accepted.
+
+
+In-Store Purchases
+
+Returns are accepted within 30 days of purchase for any reason. Items must be returned in their original packaging with proof of purchase (receipt or order confirmation).
+
+Returns can be made in-store at:
+
+GridMart
+3176 Walker Rd
+Windsor, ON N8W 3R5
+
+To initiate a return or if you have any questions, contact us at admin@gridmart.ca or 519-919-7764. We will respond within 2 business days.
+
+If an item is defective, damaged, or incorrect, GridMart will provide a replacement or, if a replacement is unavailable, issue a full refund.
+
+Approved refunds are issued to the original payment method and are processed within 3-5 business days after the return has been accepted.
+
+Customers are responsible for returning items to our Windsor location. GridMart does not reimburse transportation or other costs associated with in-store returns.`;
 
 async function migrateStoreAddress() {
   try {
@@ -118,7 +133,7 @@ async function migrateStoreAddress() {
 async function migrateRefundPolicy() {
   try {
     const existing = await storage.getAgreement('refund');
-    if (!existing || existing.content === 'Please add your Refund Policy content here.' || existing.content.indexOf('3176 Walker Rd') === -1) {
+    if (!existing || !existing.content.includes('Online Orders (Shipping)')) {
       await storage.upsertAgreement('refund', 'Refund Policy', REFUND_POLICY_CONTENT);
       console.log('Refund policy updated');
     }
