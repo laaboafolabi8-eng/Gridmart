@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Slide {
@@ -48,8 +49,8 @@ export function SlideshowSection({ slides = [], autoplayMs = 4000, showDots = tr
       {valid.map((s, i) => (
         <img
           key={i}
-          src={s.imageUrl}
-          srcSet={s.imageUrl?.startsWith('/api/') ? `${s.imageUrl}?w=800 800w, ${s.imageUrl}?w=1400 1400w` : undefined}
+          src={imgSrc(s.imageUrl, 1400)}
+          srcSet={imgSrcSet(s.imageUrl, [800, 1400])}
           sizes="100vw"
           alt=""
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === current ? 'opacity-100' : 'opacity-0'}`}

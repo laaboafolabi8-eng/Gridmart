@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChatDialog } from '@/components/chat/ChatDialog';
 import { formatCurrency, formatDate } from '@/lib/mockData';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 
 interface OrderCardProps {
   order: any;
@@ -56,10 +57,8 @@ export function OrderCard({ order, showActions = true }: OrderCardProps) {
               {items.slice(0, 2).map((item: any, idx: number) => (
                 <div key={idx} className="flex items-center gap-3">
                   <img
-                    src={item.product?.images?.[0]?.startsWith('/api/') ? `${item.product.images[0]}?w=80` : (item.product?.images?.[0] || '/placeholder-product.jpg')}
-                    srcSet={item.product?.images?.[0]?.startsWith('/api/')
-                      ? `${item.product.images[0]}?w=40 40w, ${item.product.images[0]}?w=80 80w`
-                      : undefined}
+                    src={imgSrc(item.product?.images?.[0], 80) || '/placeholder-product.jpg'}
+                    srcSet={imgSrcSet(item.product?.images?.[0], [40, 80])}
                     sizes="40px"
                     alt={item.product?.name || 'Product'}
                     loading="lazy"

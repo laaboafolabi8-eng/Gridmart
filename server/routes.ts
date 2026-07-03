@@ -1428,15 +1428,15 @@ export async function registerRoutes(
   });
   
   // ===== Image Proxy Route =====
-  // Proxy external images to avoid CORS issues when drawing to canvas
+  // Proxies external images with optional resize (?w=) and WebP conversion.
+  // Supports Accept: image/webp for automatic format selection.
   app.get("/api/image-proxy", async (req, res) => {
     try {
       const imageUrl = req.query.url as string;
       if (!imageUrl) {
         return res.status(400).json({ error: "Missing url parameter" });
       }
-      
-      // Validate URL
+
       let parsedUrl: URL;
       try {
         parsedUrl = new URL(imageUrl);
@@ -1446,7 +1446,7 @@ export async function registerRoutes(
       } catch {
         return res.status(400).json({ error: "Invalid URL" });
       }
-      
+
       const response = await fetch(imageUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -1455,18 +1455,16 @@ export async function registerRoutes(
         },
         redirect: 'follow',
       });
-      
+
       if (!response.ok) {
         return res.status(response.status).json({ error: "Failed to fetch image" });
       }
-      
+
       const contentType = response.headers.get('content-type') || 'image/jpeg';
       const buffer = Buffer.from(await response.arrayBuffer());
-      
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Cache-Control', 'public, max-age=86400');
+
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.send(buffer);
+      await serveBase64Image(req, res, buffer, contentType);
     } catch (error: any) {
       console.error('Image proxy error:', error);
       res.status(500).json({ error: "Failed to proxy image" });

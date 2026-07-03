@@ -11,6 +11,7 @@ import { Footer } from '@/components/layout/Footer';
 import { useCart } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { formatCurrency } from '@/lib/mockData';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
@@ -59,10 +60,8 @@ export default function Cart() {
                     <div className="flex gap-4">
                       <div className="relative flex-shrink-0 overflow-hidden rounded-lg">
                         <img
-                          src={item.product.images[0]?.startsWith('/api/') ? `${item.product.images[0]}?w=192` : item.product.images[0]}
-                          srcSet={item.product.images[0]?.startsWith('/api/')
-                            ? `${item.product.images[0]}?w=96 96w, ${item.product.images[0]}?w=192 192w`
-                            : undefined}
+                          src={imgSrc(item.product.images[0], 192)}
+                          srcSet={imgSrcSet(item.product.images[0], [96, 192])}
                           sizes="96px"
                           alt={item.product.name}
                           width={96}

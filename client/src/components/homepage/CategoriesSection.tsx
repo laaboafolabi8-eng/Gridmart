@@ -1,5 +1,6 @@
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 
 interface Category {
   id: string;
@@ -103,10 +104,8 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
                 <div className="group relative rounded-xl overflow-hidden cursor-pointer bg-muted" style={{ aspectRatio: '1/1' }}>
                   {coverUrl ? (
                     <img
-                      src={coverUrl.startsWith('/api/') ? `${coverUrl}?w=800` : coverUrl}
-                      srcSet={coverUrl.startsWith('/api/')
-                        ? `${coverUrl}?w=200 200w, ${coverUrl}?w=400 400w, ${coverUrl}?w=800 800w`
-                        : undefined}
+                      src={imgSrc(coverUrl, 800)}
+                      srcSet={imgSrcSet(coverUrl, [200, 400, 800])}
                       sizes="(max-width: 640px) calc(50vw - 24px), calc(33vw - 24px)"
                       alt={cat.name}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500"

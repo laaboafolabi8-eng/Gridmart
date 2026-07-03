@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/mockData';
 import { useWishlist } from '@/lib/store';
 import { isYouTubeUrl, extractYouTubeVideoId, getYouTubeThumbnail } from '@/lib/youtube';
 import { productUrl } from '../../../../shared/slugify';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 
 const COLOR_MAP: Record<string, string> = {
   white: '#ffffff',
@@ -201,10 +202,8 @@ export function ProductCard({ product, variants = [], layout, hideImageNav }: Pr
               </div>
             ) : (
               <img
-                src={currentImage.startsWith('/api/') ? `${currentImage}?w=800` : currentImage}
-                srcSet={currentImage.startsWith('/api/')
-                  ? `${currentImage}?w=200 200w, ${currentImage}?w=400 400w, ${currentImage}?w=800 800w`
-                  : undefined}
+                src={imgSrc(currentImage, 800)}
+                srcSet={imgSrcSet(currentImage, [200, 400, 800])}
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
                 alt={product.name}
                 width={400}

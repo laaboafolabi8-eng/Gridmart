@@ -15,6 +15,7 @@ import { SlideshowSection } from '@/components/homepage/SlideshowSection';
 import { FeaturedProductsSection } from '@/components/homepage/FeaturedProductsSection';
 import { CategoriesSection } from '@/components/homepage/CategoriesSection';
 import { type HomepageSectionConfig, DEFAULT_HOMEPAGE_SECTIONS } from '@/lib/homepageSections';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 
 function seededRandom(seed: string): number {
   let hash = 0;
@@ -279,10 +280,8 @@ export default function Home() {
             {showFg ? (
               <>
                 <img
-                  src={siteSettings.storefrontHeroImage}
-                  srcSet={siteSettings.storefrontHeroImage?.startsWith('/api/')
-                    ? `${siteSettings.storefrontHeroImage}?w=480 480w, ${siteSettings.storefrontHeroImage}?w=800 800w, ${siteSettings.storefrontHeroImage}?w=1400 1400w`
-                    : undefined}
+                  src={imgSrc(siteSettings.storefrontHeroImage, 1400)}
+                  srcSet={imgSrcSet(siteSettings.storefrontHeroImage, [480, 800, 1400])}
                   sizes="100vw"
                   alt=""
                   className="absolute inset-0 w-full h-full object-cover"
@@ -366,10 +365,8 @@ export default function Home() {
                   showBg ? (
                     <div className={`rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 ${bgSizeClass}`} style={{ aspectRatio: bgAspect }}>
                       <img
-                        src={siteSettings.storefrontInteriorImage}
-                        srcSet={siteSettings.storefrontInteriorImage?.startsWith('/api/')
-                          ? `${siteSettings.storefrontInteriorImage}?w=400 400w, ${siteSettings.storefrontInteriorImage}?w=800 800w`
-                          : undefined}
+                        src={imgSrc(siteSettings.storefrontInteriorImage, 800)}
+                        srcSet={imgSrcSet(siteSettings.storefrontInteriorImage, [400, 800])}
                         sizes="(max-width: 1024px) 100vw, 50vw"
                         alt="Store"
                         className="w-full h-full object-cover"

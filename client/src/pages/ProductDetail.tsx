@@ -17,6 +17,7 @@ import { formatCurrency, getDescriptionPoints, type Product, type ContentSection
 import { useCart } from '@/lib/store';
 import { ProductCard, type StorefrontLayoutSettings } from '@/components/products/ProductCard';
 import { productUrl, extractProductIdPrefix, isUuid } from '../../../shared/slugify';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 
 export default function ProductDetail() {
   const params = useParams<{ slug: string }>();
@@ -268,26 +269,17 @@ export default function ProductDetail() {
                   <MediaThumbnail url={product.images[currentImageIndex] || product.images[0]} alt={product.name} className="w-full h-full" />
                 ) : (
                   <Zoom>
-                    {(() => {
-                      const rawSrc = product.images[currentImageIndex] || product.images[0];
-                      const isApi = rawSrc?.startsWith('/api/');
-                      const src = isApi ? `${rawSrc}?w=1400` : rawSrc;
-                      return (
-                        <img
-                          src={src}
-                          srcSet={isApi
-                            ? `${rawSrc}?w=400 400w, ${rawSrc}?w=800 800w, ${rawSrc}?w=1200 1200w, ${rawSrc}?w=1400 1400w`
-                            : undefined}
-                          sizes="(max-width: 1024px) 100vw, 50vw"
-                          alt={product.name}
-                          width={800}
-                          height={800}
-                          fetchPriority={currentImageIndex === 0 ? 'high' : 'auto'}
-                          decoding="async"
-                          className="w-full max-h-[500px] object-contain cursor-zoom-in"
-                        />
-                      );
-                    })()}
+                    <img
+                      src={imgSrc(product.images[currentImageIndex] || product.images[0], 1400)}
+                      srcSet={imgSrcSet(product.images[currentImageIndex] || product.images[0], [400, 800, 1200, 1400])}
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      alt={product.name}
+                      width={800}
+                      height={800}
+                      fetchPriority={currentImageIndex === 0 ? 'high' : 'auto'}
+                      decoding="async"
+                      className="w-full max-h-[500px] object-contain cursor-zoom-in"
+                    />
                   </Zoom>
                 )}
                 {product.images.length > 1 && (
@@ -317,8 +309,8 @@ export default function ProductDetail() {
                     <button key={idx} onClick={() => setCurrentImageIndex(idx)}
                       className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${idx === currentImageIndex ? 'border-primary' : 'border-transparent'}`}>
                       <img
-                        src={img?.startsWith('/api/') ? `${img}?w=56` : img}
-                        srcSet={img?.startsWith('/api/') ? `${img}?w=56 56w, ${img}?w=112 112w, ${img}?w=168 168w` : undefined}
+                        src={imgSrc(img, 56)}
+                        srcSet={imgSrcSet(img, [56, 112, 168])}
                         sizes="56px"
                         alt=""
                         width={56}

@@ -1,3 +1,5 @@
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
+
 interface PromoBannerProps {
   imageUrl?: string;
   heading?: string;
@@ -20,8 +22,8 @@ export function PromoBannerSection({ imageUrl, heading, subtext, ctaLabel, ctaUr
   return (
     <section className="relative w-full overflow-hidden" style={{ minHeight: '220px' }}>
       <img
-        src={imageUrl}
-        srcSet={imageUrl?.startsWith('/api/') ? `${imageUrl}?w=800 800w, ${imageUrl}?w=1400 1400w` : undefined}
+        src={imgSrc(imageUrl, 1400)}
+        srcSet={imgSrcSet(imageUrl, [800, 1400])}
         sizes="100vw"
         alt=""
         className="absolute inset-0 w-full h-full object-cover"

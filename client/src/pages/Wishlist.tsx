@@ -8,6 +8,7 @@ import { useWishlist } from '@/lib/store';
 import { useCart } from '@/lib/store';
 import { formatCurrency } from '@/lib/mockData';
 import { productUrl } from '../../../shared/slugify';
+import { imgSrc, imgSrcSet } from '@/lib/imgSrc';
 
 export default function Wishlist() {
   const { wishlist, removeFromWishlist, clearWishlist } = useWishlist();
@@ -55,10 +56,8 @@ export default function Wishlist() {
                   <Link href={productUrl(product)}>
                     <div className="aspect-square overflow-hidden">
                       <img
-                        src={product.images[0]?.startsWith('/api/') ? `${product.images[0]}?w=800` : product.images[0]}
-                        srcSet={product.images[0]?.startsWith('/api/')
-                          ? `${product.images[0]}?w=200 200w, ${product.images[0]}?w=400 400w, ${product.images[0]}?w=800 800w`
-                          : undefined}
+                        src={imgSrc(product.images[0], 800)}
+                        srcSet={imgSrcSet(product.images[0], [200, 400, 800])}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         alt={product.name}
                         loading="lazy"
