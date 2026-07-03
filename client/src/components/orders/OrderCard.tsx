@@ -55,9 +55,15 @@ export function OrderCard({ order, showActions = true }: OrderCardProps) {
             <div className="space-y-2 mb-3">
               {items.slice(0, 2).map((item: any, idx: number) => (
                 <div key={idx} className="flex items-center gap-3">
-                  <img 
-                    src={item.product?.images?.[0] || '/placeholder-product.jpg'} 
+                  <img
+                    src={item.product?.images?.[0] || '/placeholder-product.jpg'}
+                    srcSet={item.product?.images?.[0]?.startsWith('/api/')
+                      ? `${item.product.images[0]}?w=40 40w, ${item.product.images[0]}?w=80 80w`
+                      : undefined}
+                    sizes="40px"
                     alt={item.product?.name || 'Product'}
+                    loading="lazy"
+                    decoding="async"
                     className="w-10 h-10 rounded object-cover"
                   />
                   <div className="flex-1 min-w-0">

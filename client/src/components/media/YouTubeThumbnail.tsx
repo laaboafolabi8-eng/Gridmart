@@ -44,9 +44,11 @@ export function YouTubeThumbnail({
         onClick={handleClick}
         data-testid="youtube-thumbnail"
       >
-        <img 
-          src={thumbnailUrl} 
+        <img
+          src={thumbnailUrl}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover"
           onError={(e) => {
             const target = e.target as HTMLImageElement;

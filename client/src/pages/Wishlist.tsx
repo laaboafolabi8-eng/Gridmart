@@ -56,7 +56,13 @@ export default function Wishlist() {
                     <div className="aspect-square overflow-hidden">
                       <img
                         src={product.images[0]}
+                        srcSet={product.images[0]?.startsWith('/api/')
+                          ? `${product.images[0]}?w=200 200w, ${product.images[0]}?w=400 400w, ${product.images[0]}?w=800 800w`
+                          : undefined}
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         alt={product.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
                     </div>

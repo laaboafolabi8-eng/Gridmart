@@ -33,7 +33,11 @@ export function FeaturedProductsSection({ heading = 'Featured This Week', produc
               <div className="sm:w-1/2 aspect-video sm:aspect-auto sm:min-h-[280px] overflow-hidden bg-muted relative">
                 <img
                   src={p.image}
+                  srcSet={p.image?.startsWith('/api/') ? `${p.image}?w=400 400w, ${p.image}?w=800 800w, ${p.image}?w=1200 1200w` : undefined}
+                  sizes="(max-width: 640px) 100vw, 50vw"
                   alt={p.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                   style={{
                     objectPosition: imagePosition || '50% 50%',
@@ -71,7 +75,11 @@ export function FeaturedProductsSection({ heading = 'Featured This Week', produc
                   <div className="aspect-square overflow-hidden bg-muted relative">
                     <img
                       src={p.image}
+                      srcSet={p.image?.startsWith('/api/') ? `${p.image}?w=200 200w, ${p.image}?w=400 400w` : undefined}
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                       alt={p.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {onSale && (

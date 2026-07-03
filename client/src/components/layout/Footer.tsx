@@ -30,8 +30,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           <div className="md:col-span-2">
             <div className="flex items-end gap-2 mb-4">
-              <img src={logoIcon} alt="GridMart" className="w-8 h-8 object-contain" width="32" height="32" />
-              <img src={logoText} alt="" aria-hidden="true" className="h-5 object-contain mb-0.5" width="82" height="20" />
+              <img src={logoIcon} alt="GridMart" className="w-8 h-8 object-contain" width="32" height="32" loading="lazy" decoding="async" />
+              <img src={logoText} alt="" aria-hidden="true" className="h-5 object-contain mb-0.5" width="82" height="20" loading="lazy" decoding="async" />
             </div>
             <p className="text-muted-foreground max-w-md" data-testid="text-footer-tagline">
               {footerTagline}

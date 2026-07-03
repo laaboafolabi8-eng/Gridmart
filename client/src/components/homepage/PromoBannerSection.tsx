@@ -19,7 +19,15 @@ export function PromoBannerSection({ imageUrl, heading, subtext, ctaLabel, ctaUr
   }
   return (
     <section className="relative w-full overflow-hidden" style={{ minHeight: '220px' }}>
-      <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
+      <img
+        src={imageUrl}
+        srcSet={imageUrl?.startsWith('/api/') ? `${imageUrl}?w=800 800w, ${imageUrl}?w=1400 1400w` : undefined}
+        sizes="100vw"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        loading="lazy"
+        decoding="async"
+      />
       {overlay > 0 && (
         <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${overlay / 100})` }} />
       )}

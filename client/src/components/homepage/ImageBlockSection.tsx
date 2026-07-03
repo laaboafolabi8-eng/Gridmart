@@ -27,6 +27,8 @@ export function ImageBlockSection({
       <div className="w-full overflow-hidden" style={{ height: `${height}px` }}>
         <img
           src={imageUrl}
+          srcSet={imageUrl?.startsWith('/api/') ? `${imageUrl}?w=800 800w, ${imageUrl}?w=1400 1400w` : undefined}
+          sizes="(max-width: 768px) 100vw, 896px"
           alt={caption || ''}
           className="w-full h-full"
           style={{ objectFit }}

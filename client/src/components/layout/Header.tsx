@@ -132,8 +132,8 @@ export function Header() {
             {/* Logo */}
             <Link href="/" data-testid="link-home">
               <div className="flex items-end gap-2 cursor-pointer">
-                <img src={logoIcon} alt="GridMart" className="w-10 h-10 object-contain" width="40" height="40" />
-                <img src={logoText} alt="" aria-hidden="true" className="h-6 object-contain hidden sm:block mb-0.5" width="98" height="24" />
+                <img src={logoIcon} alt="GridMart" className="w-10 h-10 object-contain" width="40" height="40" decoding="async" />
+                <img src={logoText} alt="" aria-hidden="true" className="h-6 object-contain hidden sm:block mb-0.5" width="98" height="24" decoding="async" />
               </div>
             </Link>
 

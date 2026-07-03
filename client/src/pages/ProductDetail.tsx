@@ -314,7 +314,17 @@ export default function ProductDetail() {
                   {product.images.map((img, idx) => (
                     <button key={idx} onClick={() => setCurrentImageIndex(idx)}
                       className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${idx === currentImageIndex ? 'border-primary' : 'border-transparent'}`}>
-                      <img src={img} alt="" width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                      <img
+                        src={img}
+                        srcSet={img?.startsWith('/api/') ? `${img}?w=56 56w, ${img}?w=112 112w` : undefined}
+                        sizes="56px"
+                        alt=""
+                        width={56}
+                        height={56}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover"
+                      />
                     </button>
                   ))}
                 </div>

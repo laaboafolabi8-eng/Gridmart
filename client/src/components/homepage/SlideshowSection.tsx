@@ -49,6 +49,8 @@ export function SlideshowSection({ slides = [], autoplayMs = 4000, showDots = tr
         <img
           key={i}
           src={s.imageUrl}
+          srcSet={s.imageUrl?.startsWith('/api/') ? `${s.imageUrl}?w=800 800w, ${s.imageUrl}?w=1400 1400w` : undefined}
+          sizes="100vw"
           alt=""
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === current ? 'opacity-100' : 'opacity-0'}`}
           loading={i === 0 ? 'eager' : 'lazy'}
