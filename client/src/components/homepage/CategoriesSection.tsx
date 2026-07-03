@@ -88,7 +88,7 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
                 <div className="group relative rounded-xl overflow-hidden cursor-pointer bg-muted" style={{ aspectRatio: '1/1' }}>
                   {coverUrl ? (
                     <img
-                      src={coverUrl}
+                      src={coverUrl.startsWith('/api/') ? `${coverUrl}?w=800` : coverUrl}
                       srcSet={coverUrl.startsWith('/api/')
                         ? `${coverUrl}?w=200 200w, ${coverUrl}?w=400 400w, ${coverUrl}?w=800 800w`
                         : undefined}

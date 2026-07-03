@@ -59,7 +59,7 @@ export default function Cart() {
                     <div className="flex gap-4">
                       <div className="relative flex-shrink-0 overflow-hidden rounded-lg">
                         <img
-                          src={item.product.images[0]}
+                          src={item.product.images[0]?.startsWith('/api/') ? `${item.product.images[0]}?w=192` : item.product.images[0]}
                           srcSet={item.product.images[0]?.startsWith('/api/')
                             ? `${item.product.images[0]}?w=96 96w, ${item.product.images[0]}?w=192 192w`
                             : undefined}

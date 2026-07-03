@@ -55,7 +55,7 @@ export default function Wishlist() {
                   <Link href={productUrl(product)}>
                     <div className="aspect-square overflow-hidden">
                       <img
-                        src={product.images[0]}
+                        src={product.images[0]?.startsWith('/api/') ? `${product.images[0]}?w=800` : product.images[0]}
                         srcSet={product.images[0]?.startsWith('/api/')
                           ? `${product.images[0]}?w=200 200w, ${product.images[0]}?w=400 400w, ${product.images[0]}?w=800 800w`
                           : undefined}

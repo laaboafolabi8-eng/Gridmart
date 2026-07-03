@@ -269,12 +269,14 @@ export default function ProductDetail() {
                 ) : (
                   <Zoom>
                     {(() => {
-                      const src = product.images[currentImageIndex] || product.images[0];
+                      const rawSrc = product.images[currentImageIndex] || product.images[0];
+                      const isApi = rawSrc?.startsWith('/api/');
+                      const src = isApi ? `${rawSrc}?w=1400` : rawSrc;
                       return (
                         <img
                           src={src}
-                          srcSet={src?.startsWith('/api/')
-                            ? `${src}?w=400 400w, ${src}?w=800 800w, ${src}?w=1200 1200w`
+                          srcSet={isApi
+                            ? `${rawSrc}?w=400 400w, ${rawSrc}?w=800 800w, ${rawSrc}?w=1200 1200w, ${rawSrc}?w=1400 1400w`
                             : undefined}
                           sizes="(max-width: 1024px) 100vw, 50vw"
                           alt={product.name}
@@ -315,8 +317,8 @@ export default function ProductDetail() {
                     <button key={idx} onClick={() => setCurrentImageIndex(idx)}
                       className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${idx === currentImageIndex ? 'border-primary' : 'border-transparent'}`}>
                       <img
-                        src={img}
-                        srcSet={img?.startsWith('/api/') ? `${img}?w=56 56w, ${img}?w=112 112w` : undefined}
+                        src={img?.startsWith('/api/') ? `${img}?w=56` : img}
+                        srcSet={img?.startsWith('/api/') ? `${img}?w=56 56w, ${img}?w=112 112w, ${img}?w=168 168w` : undefined}
                         sizes="56px"
                         alt=""
                         width={56}

@@ -32,7 +32,7 @@ export function FeaturedProductsSection({ heading = 'Featured This Week', produc
             <div className="group cursor-pointer border rounded-xl overflow-hidden hover:shadow-lg transition-shadow bg-background flex flex-col sm:flex-row">
               <div className="sm:w-1/2 aspect-video sm:aspect-auto sm:min-h-[280px] overflow-hidden bg-muted relative">
                 <img
-                  src={p.image}
+                  src={p.image?.startsWith('/api/') ? `${p.image}?w=1200` : p.image}
                   srcSet={p.image?.startsWith('/api/') ? `${p.image}?w=400 400w, ${p.image}?w=800 800w, ${p.image}?w=1200 1200w` : undefined}
                   sizes="(max-width: 640px) 100vw, 50vw"
                   alt={p.name}
@@ -74,7 +74,7 @@ export function FeaturedProductsSection({ heading = 'Featured This Week', produc
                 <div className="group cursor-pointer border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-background">
                   <div className="aspect-square overflow-hidden bg-muted relative">
                     <img
-                      src={p.image}
+                      src={p.image?.startsWith('/api/') ? `${p.image}?w=400` : p.image}
                       srcSet={p.image?.startsWith('/api/') ? `${p.image}?w=200 200w, ${p.image}?w=400 400w` : undefined}
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                       alt={p.name}

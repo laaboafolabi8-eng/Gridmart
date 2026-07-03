@@ -201,7 +201,7 @@ export function ProductCard({ product, variants = [], layout, hideImageNav }: Pr
               </div>
             ) : (
               <img
-                src={currentImage}
+                src={currentImage.startsWith('/api/') ? `${currentImage}?w=800` : currentImage}
                 srcSet={currentImage.startsWith('/api/')
                   ? `${currentImage}?w=200 200w, ${currentImage}?w=400 400w, ${currentImage}?w=800 800w`
                   : undefined}
