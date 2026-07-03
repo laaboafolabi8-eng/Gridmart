@@ -225,7 +225,7 @@ export default function Home() {
       } else {
         featured = [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, count);
       }
-      return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} imagePosition={p.featuredImagePosition} imageScale={p.featuredImageScale} />;
+      return <FeaturedProductsSection key={section.id} heading={p.heading} products={featured} count={count} imagePosition={p.featuredImagePosition} imageScale={p.featuredImageScale} loading={productsLoading} />;
     }
     if (section.type === 'categoriesGrid') {
       return <CategoriesSection key={section.id} heading={p.heading} columns={p.columns} categoryImages={persistedCategoryImages} />;

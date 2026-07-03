@@ -36,7 +36,7 @@ function resolveCatImg(val: string | CatImgData | undefined): CatImgData {
 }
 
 export function CategoriesSection({ heading = 'Shop by Category', columns = 3, categoryImages = {} }: Props) {
-  const { data: categories = [] } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: catsLoading } = useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: async () => {
       const res = await fetch('/api/categories');
@@ -45,7 +45,7 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
     staleTime: 60000,
   });
 
-  const { data: products = [] } = useQuery<Product[]>({
+  const { data: products = [], isLoading: prodsLoading } = useQuery<Product[]>({
     queryKey: ['products', 'live'],
     queryFn: async () => {
       const res = await fetch('/api/products?live=true');
@@ -65,6 +65,21 @@ export function CategoriesSection({ heading = 'Shop by Category', columns = 3, c
   }, {} as Record<string, Product[]>);
 
   const activeCategories = topLevel.filter(c => (productsByCategory[c.name]?.length ?? 0) > 0);
+
+  if (catsLoading || prodsLoading) {
+    return (
+      <section className="py-10 px-4 border-b">
+        <div className="max-w-7xl mx-auto">
+          <div className="h-8 w-48 bg-muted rounded animate-pulse mb-6" />
+          <div className={`grid ${COL_CLASS[columns] ?? COL_CLASS[3]} gap-4`}>
+            {Array.from({ length: columns }).map((_, i) => (
+              <div key={i} className="aspect-square bg-muted rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (!activeCategories.length) return null;
 

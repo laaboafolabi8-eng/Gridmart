@@ -249,7 +249,7 @@ export default function ProductDetail() {
             <div className="animate-fade-in">
               <div
                 className="relative rounded-xl overflow-hidden bg-white flex items-center justify-center"
-                style={{ minHeight: '300px', maxHeight: '500px' }}
+                style={{ aspectRatio: '1 / 1', maxHeight: '500px', width: '100%' }}
                 onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
                 onTouchEnd={(e) => {
                   if (touchStartX.current === null) return;

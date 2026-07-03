@@ -14,10 +14,25 @@ interface FeaturedProductsProps {
   count?: number;
   imagePosition?: string;
   imageScale?: number;
+  loading?: boolean;
 }
 
-export function FeaturedProductsSection({ heading = 'Featured This Week', products, count = 4, imagePosition, imageScale }: FeaturedProductsProps) {
+export function FeaturedProductsSection({ heading = 'Featured This Week', products, count = 4, imagePosition, imageScale, loading }: FeaturedProductsProps) {
   const items = products.slice(0, count);
+  if (loading) {
+    return (
+      <section className="py-8 px-4 border-b">
+        <div className="max-w-7xl mx-auto">
+          {heading && <div className="h-7 w-48 bg-muted rounded animate-pulse mb-4" />}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {Array.from({ length: Math.min(count, 4) }).map((_, i) => (
+              <div key={i} className="aspect-square bg-muted rounded-lg animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
   if (!items.length) return null;
 
   if (items.length === 1) {
