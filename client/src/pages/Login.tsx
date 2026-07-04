@@ -1,8 +1,8 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Loader2, Phone, ArrowLeft, CheckCircle } from 'lucide-react';
-import logoIcon from '@/assets/gridmart-logo-icon.webp';
-import logoText from '@/assets/gridmart-logo-text.webp';
+import logoIcon from '@/assets/gridmart-logo-icon.png';
+import logoText from '@/assets/gridmart-logo-text.png';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';

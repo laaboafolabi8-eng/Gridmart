@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRoute } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import logoIcon from '@/assets/gridmart-logo-icon.webp';
-import logoText from '@/assets/gridmart-logo-text.webp';
+import logoIcon from '@/assets/gridmart-logo-icon.png';
+import logoText from '@/assets/gridmart-logo-text.png';
 
 export default function Screening() {
   const [, params] = useRoute('/screening/:token');

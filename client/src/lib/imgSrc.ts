@@ -4,7 +4,7 @@
  * adds a round-trip that's slower than the source CDN.
  */
 export function imgSrc(url: string | undefined | null, width: number): string {
-  if (!url || url.startsWith('blob:')) return '';
+  if (!url) return '';
   if (url.startsWith('/api/')) return `${url}?w=${width}`;
   return url;
 }

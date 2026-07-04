@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
-import { registerRoutes, stopVerificationCleanup, runImageMigration } from "./routes";
+import { registerRoutes, stopVerificationCleanup } from "./routes";
 import { startOrderNotificationQueue, stopOrderNotificationQueue } from "./services/orderQueue";
 import { serveStatic } from "./static";
 import { setupProductMetaRoutes } from "./productMeta";
@@ -376,7 +376,6 @@ app.use((req, res, next) => {
       startOrderExpirationJob(1);
       startOrderReminderJob(5); // Check for reminders every 5 minutes
       startOrderNotificationQueue(); // Check for queued order notifications every 60s
-      setTimeout(() => runImageMigration().catch((err: any) => console.error('[startup] Image migration error:', err)), 8000);
     },
   );
 

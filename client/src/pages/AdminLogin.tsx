@@ -1,8 +1,8 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'wouter';
 import { Shield, ArrowRight } from 'lucide-react';
-import logoIcon from '@/assets/gridmart-logo-icon.webp';
-import logoText from '@/assets/gridmart-logo-text.webp';
+import logoIcon from '@/assets/gridmart-logo-icon.png';
+import logoText from '@/assets/gridmart-logo-text.png';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -80,7 +80,7 @@ export default function AdminLogin() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                   className="bg-white border-slate-300 text-slate-900"
                   data-testid="input-admin-password"
                 />

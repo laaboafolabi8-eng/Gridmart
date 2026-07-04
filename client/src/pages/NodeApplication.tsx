@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'wouter';
 import { MapPin, Check, ArrowLeft, Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useNodeApplicationConfig } from '@/hooks/useNodeApplicationConfig';
@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import logoIcon from '@/assets/gridmart-logo-icon.webp';
+import logoIcon from '@/assets/gridmart-logo-icon.png';
 
 interface ScreeningQuestion {
   id: string;
@@ -536,7 +536,7 @@ export default function NodeApplication() {
           <div className="text-center text-teal-200 mt-6">
             <div className="flex items-center justify-center gap-2">
               <MapPin className="w-4 h-4" />
-              <span>Windsor â€¢ Mississauga â€¢ London</span>
+              <span>Windsor • Mississauga • London</span>
             </div>
             <span className="text-teal-300 text-sm">(Pilot)</span>
           </div>

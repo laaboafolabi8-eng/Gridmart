@@ -1,7 +1,7 @@
-﻿import { Link, useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { ShoppingCart, MapPin, User, LogOut, Shield, Bell, Heart, ChevronDown, Settings, ShoppingBag, Phone, Instagram, Facebook, Linkedin, AtSign, Check, Tag, Info, PackageSearch, Mail, Menu, X } from 'lucide-react';
-import logoIcon from '@/assets/gridmart-logo-icon.webp';
-import logoText from '@/assets/gridmart-logo-text.webp';
+import logoIcon from '@/assets/gridmart-logo-icon.png';
+import logoText from '@/assets/gridmart-logo-text.png';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useState, useEffect } from 'react';
@@ -45,7 +45,7 @@ export function Header() {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) setCities(data);
       } catch {
-        // non-critical â€” header works without city data
+        // non-critical — header works without city data
       }
     }
     loadCities();
@@ -66,7 +66,7 @@ export function Header() {
 
   const topLevelCategories = categoriesFromApi.filter(c => !c.parentId);
 
-  // Notifications (empty in production â€” kept for future use)
+  // Notifications (empty in production — kept for future use)
   const [notifications] = useState<{ id: string; title: string; message: string; time: string; link: string; read: boolean }[]>([]);
   const unreadNotifications = notifications.filter(n => !n.read).length;
 

@@ -1,6 +1,6 @@
-﻿import { MapPin, Clock, Mail, Phone } from 'lucide-react';
-import logoIcon from '@/assets/gridmart-logo-icon.webp';
-import logoText from '@/assets/gridmart-logo-text.webp';
+import { MapPin, Clock, Mail, Phone } from 'lucide-react';
+import logoIcon from '@/assets/gridmart-logo-icon.png';
+import logoText from '@/assets/gridmart-logo-text.png';
 import { useAuth } from '@/lib/auth';
 import { useQuery } from '@tanstack/react-query';
 
@@ -19,7 +19,7 @@ export function Footer() {
 
   const footerTagline = siteSettings?.footerTagline || 'Local products, in-store shopping in Windsor, ON. Browse online and pick up at 3176 Walker Rd.';
   const address = siteSettings?.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
-  const hours = siteSettings?.storefrontHours || 'Mondayâ€“Friday, 10:00 AM â€“ 7:00 PM';
+  const hours = siteSettings?.storefrontHours || 'Monday–Friday, 10:00 AM – 7:00 PM';
   const contactEmail = siteSettings?.contactEmail || 'admin@gridmart.ca';
   const contactPhone = siteSettings?.contactPhone || '(519) 919-7764';
   const businessRegNumber = siteSettings?.businessRegNumber || '';
