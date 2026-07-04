@@ -219,6 +219,89 @@ async function convertBodyImagesToWebp(value: unknown): Promise<unknown> {
   return value;
 }
 
+// ===== Image Migration (module-level so index.ts can call on startup) =====
+
+export const imageMigrationStatus: { running: boolean; done: number; failed: number; total: number; log: string[] } = {
+  running: false, done: 0, failed: 0, total: 0, log: [],
+};
+
+async function downloadAsBase64(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'image/*,*/*;q=0.8',
+    },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const resized = await sharp(buffer)
+    .resize({ width: 1400, withoutEnlargement: true })
+    .jpeg({ quality: 82 })
+    .toBuffer();
+  return `data:image/jpeg;base64,${resized.toString('base64')}`;
+}
+
+export async function runImageMigration() {
+  if (imageMigrationStatus.running) return;
+  imageMigrationStatus.running = true;
+  imageMigrationStatus.done = 0;
+  imageMigrationStatus.failed = 0;
+  imageMigrationStatus.total = 0;
+  imageMigrationStatus.log = [];
+
+  try {
+    const allProducts = await storage.getAllProducts();
+    const toMigrate = allProducts.filter(p =>
+      p.images?.some(img => img?.startsWith('http://') || img?.startsWith('https://'))
+    );
+    imageMigrationStatus.total = toMigrate.reduce(
+      (sum, p) => sum + (p.images?.filter(img => img?.startsWith('http')).length ?? 0), 0
+    );
+    imageMigrationStatus.log.push(`Found ${toMigrate.length} products with ${imageMigrationStatus.total} external images`);
+
+    for (const product of toMigrate) {
+      const images = product.images || [];
+      const newImages: string[] = [];
+      let changed = false;
+
+      for (const img of images) {
+        if (!img || img.startsWith('data:') || img.startsWith('/api/')) {
+          newImages.push(img);
+          continue;
+        }
+        if (!img.startsWith('http://') && !img.startsWith('https://')) {
+          newImages.push(img);
+          continue;
+        }
+        try {
+          const b64 = await downloadAsBase64(img);
+          newImages.push(b64);
+          changed = true;
+          imageMigrationStatus.done++;
+          await new Promise(r => setTimeout(r, 300));
+        } catch (err: any) {
+          imageMigrationStatus.failed++;
+          imageMigrationStatus.log.push(`FAIL ${product.id} [${img.slice(0, 60)}]: ${err.message}`);
+          newImages.push(img);
+        }
+      }
+
+      if (changed) {
+        await storage.updateProduct(product.id, { images: newImages });
+        imageMigrationStatus.log.push(`OK ${product.id} (${product.name?.slice(0, 40)})`);
+      }
+    }
+  } catch (err: any) {
+    imageMigrationStatus.log.push(`FATAL: ${err.message}`);
+  } finally {
+    imageMigrationStatus.running = false;
+    imageMigrationStatus.log.push(`Finished: ${imageMigrationStatus.done} migrated, ${imageMigrationStatus.failed} failed`);
+    console.log('[migrate-images]', imageMigrationStatus.log.join('\n'));
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -1539,9 +1622,13 @@ export async function registerRoutes(
             deduped.set(inv.nodeId, Math.max(existing, parseInt(inv.quantity.toString())));
           }
           
-          const sanitizedImages = images.map((img: string, idx: number) =>
-            img?.startsWith('data:') ? `/api/products/${product.id}/image/${idx}` : img
-          );
+          const sanitizedImages = images
+            .map((img: string, idx: number) => {
+              if (!img || img.startsWith('blob:')) return null;
+              if (img.startsWith('data:')) return `/api/products/${product.id}/image/${idx}`;
+              return img;
+            })
+            .filter(Boolean) as string[];
 
           return {
             ...product,
@@ -5431,89 +5518,6 @@ export async function registerRoutes(
   // ===== Image Migration =====
   // Downloads external image URLs and stores them as base64 data URIs so they
   // go through the resize/WebP pipeline on every request.
-
-  const imageMigrationStatus: { running: boolean; done: number; failed: number; total: number; log: string[] } = {
-    running: false, done: 0, failed: 0, total: 0, log: [],
-  };
-
-  async function downloadAsBase64(url: string): Promise<string> {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'image/*,*/*;q=0.8',
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    const buffer = Buffer.from(await response.arrayBuffer());
-    // Resize to max 1400px and re-encode as JPEG to keep stored size manageable
-    const resized = await sharp(buffer)
-      .resize({ width: 1400, withoutEnlargement: true })
-      .jpeg({ quality: 82 })
-      .toBuffer();
-    return `data:image/jpeg;base64,${resized.toString('base64')}`;
-  }
-
-  async function runImageMigration() {
-    imageMigrationStatus.running = true;
-    imageMigrationStatus.done = 0;
-    imageMigrationStatus.failed = 0;
-    imageMigrationStatus.total = 0;
-    imageMigrationStatus.log = [];
-
-    try {
-      const allProducts = await storage.getAllProducts();
-      const toMigrate = allProducts.filter(p =>
-        p.images?.some(img => img?.startsWith('http://') || img?.startsWith('https://'))
-      );
-      imageMigrationStatus.total = toMigrate.reduce(
-        (sum, p) => sum + (p.images?.filter(img => img?.startsWith('http')).length ?? 0), 0
-      );
-      imageMigrationStatus.log.push(`Found ${toMigrate.length} products with ${imageMigrationStatus.total} external images`);
-
-      for (const product of toMigrate) {
-        const images = product.images || [];
-        const newImages: string[] = [];
-        let changed = false;
-
-        for (const img of images) {
-          if (!img || img.startsWith('data:') || img.startsWith('/api/')) {
-            newImages.push(img);
-            continue;
-          }
-          if (!img.startsWith('http://') && !img.startsWith('https://')) {
-            newImages.push(img);
-            continue;
-          }
-          try {
-            const b64 = await downloadAsBase64(img);
-            newImages.push(b64);
-            changed = true;
-            imageMigrationStatus.done++;
-            // Polite delay between downloads
-            await new Promise(r => setTimeout(r, 300));
-          } catch (err: any) {
-            imageMigrationStatus.failed++;
-            imageMigrationStatus.log.push(`FAIL ${product.id} [${img.slice(0, 60)}]: ${err.message}`);
-            newImages.push(img); // keep original on failure
-          }
-        }
-
-        if (changed) {
-          await storage.updateProduct(product.id, { images: newImages });
-          imageMigrationStatus.log.push(`OK ${product.id} (${product.name?.slice(0, 40)})`);
-        }
-      }
-    } catch (err: any) {
-      imageMigrationStatus.log.push(`FATAL: ${err.message}`);
-    } finally {
-      imageMigrationStatus.running = false;
-      imageMigrationStatus.log.push(`Finished: ${imageMigrationStatus.done} migrated, ${imageMigrationStatus.failed} failed`);
-      console.log('[migrate-images]', imageMigrationStatus.log.join('\n'));
-    }
-  }
 
   app.post('/api/admin/migrate-images', async (req: any, res: any) => {
     if (!req.session?.userId) return res.status(401).json({ error: 'Not authenticated' });
