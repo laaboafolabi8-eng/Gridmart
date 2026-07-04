@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
-import logoIcon from '@/assets/gridmart-logo-icon.png';
+import logoIcon from '@/assets/gridmart-logo-icon.webp';
 
 export default function JoinNode() {
   const [, params] = useRoute('/join/:token');

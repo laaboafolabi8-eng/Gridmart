@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams } from 'wouter';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
-import logoIcon from '@/assets/gridmart-logo-icon.png';
+import logoIcon from '@/assets/gridmart-logo-icon.webp';
 
 interface SurveyOption {
   id: string;

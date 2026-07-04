@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react';
+﻿import type { ChangeEvent } from 'react';
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, lazy, Suspense } from 'react';
 import { productUrl } from '../../../shared/slugify';
 import JSZip from 'jszip';
@@ -26,8 +26,8 @@ import type { HomepageSectionConfig } from '@/lib/homepageSections';
 import { ImageDropZone } from '@/components/admin/ImageDropZone';
 const QrCodeGenerator = lazy(() => import('@/components/admin/QrCodeGenerator'));
 const LandingPageEditor = lazy(() => import('@/components/admin/LandingPageEditor'));
-import logoIcon from '@/assets/gridmart-logo-icon.png';
-import logoText from '@/assets/gridmart-logo-text.png';
+import logoIcon from '@/assets/gridmart-logo-icon.webp';
+import logoText from '@/assets/gridmart-logo-text.webp';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -2434,8 +2434,8 @@ function ScreeningQuestionsManager() {
                               <p className="font-medium">{sq.question}</p>
                               <p className="text-muted-foreground mt-1">
                                 {sq.questionType === 'select' ? 'Multiple choice' : sq.questionType === 'boolean' ? 'Yes/No' : sq.questionType === 'textarea' ? 'Long text' : 'Short text'}
-                                {sq.isRequired ? ' • Required' : ' • Optional'}
-                                {sq.options?.length > 0 && ` • ${sq.options.length} options`}
+                                {sq.isRequired ? ' â€¢ Required' : ' â€¢ Optional'}
+                                {sq.options?.length > 0 && ` â€¢ ${sq.options.length} options`}
                               </p>
                             </div>
                             <Button
@@ -2593,7 +2593,7 @@ function ScreeningLinksManager() {
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Created: {new Date(link.createdAt).toLocaleDateString()}
-                  {link.completedAt && ` • Submitted: ${new Date(link.completedAt).toLocaleDateString()}`}
+                  {link.completedAt && ` â€¢ Submitted: ${new Date(link.completedAt).toLocaleDateString()}`}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -3995,7 +3995,7 @@ const BatchProductRow = memo(function BatchProductRow({
               )}
             </div>
             <div className="text-xs text-muted-foreground">
-              {bp.category} • ${bp.price || '0'}
+              {bp.category} â€¢ ${bp.price || '0'}
             </div>
           </div>
           <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -4516,7 +4516,7 @@ function NotificationsTab() {
         <CardContent>
           <NotifFieldRow label="Contact Email" description="Displayed on the footer and Contact Us page" settingKey="contactEmail" placeholder="admin@gridmart.ca" value={notifSettings.contactEmail || ''} saving={notifSaving} onSave={saveField} />
           <NotifFieldRow label="Contact Phone" description="Displayed on the footer and Contact Us page" settingKey="contactPhone" placeholder="(519) 919-7764" value={notifSettings.contactPhone || ''} saving={notifSaving} onSave={saveField} />
-          <NotifFieldRow label="Business Registration Number" description="Optional — displayed in the footer for trust signals (e.g. Ontario Reg. 1234567 or CRA BN)" settingKey="businessRegNumber" placeholder="e.g. 123456789 RT0001" value={notifSettings.businessRegNumber || ''} saving={notifSaving} onSave={saveField} />
+          <NotifFieldRow label="Business Registration Number" description="Optional â€” displayed in the footer for trust signals (e.g. Ontario Reg. 1234567 or CRA BN)" settingKey="businessRegNumber" placeholder="e.g. 123456789 RT0001" value={notifSettings.businessRegNumber || ''} saving={notifSaving} onSave={saveField} />
         </CardContent>
       </Card>
       <Card>
@@ -4737,7 +4737,7 @@ function LandingPagesTab({ productList, promoCodeList }: { productList: Product[
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {page.createdAt ? new Date(page.createdAt).toLocaleDateString() : '—'}
+                    {page.createdAt ? new Date(page.createdAt).toLocaleDateString() : 'â€”'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -5667,10 +5667,10 @@ export default function AdminDashboard() {
     { id: 'title-3', label: 'SEO Friendly', prompt: 'Rewrite this title to be SEO-friendly while remaining catchy and concise.' },
   ];
   const DEFAULT_DESC_PRESETS: RewordPreset[] = [
-    { id: 'desc-1', label: 'Concise', prompt: 'Rewrite this as a concise product description. If using bullet points, use the • character (not hyphens).' },
-    { id: 'desc-2', label: 'Bullets', prompt: 'Convert this into 3-5 clear bullet points highlighting key features. Use the • character for bullets (not hyphens or dashes).' },
-    { id: 'desc-3', label: 'Benefits', prompt: 'Rewrite focusing on customer benefits rather than just features. If using bullet points, use the • character.' },
-    { id: 'desc-4', label: 'Professional', prompt: 'Rewrite in a professional tone suitable for an e-commerce listing. Use • for any bullet points.' },
+    { id: 'desc-1', label: 'Concise', prompt: 'Rewrite this as a concise product description. If using bullet points, use the â€¢ character (not hyphens).' },
+    { id: 'desc-2', label: 'Bullets', prompt: 'Convert this into 3-5 clear bullet points highlighting key features. Use the â€¢ character for bullets (not hyphens or dashes).' },
+    { id: 'desc-3', label: 'Benefits', prompt: 'Rewrite focusing on customer benefits rather than just features. If using bullet points, use the â€¢ character.' },
+    { id: 'desc-4', label: 'Professional', prompt: 'Rewrite in a professional tone suitable for an e-commerce listing. Use â€¢ for any bullet points.' },
   ];
   
   const [titlePresets, setTitlePresets] = useState<RewordPreset[]>(() => {
@@ -5979,9 +5979,9 @@ Check other listings for more products`);
   const [taxLabel, setTaxLabel] = useState('HST');
   const [shippingFlatRate, setShippingFlatRate] = useState('15.00');
   const [freeShippingThreshold, setFreeShippingThreshold] = useState('99.00');
-  const [shippingHandlingTime, setShippingHandlingTime] = useState('1–2 business days after payment');
-  const [shippingTransitTime, setShippingTransitTime] = useState('3–7 business days');
-  const [shippingOrderCutoff, setShippingOrderCutoff] = useState('2:00 PM EST, Monday–Friday');
+  const [shippingHandlingTime, setShippingHandlingTime] = useState('1â€“2 business days after payment');
+  const [shippingTransitTime, setShippingTransitTime] = useState('3â€“7 business days');
+  const [shippingOrderCutoff, setShippingOrderCutoff] = useState('2:00 PM EST, Mondayâ€“Friday');
   const [homepageCopy, setHomepageCopy] = useState({
     heroLine1: '',
     heroLine2: '',
@@ -9071,7 +9071,7 @@ Check other listings for more products`);
               <div className="flex-1">
                 <div className="font-medium">
                   {importFeedback.created > 0 && `${importFeedback.created} product${importFeedback.created > 1 ? 's' : ''} created`}
-                  {importFeedback.merged && importFeedback.merged > 0 && ` • ${importFeedback.merged} merged with existing`}
+                  {importFeedback.merged && importFeedback.merged > 0 && ` â€¢ ${importFeedback.merged} merged with existing`}
                   {importFeedback.created === 0 && (!importFeedback.merged || importFeedback.merged === 0) && 'No products created'}
                 </div>
                 {importFeedback.warnings && importFeedback.warnings.length > 0 && (
@@ -9170,7 +9170,7 @@ Check other listings for more products`);
                     const nodeNames = assignments.map((a: any) => allNodes.find((n: any) => n.id === a.nodeId)?.name || 'Unknown').join(', ');
                     return (
                       <SelectItem key={crate.id} value={crate.id}>
-                        {crate.name}{nodeNames ? ` → ${nodeNames}` : ''}
+                        {crate.name}{nodeNames ? ` â†’ ${nodeNames}` : ''}
                       </SelectItem>
                     );
                   })}
@@ -9233,14 +9233,14 @@ Check other listings for more products`);
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center gap-2 border rounded-md px-3 py-1.5 bg-background shrink-0" title="Remove 13% HST to see pre-tax prices (display only — does not change stored prices)">
+              <div className="flex items-center gap-2 border rounded-md px-3 py-1.5 bg-background shrink-0" title="Remove 13% HST to see pre-tax prices (display only â€” does not change stored prices)">
                 <Checkbox
                   id="show-ex-tax"
                   checked={showExTax}
                   onCheckedChange={(v) => setShowExTax(!!v)}
                 />
                 <label htmlFor="show-ex-tax" className="text-sm cursor-pointer select-none whitespace-nowrap">
-                  Ex. HST (−13%)
+                  Ex. HST (âˆ’13%)
                 </label>
               </div>
             </div>
@@ -9395,9 +9395,9 @@ Check other listings for more products`);
                           <div className="font-medium truncate" data-testid={`text-name-deleted-${product.id}`}>{product.name}</div>
                           <div className="text-sm text-muted-foreground flex items-center gap-2">
                             <span className="font-mono text-xs" data-testid={`text-code-deleted-${product.id}`}>{product.productCode || 'No code'}</span>
-                            <span>•</span>
+                            <span>â€¢</span>
                             <span data-testid={`text-price-deleted-${product.id}`}>{formatCurrency(product.price)}</span>
-                            <span>•</span>
+                            <span>â€¢</span>
                             <span data-testid={`text-category-deleted-${product.id}`}>{product.category}</span>
                           </div>
                           {product.deletedAt && (
@@ -10098,7 +10098,7 @@ Check other listings for more products`);
                           if (successCount > 0) toast.success(`Generated ${label} for ${successCount} product${successCount !== 1 ? 's' : ''}`);
                           if (failCount > 0) toast.error(`Failed for ${failCount} product${failCount !== 1 ? 's' : ''}`);
                         }}>
-                          {mode === 'listing' && <><FileText className="w-3.5 h-3.5 mr-2" />Generate Listing<span className="ml-2 text-[10px] text-muted-foreground">Details · Features · Specs</span></>}
+                          {mode === 'listing' && <><FileText className="w-3.5 h-3.5 mr-2" />Generate Listing<span className="ml-2 text-[10px] text-muted-foreground">Details Â· Features Â· Specs</span></>}
                           {mode === 'title' && <><Tag className="w-3.5 h-3.5 mr-2" />Generate Title<span className="ml-2 text-[10px] text-muted-foreground">Shopping-optimised</span></>}
                           {mode === 'both' && <><Sparkles className="w-3.5 h-3.5 mr-2" />Generate Both</>}
                         </DropdownMenuItem>
@@ -10188,7 +10188,7 @@ Check other listings for more products`);
                           Sync Now
                         </Button>
                         <div className="border-t pt-3">
-                          <Label className="text-sm font-medium">Pull stock — all products</Label>
+                          <Label className="text-sm font-medium">Pull stock â€” all products</Label>
                           <p className="text-xs text-muted-foreground mt-1 mb-2">Re-read column C from every product's source sheet and update quantities in the store</p>
                           <Button
                             size="sm"
@@ -10273,7 +10273,7 @@ Check other listings for more products`);
                         const result = await res.json();
                         if (res.ok) {
                           queryClient.invalidateQueries({ queryKey: ['products'] });
-                          toast.success(`Converted ${result.converted} images to WebP — saved ${result.savedKB} KB${result.failed ? `. ${result.failed} failed.` : ''}`);
+                          toast.success(`Converted ${result.converted} images to WebP â€” saved ${result.savedKB} KB${result.failed ? `. ${result.failed} failed.` : ''}`);
                         } else {
                           toast.error('WebP conversion failed: ' + (result.error || 'Unknown error'));
                         }
@@ -10944,7 +10944,7 @@ Check other listings for more products`);
                     data-testid="button-copy-product-xml"
                   >
                     <svg className="w-4 h-4 mr-2 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                    Google — All Inventory
+                    Google â€” All Inventory
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
@@ -10956,7 +10956,7 @@ Check other listings for more products`);
                     data-testid="button-copy-local-xml"
                   >
                     <MapPin className="w-4 h-4 mr-2" />
-                    Google — By Location
+                    Google â€” By Location
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -11179,8 +11179,8 @@ Check other listings for more products`);
                                         const selectedBlock = text.substring(firstLineStart, selectionEnd);
                                         const lines = selectedBlock.split('\n');
                                         const bulletedLines = lines.map(line => {
-                                          const trimmed = line.replace(/^[•\-\*]\s*/, '');
-                                          return trimmed ? `• ${trimmed}` : line;
+                                          const trimmed = line.replace(/^[â€¢\-\*]\s*/, '');
+                                          return trimmed ? `â€¢ ${trimmed}` : line;
                                         }).join('\n');
                                         const newText = text.substring(0, firstLineStart) + bulletedLines + text.substring(selectionEnd);
                                         setManualProduct(prev => ({ ...prev, description: newText }));
@@ -11371,9 +11371,9 @@ Check other listings for more products`);
                                       const currentLine = text.substring(lineStart, cursorPos);
                                       
                                       // Check for bullet point
-                                      if (currentLine.startsWith('• ')) {
+                                      if (currentLine.startsWith('â€¢ ')) {
                                         e.preventDefault();
-                                        const newText = text.substring(0, cursorPos) + '\n• ' + text.substring(cursorPos);
+                                        const newText = text.substring(0, cursorPos) + '\nâ€¢ ' + text.substring(cursorPos);
                                         setManualProduct(prev => ({ ...prev, description: newText }));
                                         setTimeout(() => {
                                           textarea.selectionStart = textarea.selectionEnd = cursorPos + 3;
@@ -11855,7 +11855,7 @@ Check other listings for more products`);
                               >
                                 <span className="underline">Last synced:</span> {new Date(sheetSyncSettings.lastSyncAt).toLocaleString()} 
                                 {sheetSyncSettings.lastSyncedRow && ` (${sheetSyncSettings.lastSyncedRow} rows)`}
-                                <span className="ml-2 text-primary">View log →</span>
+                                <span className="ml-2 text-primary">View log â†’</span>
                               </button>
                             )}
                           </div>
@@ -12424,7 +12424,7 @@ Check other listings for more products`);
                                           )}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
-                                          {bp.category} • ${bp.price || '0'}
+                                          {bp.category} â€¢ ${bp.price || '0'}
                                         </div>
                                       </div>
                                       <ChevronDown className={`w-4 h-4 transition-transform ${expandedBatchIndex === idx ? 'rotate-180' : ''}`} />
@@ -12875,7 +12875,7 @@ Check other listings for more products`);
                     >
                       <ArrowUpDown className="w-4 h-4" />
                       <span className="text-xs">
-                        {sheetRowSort === 'asc' ? 'Row ↑' : sheetRowSort === 'desc' ? 'Row ↓' : 'Row'}
+                        {sheetRowSort === 'asc' ? 'Row â†‘' : sheetRowSort === 'desc' ? 'Row â†“' : 'Row'}
                       </span>
                     </Button>
                     <Button 
@@ -13091,7 +13091,7 @@ Check other listings for more products`);
                                 <span 
                                   className="min-w-[70px] h-6 text-[10px] px-1.5 text-center border rounded flex items-center justify-center whitespace-nowrap bg-muted/50 text-muted-foreground font-mono"
                                 >
-                                  {product.productCode || '—'}
+                                  {product.productCode || 'â€”'}
                                 </span>
                                 
                                 {/* Show parent link indicator */}
@@ -13145,7 +13145,7 @@ Check other listings for more products`);
                                   onBlur={() => saveSingleRow(product.id)}
                                   onKeyDown={(e) => { if (e.key === 'Enter') saveSingleRow(product.id); }}
                                   className="h-7 w-12 text-xs text-center font-mono px-0.5"
-                                  placeholder="—"
+                                  placeholder="â€”"
                                   data-testid={`input-row-${product.id}`}
                                 />
                               </div>
@@ -13206,9 +13206,9 @@ Check other listings for more products`);
                               const text = cs.find(s => s.type === 'text' && s.content);
                               if (text) return text.content;
                               const bullets = cs.find(s => s.type === 'bullets' && Array.isArray(s.content) && s.content[0]);
-                              if (bullets) return (bullets.content as string[]).slice(0, 2).join(' • ');
+                              if (bullets) return (bullets.content as string[]).slice(0, 2).join(' â€¢ ');
                             }
-                            return getDescriptionPoints(product.description).slice(0, 2).join(' • ');
+                            return getDescriptionPoints(product.description).slice(0, 2).join(' â€¢ ');
                           })()}</span>
                           {!product.sheetRow && product.sku && (
                             <span className="font-mono text-xs shrink-0">SKU: {product.sku}</span>
@@ -13281,7 +13281,7 @@ Check other listings for more products`);
                                           }}
                                         >
                                           {subActive && <Check className="w-3 h-3 mr-2" />}
-                                          ↳ {sub.name}
+                                          â†³ {sub.name}
                                         </DropdownMenuItem>
                                       );
                                     })}
@@ -13324,7 +13324,7 @@ Check other listings for more products`);
                               type="number"
                               min="0"
                               step="0.01"
-                              placeholder="—"
+                              placeholder="â€”"
                               value={editedCostPrices[product.id] !== undefined ? editedCostPrices[product.id] : (product.costPrice ? String(product.costPrice) : '')}
                               onChange={(e) => setEditedCostPrices(prev => ({ ...prev, [product.id]: e.target.value }))}
                               onBlur={() => saveSingleCostPrice(product.id)}
@@ -13377,7 +13377,7 @@ Check other listings for more products`);
                             }
                           }}
                           data-testid={`input-stock-qty-${product.id}`}
-                          title="Stock quantity — 0 = Out of Stock"
+                          title="Stock quantity â€” 0 = Out of Stock"
                         />
                         {(() => {
                           const invStock = product.inventory?.reduce((s: number, inv: any) => s + inv.quantity, 0) || 0;
@@ -13819,8 +13819,8 @@ Check other listings for more products`);
                                             const selectedBlock = text.substring(firstLineStart, selectionEnd);
                                             const lines = selectedBlock.split('\n');
                                             const bulletedLines = lines.map(line => {
-                                              const trimmed = line.replace(/^[•\-\*]\s*/, '');
-                                              return trimmed ? `• ${trimmed}` : line;
+                                              const trimmed = line.replace(/^[â€¢\-\*]\s*/, '');
+                                              return trimmed ? `â€¢ ${trimmed}` : line;
                                             }).join('\n');
                                             const newText = text.substring(0, firstLineStart) + bulletedLines + text.substring(selectionEnd);
                                             setEditingProduct({ ...editingProduct, description: newText });
@@ -14018,9 +14018,9 @@ Check other listings for more products`);
                                           const lineStart = text.lastIndexOf('\n', cursorPos - 1) + 1;
                                           const currentLine = text.substring(lineStart, cursorPos);
                                           
-                                          if (currentLine.startsWith('• ')) {
+                                          if (currentLine.startsWith('â€¢ ')) {
                                             e.preventDefault();
-                                            const newText = text.substring(0, cursorPos) + '\n• ' + text.substring(cursorPos);
+                                            const newText = text.substring(0, cursorPos) + '\nâ€¢ ' + text.substring(cursorPos);
                                             setEditingProduct({ ...editingProduct, description: newText });
                                             setTimeout(() => {
                                               textarea.selectionStart = textarea.selectionEnd = cursorPos + 3;
@@ -14052,11 +14052,11 @@ Check other listings for more products`);
                                       onClick={() => setEditSectionsOpen(p => !p)}
                                     >
                                       <span>Structured Sections</span>
-                                      <span className="text-xs text-muted-foreground font-normal">Details · Features · Specs</span>
+                                      <span className="text-xs text-muted-foreground font-normal">Details Â· Features Â· Specs</span>
                                       {editingProduct.contentSections?.length ? (
                                         <span className="bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded-full">{editingProduct.contentSections.length}</span>
                                       ) : null}
-                                      <span className="text-xs text-muted-foreground ml-auto pr-2">{editSectionsOpen ? '▲' : '▼'}</span>
+                                      <span className="text-xs text-muted-foreground ml-auto pr-2">{editSectionsOpen ? 'â–²' : 'â–¼'}</span>
                                     </button>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
@@ -14068,7 +14068,7 @@ Check other listings for more products`);
                                           disabled={isGeneratingListing || !editingProduct.name}
                                         >
                                           {isGeneratingListing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                          {isGeneratingListing ? 'Writing…' : 'Write for me'}
+                                          {isGeneratingListing ? 'Writingâ€¦' : 'Write for me'}
                                           <ChevronDown className="w-3 h-3 ml-0.5" />
                                         </Button>
                                       </DropdownMenuTrigger>
@@ -14076,7 +14076,7 @@ Check other listings for more products`);
                                         <DropdownMenuItem onClick={() => handleGenerateListing('listing')}>
                                           <FileText className="w-3.5 h-3.5 mr-2" />
                                           Generate Listing
-                                          <span className="ml-2 text-[10px] text-muted-foreground">Details · Features · Specs</span>
+                                          <span className="ml-2 text-[10px] text-muted-foreground">Details Â· Features Â· Specs</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => handleGenerateListing('title')}>
                                           <Tag className="w-3.5 h-3.5 mr-2" />
@@ -14110,7 +14110,7 @@ Check other listings for more products`);
                                                 <ul className="space-y-1">
                                                   {(section.content as string[]).filter(Boolean).map((item: string, i: number) => (
                                                     <li key={i} className="flex items-start gap-2 text-sm">
-                                                      <span className="text-primary mt-0.5 shrink-0">•</span>
+                                                      <span className="text-primary mt-0.5 shrink-0">â€¢</span>
                                                       <span>{item}</span>
                                                     </li>
                                                   ))}
@@ -14151,7 +14151,7 @@ Check other listings for more products`);
                                     <Input
                                       type="number"
                                       step="0.01"
-                                      placeholder="—"
+                                      placeholder="â€”"
                                       value={(editingProduct as any).costPrice ?? ''}
                                       onChange={(e) => setEditingProduct({ ...editingProduct, costPrice: e.target.value === '' ? null : parseFloat(e.target.value) } as any)}
                                       data-testid="input-edit-product-cost"
@@ -14786,7 +14786,7 @@ Check other listings for more products`);
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-display font-semibold text-lg">Product Categories</h3>
-                <p className="text-sm text-muted-foreground">Drag to reorder — this order appears on the shop homepage</p>
+                <p className="text-sm text-muted-foreground">Drag to reorder â€” this order appears on the shop homepage</p>
               </div>
               <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { setIsAddCategoryDialogOpen(open); if (!open) setNewCategory({ name: '', description: '' }); }}>
                 <DialogTrigger asChild>
@@ -14861,7 +14861,7 @@ Check other listings for more products`);
                               <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>,
                               ...subs.map(sub => (
                                 <SelectItem key={sub.id} value={`${cat.name}::${sub.name}`} className="pl-6 text-muted-foreground">
-                                  ↳ {sub.name}
+                                  â†³ {sub.name}
                                 </SelectItem>
                               ))
                             ];
@@ -15532,7 +15532,7 @@ Check other listings for more products`);
                                               }
                                             }}
                                           >
-                                            No products in this subcategory — drag products here
+                                            No products in this subcategory â€” drag products here
                                           </div>
                                         )}
                                       </div>
@@ -16900,10 +16900,10 @@ Check other listings for more products`);
                             <span title="Handoffs">{node.totalHandoffs} HO</span>
                             <span title="Products">{getNodeProducts(node.id).length} prod</span>
                             <span title="Active Crates">{getNodeKitAssignments(node.id).filter((a: NodeKitAssignment) => a.status === 'active').length} crt</span>
-                            <span data-testid={`text-avg-prep-${node.id}`} title="Avg Prep" className={pt?.exceedsThreshold ? 'text-red-600' : ''}>{pt ? `${pt.avgMinutes}m prep` : '—'}</span>
-                            <span data-testid={`text-ready-to-pickup-${node.id}`} title="Ready→Pickup">{pt?.avgReadyToPickupMinutes != null ? `${pt.avgReadyToPickupMinutes}m R→P` : '—'}</span>
-                            <span data-testid={`text-here-to-pickup-${node.id}`} title="HERE→Pickup">{pt?.avgHereToPickupMinutes != null ? `${pt.avgHereToPickupMinutes}m H→P` : '—'}</span>
-                            <span data-testid={`text-ready-to-here-${node.id}`} title="Ready→HERE">{pt?.avgReadyToHereMinutes != null ? `${pt.avgReadyToHereMinutes}m R→H` : '—'}</span>
+                            <span data-testid={`text-avg-prep-${node.id}`} title="Avg Prep" className={pt?.exceedsThreshold ? 'text-red-600' : ''}>{pt ? `${pt.avgMinutes}m prep` : 'â€”'}</span>
+                            <span data-testid={`text-ready-to-pickup-${node.id}`} title="Readyâ†’Pickup">{pt?.avgReadyToPickupMinutes != null ? `${pt.avgReadyToPickupMinutes}m Râ†’P` : 'â€”'}</span>
+                            <span data-testid={`text-here-to-pickup-${node.id}`} title="HEREâ†’Pickup">{pt?.avgHereToPickupMinutes != null ? `${pt.avgHereToPickupMinutes}m Hâ†’P` : 'â€”'}</span>
+                            <span data-testid={`text-ready-to-here-${node.id}`} title="Readyâ†’HERE">{pt?.avgReadyToHereMinutes != null ? `${pt.avgReadyToHereMinutes}m Râ†’H` : 'â€”'}</span>
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-2">
                             <Dialog 
@@ -17166,7 +17166,7 @@ Check other listings for more products`);
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-2">
                                     Monthly total: {formatCurrency((managingNode.kitCount || 0) * (managingNode.kitFee || 55))} 
-                                    ({managingNode.kitCount || 0} crate{(managingNode.kitCount || 0) !== 1 ? 's' : ''} × {formatCurrency(managingNode.kitFee || 55)})
+                                    ({managingNode.kitCount || 0} crate{(managingNode.kitCount || 0) !== 1 ? 's' : ''} Ã— {formatCurrency(managingNode.kitFee || 55)})
                                   </p>
                                   
                                   {/* Tiered Handoff Fees */}
@@ -17773,7 +17773,7 @@ Check other listings for more products`);
                                                                 <span className="truncate max-w-[140px]">{item?.productName || 'Unknown'}</span>
                                                                 <span>
                                                                   <span className="text-muted-foreground line-through">{override.originalQuantity}</span>
-                                                                  <span className="mx-1">→</span>
+                                                                  <span className="mx-1">â†’</span>
                                                                   <span className="font-medium text-blue-600">{override.quantity}</span>
                                                                 </span>
                                                               </div>
@@ -17787,7 +17787,7 @@ Check other listings for more products`);
                                                 <div className="text-xs text-muted-foreground">
                                                   Assigned: {new Date(nka.droppedAt).toLocaleDateString()}
                                                   {crate && ((crate as any).rawItems || crate.items).length > 0 && (
-                                                    <span className="ml-2">• {((crate as any).rawItems || crate.items).length} products, {((crate as any).rawItems || crate.items).reduce((sum: number, item: any) => sum + item.quantity, 0)} items</span>
+                                                    <span className="ml-2">â€¢ {((crate as any).rawItems || crate.items).length} products, {((crate as any).rawItems || crate.items).reduce((sum: number, item: any) => sum + item.quantity, 0)} items</span>
                                                   )}
                                                 </div>
                                                 {/* Profit Estimate */}
@@ -18243,7 +18243,7 @@ Check other listings for more products`);
                         }
                         setIsSavingShipping(false);
                       }}
-                      placeholder="1–2 business days after payment"
+                      placeholder="1â€“2 business days after payment"
                       className="text-sm"
                       data-testid="input-shipping-handling-time"
                     />
@@ -18267,7 +18267,7 @@ Check other listings for more products`);
                         }
                         setIsSavingShipping(false);
                       }}
-                      placeholder="3–7 business days"
+                      placeholder="3â€“7 business days"
                       className="text-sm"
                       data-testid="input-shipping-transit-time"
                     />
@@ -18291,7 +18291,7 @@ Check other listings for more products`);
                         }
                         setIsSavingShipping(false);
                       }}
-                      placeholder="2:00 PM EST, Monday–Friday"
+                      placeholder="2:00 PM EST, Mondayâ€“Friday"
                       className="text-sm"
                       data-testid="input-shipping-order-cutoff"
                     />
@@ -18299,11 +18299,11 @@ Check other listings for more products`);
                 </div>
                 {isSavingShipping && (
                   <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Saving…
+                    <Loader2 className="w-3 h-3 animate-spin" /> Savingâ€¦
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground mt-3">
-                  Current: ${shippingFlatRate} flat rate · Free on orders over ${freeShippingThreshold}
+                  Current: ${shippingFlatRate} flat rate Â· Free on orders over ${freeShippingThreshold}
                 </p>
               </CardContent>
             </Card>
@@ -18813,7 +18813,7 @@ Check other listings for more products`);
                                                   setNewPromoCode({ ...newPromoCode, comboFreeGiftProductIds: current.filter((id: string) => id !== pid) });
                                                 }
                                               }}
-                                            >×</button>
+                                            >Ã—</button>
                                           </Badge>
                                         );
                                       })}
@@ -18932,7 +18932,7 @@ Check other listings for more products`);
                                                   setNewPromoCode({ ...newPromoCode, comboGiftChoiceProductIds: current.filter((id: string) => id !== pid) });
                                                 }
                                               }}
-                                            >×</button>
+                                            >Ã—</button>
                                           </Badge>
                                         );
                                       })}
@@ -19472,8 +19472,8 @@ Check other listings for more products`);
                             {promo.discountType === 'fixed' && `$${parseFloat(promo.discountValue).toFixed(2)} off`}
                             {promo.discountType === 'free_gift' && `Free gift (${promo.giftQuantity || 1} item${(promo.giftQuantity || 1) > 1 ? 's' : ''})`}
                             {promo.discountType === 'gift_choice' && `Choose ${promo.giftSelectCount} from ${promo.giftPoolSize} gifts`}
-                            {promo.minOrderAmount && ` • Min $${parseFloat(promo.minOrderAmount).toFixed(2)}`}
-                            {promo.maxUses && ` • ${promo.usedCount || 0}/${promo.maxUses} used`}
+                            {promo.minOrderAmount && ` â€¢ Min $${parseFloat(promo.minOrderAmount).toFixed(2)}`}
+                            {promo.maxUses && ` â€¢ ${promo.usedCount || 0}/${promo.maxUses} used`}
                           </div>
                           {promo.assignedNodeId && (
                             <span className="text-xs text-blue-600">Assigned to: {allNodes.find((n: any) => n.id === promo.assignedNodeId)?.name || 'Unknown node'}{promo.nodeOnly ? ' (node only)' : ''}</span>
@@ -19589,7 +19589,7 @@ Check other listings for more products`);
                                   <span className="text-xs text-muted-foreground">
                                     {sample.discountType === 'percentage' && `${sample.discountValue}% off`}
                                     {sample.discountType === 'fixed' && `$${parseFloat(sample.discountValue).toFixed(2)} off`}
-                                    {sample.minOrderAmount && ` • Min $${parseFloat(sample.minOrderAmount).toFixed(2)}`}
+                                    {sample.minOrderAmount && ` â€¢ Min $${parseFloat(sample.minOrderAmount).toFixed(2)}`}
                                   </span>
                                 )}
                               </div>
@@ -19975,7 +19975,7 @@ Check other listings for more products`);
                     </div>
                     <div className="flex flex-wrap gap-2 mb-3">
                       <Badge variant="outline" className="text-xs">
-                        {deal.condition.type === 'cart_total' && `Cart ≥ ${formatCurrency(deal.condition.minCartTotal || 0)}`}
+                        {deal.condition.type === 'cart_total' && `Cart â‰¥ ${formatCurrency(deal.condition.minCartTotal || 0)}`}
                         {deal.condition.type === 'product_bundle' && `${deal.condition.requiredProductIds?.length || 0} products required`}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
@@ -21068,7 +21068,7 @@ Check other listings for more products`);
                                   {order.saleNotes}
                                 </span>
                               ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
+                                <span className="text-xs text-muted-foreground">â€”</span>
                               )}
                             </TableCell>
                             <TableCell onClick={(e: React.MouseEvent) => e.stopPropagation()}>
@@ -21095,7 +21095,7 @@ Check other listings for more products`);
                                   data-testid={`input-tracking-${order.id}`}
                                 />
                               ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
+                                <span className="text-xs text-muted-foreground">â€”</span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -21725,10 +21725,10 @@ Check other listings for more products`);
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                             <span>Joined {new Date(account.createdAt).toLocaleDateString()}</span>
                             {account.phone && !account.email?.includes('@phone.gridmart.ca') && (
-                              <span className="text-blue-600">• {account.phone}</span>
+                              <span className="text-blue-600">â€¢ {account.phone}</span>
                             )}
                             {account.emailOptIn === false && (
-                              <span className="text-orange-600">• No emails</span>
+                              <span className="text-orange-600">â€¢ No emails</span>
                             )}
                           </div>
                             </div>
@@ -21971,7 +21971,7 @@ Check other listings for more products`);
                                   </Badge>
                                 </div>
                                 <div className="text-sm text-muted-foreground mb-2">
-                                  {new Date(order.createdAt).toLocaleString()} • ${orderTotal.toFixed(2)}
+                                  {new Date(order.createdAt).toLocaleString()} â€¢ ${orderTotal.toFixed(2)}
                                   {refundedAmt > 0 && (
                                     <span className="text-red-500 ml-2">
                                       (Refunded: ${refundedAmt.toFixed(2)}{isFullyRefunded ? ' - Full' : ''})
@@ -22189,7 +22189,7 @@ Check other listings for more products`);
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     Control which sections appear on your homepage and in what order. Each section shows its impact on page load speed.
-                    Use the generator to cycle through {'{'}12{'}'} curated layout patterns — all sensibly constrained.
+                    Use the generator to cycle through {'{'}12{'}'} curated layout patterns â€” all sensibly constrained.
                   </p>
                 </div>
                 <HomepageBuilder value={homepageSections} onChange={setHomepageSections} />
@@ -23573,7 +23573,7 @@ Check other listings for more products`);
                                   <div
                                     key={g.id}
                                     className={`text-[9px] leading-tight truncate rounded px-1 py-0.5 ${postedIds.has(g.id) ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
-                                    title={g.name + (postedIds.has(g.id) ? ' ✓ Posted' : ' — Not posted')}
+                                    title={g.name + (postedIds.has(g.id) ? ' âœ“ Posted' : ' â€” Not posted')}
                                   >
                                     {postedIds.has(g.id) && <Check className="w-2 h-2 inline mr-0.5" />}
                                     {g.name}
@@ -24186,7 +24186,7 @@ Check other listings for more products`);
                                 for (const block of blocks) {
                                   const lines = block.split('\n').map((l: string) => l.trim()).filter(Boolean);
                                   if (lines.length === 0) continue;
-                                  const name = lines[0].replace(/^[-●》•\s]+/, '').trim();
+                                  const name = lines[0].replace(/^[-â—ã€‹â€¢\s]+/, '').trim();
                                   if (!name || name.toLowerCase() === 'posting') continue;
                                   if (existingNames.has(name.toLowerCase().trim())) continue;
                                   const notes = lines.slice(1).join('\n').trim();
@@ -24208,7 +24208,7 @@ Check other listings for more products`);
                               for (const block of blocks) {
                                 const lines = block.split('\n').map((l: string) => l.trim()).filter(Boolean);
                                 if (lines.length === 0) continue;
-                                const name = lines[0].replace(/^[-●》•\s]+/, '').trim();
+                                const name = lines[0].replace(/^[-â—ã€‹â€¢\s]+/, '').trim();
                                 if (!name || name.toLowerCase() === 'posting') continue;
                                 if (existingNamesSet.has(name.toLowerCase().trim())) continue;
                                 const notes = lines.slice(1).join('\n').trim();
@@ -24721,7 +24721,7 @@ Check other listings for more products`);
                     }}
                   >
                     {sourcingLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
-                    {sourcingLoading ? 'Checking…' : 'Check'}
+                    {sourcingLoading ? 'Checkingâ€¦' : 'Check'}
                   </Button>
                 </div>
 
@@ -24749,7 +24749,7 @@ Check other listings for more products`);
                               )}
                             </td>
                             <td className="px-4 py-2 text-muted-foreground">
-                              {r.error || r.reasons.join(', ') || '—'}
+                              {r.error || r.reasons.join(', ') || 'â€”'}
                             </td>
                           </tr>
                         ))}
@@ -24972,11 +24972,11 @@ Check other listings for more products`);
                           </div>
                         )}
                         <div className="w-16 shrink-0">
-                          <div className="text-[10px] font-mono text-muted-foreground">{product.productCode || '—'}</div>
+                          <div className="text-[10px] font-mono text-muted-foreground">{product.productCode || 'â€”'}</div>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium truncate flex items-center gap-1">
-                            {isVariantChild && <span className="text-[10px] text-primary/70">↳</span>}
+                            {isVariantChild && <span className="text-[10px] text-primary/70">â†³</span>}
                             {product.name}
                             {isVariantChild && <span className="text-[9px] px-1 py-0.5 bg-primary/10 text-primary rounded">variant</span>}
                           </div>
@@ -25083,7 +25083,7 @@ Check other listings for more products`);
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Tag className="w-4 h-4" />
-              Assign Groups — {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''}
+              Assign Groups â€” {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''}
             </DialogTitle>
             <DialogDescription>Check groups to add these products to them; uncheck to remove.</DialogDescription>
           </DialogHeader>
@@ -25102,7 +25102,7 @@ Check other listings for more products`);
               </label>
             ))}
             {productGroups.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-2">No groups yet — create one below.</p>
+              <p className="text-sm text-muted-foreground text-center py-2">No groups yet â€” create one below.</p>
             )}
           </div>
           <div className="border-t pt-3 space-y-2">
@@ -25117,7 +25117,7 @@ Check other listings for more products`);
               <Input
                 value={newGroupName}
                 onChange={e => setNewGroupName(e.target.value)}
-                placeholder="Group name…"
+                placeholder="Group nameâ€¦"
                 className="h-8 text-sm flex-1"
                 onKeyDown={async e => {
                   if (e.key === 'Enter' && newGroupName.trim()) {
@@ -26048,7 +26048,7 @@ Check other listings for more products`);
                           <ul className="space-y-1">
                             {(section.content as string[]).map((item: string, i: number) => (
                               <li key={i} className="flex items-start gap-2 text-sm">
-                                <span className="text-primary mt-0.5">•</span>
+                                <span className="text-primary mt-0.5">â€¢</span>
                                 <span>{item}</span>
                               </li>
                             ))}
@@ -26074,8 +26074,8 @@ Check other listings for more products`);
                   <ul className="space-y-2">
                     {getDescriptionString(previewProduct.description).split('\n').filter(line => line.trim()).slice(0, 6).map((point, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span dangerouslySetInnerHTML={{ __html: point.replace(/^[•\-*]\s*/, '') }} />
+                        <span className="text-primary mt-1">â€¢</span>
+                        <span dangerouslySetInnerHTML={{ __html: point.replace(/^[â€¢\-*]\s*/, '') }} />
                       </li>
                     ))}
                   </ul>
@@ -26235,7 +26235,7 @@ Check other listings for more products`);
                                 <span className="font-mono">Row {item.row}</span>
                                 <span className="mx-2">|</span>
                                 <span className={item.status === 'error' ? 'text-red-600' : 'text-green-600'}>
-                                  {item.status === 'error' ? '✗' : '✓'}
+                                  {item.status === 'error' ? 'âœ—' : 'âœ“'}
                                 </span>
                                 <span className="ml-2">{item.name?.substring(0, 40)}{item.name?.length > 40 ? '...' : ''}</span>
                                 {item.productCode && <span className="ml-2 text-muted-foreground">[{item.productCode}]</span>}
