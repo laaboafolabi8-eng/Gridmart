@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+﻿import { useQuery } from '@tanstack/react-query';
 import { Link } from 'wouter';
-import logoIcon from '@/assets/gridmart-logo-icon.png';
-import logoText from '@/assets/gridmart-logo-text.png';
+import logoIcon from '@/assets/gridmart-logo-icon.webp';
+import logoText from '@/assets/gridmart-logo-text.webp';
 
 export default function UnderConstruction() {
   const { data: settings = {} } = useQuery<Record<string, string>>({
