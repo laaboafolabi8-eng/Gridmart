@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
+import sharp from 'sharp';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
@@ -1643,32 +1644,67 @@ async function generateTitleFromImage(imageUrl: string): Promise<string> {
   }
 }
 
+async function downloadImagesToBase64(urls: string[]): Promise<string[]> {
+  const results: string[] = [];
+  for (const url of urls) {
+    if (!url || url.startsWith('data:') || url.startsWith('/api/')) {
+      results.push(url);
+      continue;
+    }
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/*,*/*;q=0.8',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) { results.push(url); continue; }
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const resized = await sharp(buffer)
+        .resize({ width: 1400, withoutEnlargement: true })
+        .jpeg({ quality: 82 })
+        .toBuffer();
+      results.push(`data:image/jpeg;base64,${resized.toString('base64')}`);
+      await new Promise(r => setTimeout(r, 200));
+    } catch {
+      results.push(url); // keep original URL on any failure
+    }
+  }
+  return results;
+}
+
 export async function importProductFromUrl(url: string): Promise<ImportedProduct> {
   // Check if URL is a direct image link
   if (isImageUrl(url)) {
     const title = await generateTitleFromImage(url);
+    const images = await downloadImagesToBase64([url]);
     return {
       title,
-      description: '', // Leave description blank for image-only imports
-      images: [url],
-      videos: [], // No videos for direct image imports
+      description: '',
+      images,
+      videos: [],
       originalUrl: url,
     };
   }
 
   const scraped = await scrapeProductFromUrl(url);
-  
+
   if (!scraped.title && !scraped.description && !scraped.images.length) {
     throw new Error('Could not extract product information from URL');
   }
 
-  // If we have images but no title, try to generate from first image
-  if (!scraped.title && scraped.images.length > 0) {
+  // Download and store images as base64 before returning
+  const images = await downloadImagesToBase64(scraped.images);
+
+  if (!scraped.title && images.length > 0) {
     const generatedTitle = await generateTitleFromImage(scraped.images[0]);
     return {
       ...scraped,
+      images,
       title: generatedTitle,
-      description: '', // Leave description blank when AI generates title
+      description: '',
     };
   }
 
@@ -1676,6 +1712,7 @@ export async function importProductFromUrl(url: string): Promise<ImportedProduct
 
   return {
     ...scraped,
+    images,
     title: reworded.title,
     description: reworded.description,
   };

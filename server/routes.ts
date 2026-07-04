@@ -5427,7 +5427,113 @@ export async function registerRoutes(
       res.status(500).json({ error: error.message || "Failed to import product" });
     }
   });
-  
+
+  // ===== Image Migration =====
+  // Downloads external image URLs and stores them as base64 data URIs so they
+  // go through the resize/WebP pipeline on every request.
+
+  const imageMigrationStatus: { running: boolean; done: number; failed: number; total: number; log: string[] } = {
+    running: false, done: 0, failed: 0, total: 0, log: [],
+  };
+
+  async function downloadAsBase64(url: string): Promise<string> {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'image/*,*/*;q=0.8',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await response.arrayBuffer());
+    // Resize to max 1400px and re-encode as JPEG to keep stored size manageable
+    const resized = await sharp(buffer)
+      .resize({ width: 1400, withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${resized.toString('base64')}`;
+  }
+
+  async function runImageMigration() {
+    imageMigrationStatus.running = true;
+    imageMigrationStatus.done = 0;
+    imageMigrationStatus.failed = 0;
+    imageMigrationStatus.total = 0;
+    imageMigrationStatus.log = [];
+
+    try {
+      const allProducts = await storage.getAllProducts();
+      const toMigrate = allProducts.filter(p =>
+        p.images?.some(img => img?.startsWith('http://') || img?.startsWith('https://'))
+      );
+      imageMigrationStatus.total = toMigrate.reduce(
+        (sum, p) => sum + (p.images?.filter(img => img?.startsWith('http')).length ?? 0), 0
+      );
+      imageMigrationStatus.log.push(`Found ${toMigrate.length} products with ${imageMigrationStatus.total} external images`);
+
+      for (const product of toMigrate) {
+        const images = product.images || [];
+        const newImages: string[] = [];
+        let changed = false;
+
+        for (const img of images) {
+          if (!img || img.startsWith('data:') || img.startsWith('/api/')) {
+            newImages.push(img);
+            continue;
+          }
+          if (!img.startsWith('http://') && !img.startsWith('https://')) {
+            newImages.push(img);
+            continue;
+          }
+          try {
+            const b64 = await downloadAsBase64(img);
+            newImages.push(b64);
+            changed = true;
+            imageMigrationStatus.done++;
+            // Polite delay between downloads
+            await new Promise(r => setTimeout(r, 300));
+          } catch (err: any) {
+            imageMigrationStatus.failed++;
+            imageMigrationStatus.log.push(`FAIL ${product.id} [${img.slice(0, 60)}]: ${err.message}`);
+            newImages.push(img); // keep original on failure
+          }
+        }
+
+        if (changed) {
+          await storage.updateProduct(product.id, { images: newImages });
+          imageMigrationStatus.log.push(`OK ${product.id} (${product.name?.slice(0, 40)})`);
+        }
+      }
+    } catch (err: any) {
+      imageMigrationStatus.log.push(`FATAL: ${err.message}`);
+    } finally {
+      imageMigrationStatus.running = false;
+      imageMigrationStatus.log.push(`Finished: ${imageMigrationStatus.done} migrated, ${imageMigrationStatus.failed} failed`);
+      console.log('[migrate-images]', imageMigrationStatus.log.join('\n'));
+    }
+  }
+
+  app.post('/api/admin/migrate-images', async (req: any, res: any) => {
+    if (!req.session?.userId) return res.status(401).json({ error: 'Not authenticated' });
+    const user = await storage.getUser(req.session.userId);
+    if (!user || user.type !== 'admin') return res.status(403).json({ error: 'Admin required' });
+
+    if (imageMigrationStatus.running) {
+      return res.json({ status: 'already running', ...imageMigrationStatus });
+    }
+    runImageMigration(); // fire and forget
+    res.json({ status: 'started', message: 'Migration running in background. Poll GET /api/admin/migrate-images for progress.' });
+  });
+
+  app.get('/api/admin/migrate-images', async (req: any, res: any) => {
+    if (!req.session?.userId) return res.status(401).json({ error: 'Not authenticated' });
+    const user = await storage.getUser(req.session.userId);
+    if (!user || user.type !== 'admin') return res.status(403).json({ error: 'Admin required' });
+    res.json(imageMigrationStatus);
+  });
+
   // ===== Product Template Routes =====
   
   // Get all templates
