@@ -22,7 +22,17 @@ export default function AboutUs() {
     staleTime: 60000,
   });
 
-  const aboutUsText = siteSettings.aboutUsText || '';
+  const { data: aboutAgreement } = useQuery<{ content: string }>({
+    queryKey: ['agreements', 'about'],
+    queryFn: async () => {
+      const res = await fetch('/api/agreements/about');
+      if (!res.ok) throw new Error('Not found');
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  const aboutUsText = aboutAgreement?.content || siteSettings.aboutUsText || '';
   const address = siteSettings.storefrontAddress || '3176 Walker Rd, Windsor, ON N8W 3R5';
   const hours = siteSettings.storefrontHours || '';
   const contactPhone = siteSettings.contactPhone || '(519) 919-7764';

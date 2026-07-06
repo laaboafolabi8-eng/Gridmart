@@ -130,6 +130,22 @@ async function migrateStoreAddress() {
   }
 }
 
+async function seedAboutAgreement() {
+  try {
+    const existing = await storage.getAgreement('about');
+    if (!existing) {
+      await storage.upsertAgreement('about', 'About Us', `GridMart is a retail store in Windsor, Ontario, carrying a wide selection of electronics, appliances, accessories, and everyday essentials — all under one roof.
+
+We stock products across major categories including home appliances, mobile accessories, audio equipment, cables and components, and more. Whether you're outfitting a home office, upgrading your kitchen, or just need a reliable everyday item, we likely have it in stock and ready to take home today.
+
+Stop by our store at 3176 Walker Rd, Windsor, ON N8W 3R5 — we'd love to help you find what you're looking for.`);
+      console.log('About Us agreement seeded');
+    }
+  } catch (error) {
+    console.error('Failed to seed About Us agreement:', error);
+  }
+}
+
 async function migrateRefundPolicy() {
   try {
     const existing = await storage.getAgreement('refund');
@@ -371,6 +387,7 @@ app.use((req, res, next) => {
       seedDefaultApplicationStatuses();
       migrateStoreAddress();
       migrateRefundPolicy();
+      seedAboutAgreement();
       migrateShippingColumns();
       migrateGoogleTitle();
       startOrderExpirationJob(1);
