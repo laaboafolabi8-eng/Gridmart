@@ -15,14 +15,7 @@ export function ImageBlockSection({
   fullBleed = true,
   objectFit = 'cover',
 }: ImageBlockProps) {
-  if (!imageUrl) {
-    return (
-      <section className="py-12 bg-muted/40 text-center border-y">
-        <p className="text-sm font-medium text-muted-foreground mb-1">Image Block</p>
-        <p className="text-xs text-muted-foreground">Add an image URL in the Homepage Builder to activate this section.</p>
-      </section>
-    );
-  }
+  if (!imageUrl) return null;
 
   return (
     <section className={fullBleed ? 'w-full' : 'max-w-4xl mx-auto px-4'}>

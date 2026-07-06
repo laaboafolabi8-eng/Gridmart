@@ -11,14 +11,7 @@ interface PromoBannerProps {
 }
 
 export function PromoBannerSection({ imageUrl, heading, subtext, ctaLabel, ctaUrl, overlay = 40, textColor = '#ffffff' }: PromoBannerProps) {
-  if (!imageUrl) {
-    return (
-      <section className="py-12 bg-muted/40 text-center border-y">
-        <p className="text-sm font-medium text-muted-foreground mb-1">Promo Banner</p>
-        <p className="text-xs text-muted-foreground">Add an image URL in the Homepage Builder to activate this section.</p>
-      </section>
-    );
-  }
+  if (!imageUrl) return null;
   return (
     <section className="relative w-full overflow-hidden" style={{ minHeight: '220px' }}>
       <img

@@ -10778,7 +10778,7 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences:
         return res.status(400).json({ error: "Title and content are required" });
       }
       
-      const validKeys = ['terms', 'refund', 'host_handoff'];
+      const validKeys = ['terms', 'refund', 'host_handoff', 'about'];
       if (!validKeys.includes(req.params.key)) {
         return res.status(400).json({ error: "Invalid agreement key" });
       }

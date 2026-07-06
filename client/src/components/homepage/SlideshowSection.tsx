@@ -29,19 +29,7 @@ export function SlideshowSection({ slides = [], autoplayMs = 4000, showDots = tr
     return () => clearInterval(t);
   }, [next, valid.length, autoplayMs]);
 
-  if (!valid.length) {
-    return (
-      <section
-        className="bg-muted/40 border-y flex items-center justify-center text-center"
-        style={{ height: `${height}px` }}
-      >
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-1">Slideshow</p>
-          <p className="text-xs text-muted-foreground">Add image URLs in the Homepage Builder to activate this section.</p>
-        </div>
-      </section>
-    );
-  }
+  if (!valid.length) return null;
 
   const slide = valid[current];
   return (
