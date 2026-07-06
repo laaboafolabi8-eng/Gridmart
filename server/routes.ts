@@ -225,6 +225,17 @@ export const imageMigrationStatus: { running: boolean; done: number; failed: num
   running: false, done: 0, failed: 0, total: 0, log: [],
 };
 
+async function uploadImageToObjectStorage(buffer: Buffer): Promise<string> {
+  const privateDir = process.env.PRIVATE_OBJECT_DIR;
+  if (!privateDir) throw new Error('PRIVATE_OBJECT_DIR not set');
+  const uuid = randomUUID();
+  const fullPath = `${privateDir.replace(/\/$/, '')}/uploads/${uuid}`;
+  const parts = fullPath.replace(/^\//, '').split('/');
+  const bucket = objectStorageClient.bucket(parts[0]);
+  await bucket.file(parts.slice(1).join('/')).save(buffer, { metadata: { contentType: 'image/jpeg' } });
+  return `/api/objects/uploads/${uuid}`;
+}
+
 async function downloadAsBase64(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: {
@@ -240,7 +251,11 @@ async function downloadAsBase64(url: string): Promise<string> {
     .resize({ width: 1400, withoutEnlargement: true })
     .jpeg({ quality: 82 })
     .toBuffer();
-  return `data:image/jpeg;base64,${resized.toString('base64')}`;
+  try {
+    return await uploadImageToObjectStorage(resized);
+  } catch {
+    return `data:image/jpeg;base64,${resized.toString('base64')}`;
+  }
 }
 
 export async function runImageMigration() {
@@ -254,12 +269,14 @@ export async function runImageMigration() {
   try {
     const allProducts = await storage.getAllProducts();
     const toMigrate = allProducts.filter(p =>
-      p.images?.some(img => img?.startsWith('http://') || img?.startsWith('https://'))
+      p.images?.some(img =>
+        img?.startsWith('http://') || img?.startsWith('https://') || img?.startsWith('data:')
+      )
     );
     imageMigrationStatus.total = toMigrate.reduce(
-      (sum, p) => sum + (p.images?.filter(img => img?.startsWith('http')).length ?? 0), 0
+      (sum, p) => sum + (p.images?.filter(img => img?.startsWith('http') || img?.startsWith('data:')).length ?? 0), 0
     );
-    imageMigrationStatus.log.push(`Found ${toMigrate.length} products with ${imageMigrationStatus.total} external images`);
+    imageMigrationStatus.log.push(`Found ${toMigrate.length} products with ${imageMigrationStatus.total} images to migrate`);
 
     for (const product of toMigrate) {
       const images = product.images || [];
@@ -267,8 +284,28 @@ export async function runImageMigration() {
       let changed = false;
 
       for (const img of images) {
-        if (!img || img.startsWith('data:') || img.startsWith('/api/')) {
+        if (!img || img.startsWith('/api/')) {
           newImages.push(img);
+          continue;
+        }
+        // Upload data: URIs already in DB to object storage
+        if (img.startsWith('data:')) {
+          try {
+            const match = img.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              const buf = Buffer.from(match[2], 'base64');
+              const resized = await sharp(buf).resize({ width: 1400, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+              newImages.push(await uploadImageToObjectStorage(resized));
+              changed = true;
+              imageMigrationStatus.done++;
+            } else {
+              newImages.push(img);
+            }
+          } catch (err: any) {
+            imageMigrationStatus.failed++;
+            imageMigrationStatus.log.push(`FAIL data: ${product.id}: ${err.message}`);
+            newImages.push(img);
+          }
           continue;
         }
         if (!img.startsWith('http://') && !img.startsWith('https://')) {
@@ -276,8 +313,8 @@ export async function runImageMigration() {
           continue;
         }
         try {
-          const b64 = await downloadAsBase64(img);
-          newImages.push(b64);
+          const objUrl = await downloadAsBase64(img);
+          newImages.push(objUrl);
           changed = true;
           imageMigrationStatus.done++;
           await new Promise(r => setTimeout(r, 300));

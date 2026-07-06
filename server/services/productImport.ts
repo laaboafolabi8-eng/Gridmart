@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import sharp from 'sharp';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { randomUUID } from 'crypto';
+import { objectStorageClient } from '../replit_integrations/object_storage/objectStorage';
 
 puppeteer.use(StealthPlugin());
 
@@ -1644,6 +1646,17 @@ async function generateTitleFromImage(imageUrl: string): Promise<string> {
   }
 }
 
+async function uploadToObjectStorage(buffer: Buffer): Promise<string> {
+  const privateDir = process.env.PRIVATE_OBJECT_DIR;
+  if (!privateDir) throw new Error('PRIVATE_OBJECT_DIR not set');
+  const uuid = randomUUID();
+  const fullPath = `${privateDir.replace(/\/$/, '')}/uploads/${uuid}`;
+  const parts = fullPath.replace(/^\//, '').split('/');
+  const bucket = objectStorageClient.bucket(parts[0]);
+  await bucket.file(parts.slice(1).join('/')).save(buffer, { metadata: { contentType: 'image/jpeg' } });
+  return `/api/objects/uploads/${uuid}`;
+}
+
 async function downloadImagesToBase64(urls: string[]): Promise<string[]> {
   const results: string[] = [];
   for (const url of urls) {
@@ -1666,10 +1679,14 @@ async function downloadImagesToBase64(urls: string[]): Promise<string[]> {
         .resize({ width: 1400, withoutEnlargement: true })
         .jpeg({ quality: 82 })
         .toBuffer();
-      results.push(`data:image/jpeg;base64,${resized.toString('base64')}`);
+      try {
+        results.push(await uploadToObjectStorage(resized));
+      } catch {
+        results.push(`data:image/jpeg;base64,${resized.toString('base64')}`);
+      }
       await new Promise(r => setTimeout(r, 200));
     } catch {
-      results.push(url); // keep original URL on any failure
+      results.push(url);
     }
   }
   return results;
