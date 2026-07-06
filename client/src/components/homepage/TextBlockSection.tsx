@@ -17,6 +17,7 @@ const MAX_WIDTH_CLASS: Record<string, string> = {
 };
 
 export function TextBlockSection({ heading, body, align = 'center', bg, textColor, headingColor, bodyColor, maxWidth = 'medium' }: TextBlockProps) {
+  if (!heading?.trim() && !body?.trim()) return null;
   const alignClass = align === 'left' ? 'text-left' : align === 'right' ? 'text-right' : 'text-center';
   const resolvedHeadingColor = headingColor || textColor || undefined;
   const resolvedBodyColor = bodyColor || textColor || undefined;
