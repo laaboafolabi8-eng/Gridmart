@@ -77,7 +77,7 @@ export function registerObjectStorageRoutes(app: Express): void {
       const outputMime = acceptsWebP ? 'image/webp' : contentType;
       const etag = metadata.etag || metadata.generation || '';
       const etagHash = etag ? `-${Buffer.from(String(etag)).toString('base64url').slice(0, 8)}` : '';
-      const cacheSuffix = acceptsWebP ? `.w${targetWidth}.webp` : `.w${targetWidth}.orig`;
+      const cacheSuffix = acceptsWebP ? `.v2.w${targetWidth}.webp` : `.v2.w${targetWidth}.orig`;
       const cachedPath = objectFile.name + etagHash + cacheSuffix;
       const bucket = objectFile.bucket;
       const cachedFile = bucket.file(cachedPath);
@@ -100,18 +100,11 @@ export function registerObjectStorageRoutes(app: Express): void {
         return;
       }
 
-      // Convert: resize + optionally encode as WebP
-      const outBuffer = await new Promise<Buffer>((resolve, reject) => {
-        const bufs: Buffer[] = [];
-        let pipeline = sharp().resize({ width: targetWidth, withoutEnlargement: true });
-        if (acceptsWebP) pipeline = pipeline.webp({ quality: 75 }) as any;
-        pipeline.on('data', (chunk: Buffer) => bufs.push(chunk));
-        pipeline.on('end', () => resolve(Buffer.concat(bufs)));
-        pipeline.on('error', reject);
-        const readStream = objectFile.createReadStream();
-        readStream.on('error', reject);
-        readStream.pipe(pipeline);
-      });
+      // Convert: download full buffer, then resize + encode with sharp
+      const [fileBytes] = await objectFile.download();
+      let transformer = sharp(fileBytes).resize({ width: targetWidth, withoutEnlargement: true });
+      if (acceptsWebP) transformer = transformer.webp({ quality: 60 });
+      const outBuffer = await transformer.toBuffer();
 
       cachedFile.save(outBuffer, {
         metadata: { contentType: outputMime },
