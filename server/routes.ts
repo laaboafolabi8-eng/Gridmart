@@ -1793,42 +1793,50 @@ export async function registerRoutes(
       const activeNodeIdsForProduct = new Set(allNodesForProduct.filter(n => n.status === 'active').map(n => n.id));
       const inventory = rawInventory.filter(inv => activeNodeIdsForProduct.has(inv.nodeId));
       
-      // Start with product's stored images array, fallback to single image
-      let images: string[] = product.images && product.images.length > 0 
-        ? [...product.images] 
+      // Build and sanitize product's own images
+      const ownRaw: string[] = product.images && product.images.length > 0
+        ? [...product.images]
         : (product.image ? [product.image] : []);
-      
+      const sanitized: string[] = ownRaw
+        .map((img, idx) => {
+          if (!img || img.startsWith('blob:')) return null;
+          if (img.startsWith('data:')) return `/api/products/${product.id}/image/${idx}`;
+          return img;
+        })
+        .filter(Boolean) as string[];
+
       // For parent products (no variantSuffix), also aggregate images from variants
       if (product.productCode && !product.variantSuffix) {
         const allProducts = await storage.getAllProducts();
-        const variants = allProducts.filter(p => 
-          p.id !== product.id && 
-          p.productCode && 
+        const variants = allProducts.filter(p =>
+          p.id !== product.id &&
+          p.productCode &&
           p.variantSuffix &&
           p.productCode.startsWith(product.productCode!)
         );
         for (const variant of variants) {
-          // Add variant's stored images
-          const variantImages = variant.images && variant.images.length > 0 
-            ? variant.images 
+          const variantRaw = variant.images && variant.images.length > 0
+            ? variant.images
             : (variant.image ? [variant.image] : []);
-          for (const img of variantImages) {
-            if (img && !images.includes(img)) {
-              images.push(img);
-            }
-          }
+          variantRaw.forEach((img, idx) => {
+            if (!img || img.startsWith('blob:')) return;
+            const url = img.startsWith('data:')
+              ? `/api/products/${variant.id}/image/${idx}`
+              : img;
+            if (!sanitized.includes(url)) sanitized.push(url);
+          });
         }
       }
-      
+
       const deduped = new Map<string, number>();
       for (const inv of inventory) {
         const existing = deduped.get(inv.nodeId) || 0;
         deduped.set(inv.nodeId, Math.max(existing, parseInt(inv.quantity.toString())));
       }
-      
+
       res.json({
         ...product,
-        images,
+        images: sanitized,
         inventory: Array.from(deduped.entries()).map(([nodeId, quantity]) => ({
           nodeId,
           quantity
