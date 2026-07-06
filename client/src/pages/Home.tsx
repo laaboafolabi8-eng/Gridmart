@@ -393,7 +393,7 @@ export default function Home() {
       {/* ── BETWEEN HERO AND SEARCH SECTIONS ── */}
       {sectionsInSlot('hero', 'searchFilter').map(renderCustomSection)}
 
-      <main className="flex-1 py-12" id="products">
+      <main className="flex-1 min-h-screen py-12" id="products">
         <div className="container mx-auto px-4">
 
           {/* Search bar + Filters */}

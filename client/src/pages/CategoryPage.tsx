@@ -103,7 +103,7 @@ export default function CategoryPage() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 py-10">
+      <main className="flex-1 min-h-screen py-10">
         <div className="container mx-auto px-4">
 
           <div className="mb-6">

@@ -157,7 +157,7 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 min-h-screen flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </main>
         <Footer />
@@ -169,7 +169,7 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 min-h-screen flex items-center justify-center">
           <div className="text-center">
             <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h1 className="font-display text-2xl font-bold mb-2">Product not found</h1>
@@ -189,7 +189,7 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 min-h-screen flex items-center justify-center">
           <div className="text-center">
             <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h1 className="font-display text-2xl font-bold mb-2">Product not available</h1>
@@ -212,7 +212,7 @@ export default function ProductDetail() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 py-4">
+      <main className="flex-1 min-h-screen py-4">
         <div className="container mx-auto px-4">
 
           {/* Back + category nav */}
